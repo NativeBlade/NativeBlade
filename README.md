@@ -17,7 +17,7 @@
 
 ---
 
-NativeBlade lets Laravel developers build **desktop**, **mobile**, and **web** apps using only **PHP and Blade**. Your entire Laravel + Livewire application runs inside a PHP WebAssembly runtime, wrapped in a [Tauri 2](https://v2.tauri.app) shell. No JavaScript frameworks. No API layers. Just the Laravel you already know.
+NativeBlade lets Laravel developers build **desktop** and **mobile** apps using only **PHP and Blade**. Your entire Laravel + Livewire application runs inside a PHP WebAssembly runtime, wrapped in a [Tauri 2](https://v2.tauri.app) shell. No JavaScript frameworks. No API layers. Just the Laravel you already know.
 
 ## Features
 
@@ -32,8 +32,8 @@ NativeBlade lets Laravel developers build **desktop**, **mobile**, and **web** a
 
 ## Requirements
 
-- PHP 8.2+
-- Laravel 11 or 12
+- PHP 8.3+
+- Laravel 11, 12, or 13
 - Livewire 3
 - Node.js 18+
 - Rust (for Tauri builds) — [install here](https://www.rust-lang.org/tools/install)
@@ -432,13 +432,12 @@ if (NativeBlade::isMobile()) {
     // Mobile-only logic
 }
 
-NativeBlade::platform();   // 'windows', 'macos', 'linux', 'android', 'ios', 'web'
+NativeBlade::platform();   // 'windows', 'macos', 'linux', 'android', 'ios'
 NativeBlade::isWindows();
 NativeBlade::isMacos();
 NativeBlade::isLinux();
 NativeBlade::isAndroid();
 NativeBlade::isIos();
-NativeBlade::isWeb();
 ```
 
 ---
