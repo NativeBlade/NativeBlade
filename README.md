@@ -32,38 +32,43 @@ NativeBlade lets Laravel developers build **desktop** and **mobile** apps using 
 
 ## Requirements
 
-- PHP 8.3
+- PHP 8.3+
 - Laravel 11, 12, or 13
 - Livewire 3
 - Node.js 20+
-- Rust (for Tauri builds) — [install here](https://www.rust-lang.org/tools/install)
+- Rust — [install here](https://www.rust-lang.org/tools/install)
 
-## Installation
+## Quick Start
+
+From zero to a running desktop app in 4 steps:
 
 ```bash
+# 1. Create a new Laravel project
+composer create-project laravel/laravel my-app
+cd my-app
+
+# 2. Install NativeBlade
 composer require nativeblade/nativeblade
-```
-
-```bash
 php artisan nativeblade:install
-```
 
-The installer will ask for your **app name** and **identifier**, then scaffold everything:
+# 3. Build the frontend assets
+npm run build
 
-```
-✓ src-tauri/          — Tauri project (Cargo.toml, main.rs, tauri.conf.json)
-✓ layouts/            — app.blade.php
-✓ vite.wasm.config.js — Vite config pointing to vendor
-✓ AppServiceProvider  — NativeBlade config block
-```
-
-Start developing:
-
-```bash
+# 4. Launch the desktop app
 php artisan nativeblade:dev
 ```
 
-That's it. Your Laravel app is now a desktop application.
+The `nativeblade:install` command will ask for your **app name** and **identifier**, then scaffold everything automatically:
+
+```
+✓ src-tauri/          — Tauri project (Cargo.toml, main.rs, tauri.conf.json)
+✓ layouts/            — app.blade.php with shell support
+✓ vite.wasm.config.js — Vite config for WASM bundling
+✓ AppServiceProvider  — NativeBlade config block
+✓ Demo app            — Login + Home pages ready to go
+```
+
+> **Note:** The first run compiles the Rust/Tauri binary, which may take a few minutes. Subsequent runs are fast.
 
 ---
 

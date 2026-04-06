@@ -52,7 +52,7 @@ class DevCommand extends Command
     private function runAndroid(string $host, string $port): void
     {
         $this->info('Starting Vite dev server...');
-        $vite = $this->background("npx vite --config vite.wasm.config.js");
+        $vite = $this->background("npx vite --config vite.wasm.config.js --host --port {$port}");
 
         sleep(3);
 
@@ -74,7 +74,7 @@ class DevCommand extends Command
     private function runIos(string $host, string $port): void
     {
         $this->info('Starting Vite dev server...');
-        $vite = $this->background("npx vite --config vite.wasm.config.js");
+        $vite = $this->background("npx vite --config vite.wasm.config.js --host --port {$port}");
 
         sleep(3);
 
