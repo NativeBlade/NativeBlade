@@ -238,42 +238,98 @@ Menu items follow a simple convention:
 
 ## Shell Components
 
-Shell components render **outside** the WebView — they never flicker during page transitions.
+Shell components render **outside** the WebView — they never flicker during page transitions. Use them directly in your Blade templates:
 
-### Top Bar
+### Header
 
-```php
-// In your Livewire component
-use NativeBlade\Facades\NativeBlade;
+```blade
+{{-- Simple header --}}
+<x-nativeblade-header title="Home" />
 
-public function render()
-{
-    return view('livewire.home')
-        ->layout('components.layouts.app', [
-            'shellConfig' => app('nativeblade')
-                ->topBar(['title' => 'Dashboard'])
-                ->get(),
-        ]);
-}
+{{-- Header with back button --}}
+<x-nativeblade-header title="Settings" :back="true" />
+
+{{-- Header with action buttons --}}
+<x-nativeblade-header title="Demo">
+    <x-nativeblade-action icon="search" action="/api/search" />
+    <x-nativeblade-action icon="bell" action="/api/notifications" badge="3" />
+</x-nativeblade-header>
 ```
 
 ### Bottom Navigation
 
-```php
-'shellConfig' => app('nativeblade')
-    ->bottomNav([
-        ['icon' => 'home', 'label' => 'Home', 'path' => '/'],
-        ['icon' => 'grid', 'label' => 'Browse', 'path' => '/browse'],
-        ['icon' => 'settings', 'label' => 'Settings', 'path' => '/settings'],
-    ])
-    ->get(),
+```blade
+<x-nativeblade-bottom-nav>
+    <x-nativeblade-tab icon="home" label="Home" href="/" />
+    <x-nativeblade-tab icon="bolt" label="Demo" href="/demo" />
+    <x-nativeblade-tab icon="cog" label="Settings" href="/settings" />
+</x-nativeblade-bottom-nav>
 ```
 
-### Using the `<x-nativeblade-header>` Component
+### Drawer
 
 ```blade
-<x-nativeblade-header title="Settings" :back="true" />
+<x-nativeblade-drawer title="My App">
+    <x-nativeblade-drawer-item icon="home" label="Home" href="/" />
+    <x-nativeblade-drawer-item icon="bolt" label="Demo" href="/demo" />
+    <x-nativeblade-drawer-item icon="cog" label="Settings" href="/settings" />
+</x-nativeblade-drawer>
 ```
+
+### Full Page Example
+
+```blade
+{{-- resources/views/livewire/home.blade.php --}}
+<div>
+<x-nativeblade-header title="My App" />
+<x-nativeblade-drawer title="My App">
+    <x-nativeblade-drawer-item icon="home" label="Home" href="/" />
+    <x-nativeblade-drawer-item icon="bolt" label="Demo" href="/demo" />
+    <x-nativeblade-drawer-item icon="cog" label="Settings" href="/settings" />
+</x-nativeblade-drawer>
+<x-nativeblade-bottom-nav>
+    <x-nativeblade-tab icon="home" label="Home" href="/" />
+    <x-nativeblade-tab icon="bolt" label="Demo" href="/demo" />
+    <x-nativeblade-tab icon="cog" label="Settings" href="/settings" />
+</x-nativeblade-bottom-nav>
+
+<div class="max-w-2xl mx-auto">
+    <h1>Welcome!</h1>
+    <p>Your content here.</p>
+</div>
+</div>
+```
+
+The Livewire component is clean — no shell configuration in PHP:
+
+```php
+<?php
+
+namespace App\Livewire;
+
+use Livewire\Attributes\Layout;
+use Livewire\Component;
+
+#[Layout('components.layouts.app')]
+class Home extends Component
+{
+    public function render()
+    {
+        return view('livewire.home');
+    }
+}
+```
+
+### Available Shell Components
+
+| Component | Description |
+|-----------|-------------|
+| `<x-nativeblade-header>` | Top bar with title, back button, and action slots |
+| `<x-nativeblade-action>` | Header action button (icon + optional badge) |
+| `<x-nativeblade-bottom-nav>` | Bottom tab navigation bar |
+| `<x-nativeblade-tab>` | Tab item (icon + label + href) |
+| `<x-nativeblade-drawer>` | Side drawer / hamburger menu |
+| `<x-nativeblade-drawer-item>` | Drawer navigation item (icon + label + href) |
 
 ---
 
