@@ -1,4 +1,4 @@
-<div>
+<div wire:init="loadUsers">
 <x-nativeblade-header title="GitHub Users" :back="true" />
 
 <div class="max-w-2xl mx-auto">
@@ -11,13 +11,17 @@
 
     {{-- Skeleton --}}
     @if($loading)
+        <style>
+            @keyframes nb-pulse { 0%, 100% { opacity: 1 } 50% { opacity: .4 } }
+            .nb-skeleton { animation: nb-pulse 1.5s ease-in-out infinite; }
+        </style>
         <div class="grid grid-cols-2 gap-3">
             @for($i = 0; $i < 12; $i++)
-                <div class="bg-gray-900 rounded-lg p-3 border border-gray-800 flex items-center gap-3 animate-pulse">
-                    <div class="w-10 h-10 rounded-full bg-gray-700"></div>
+                <div class="bg-gray-900 rounded-lg p-3 border border-gray-800 flex items-center gap-3 nb-skeleton">
+                    <div class="w-10 h-10 rounded-full bg-gray-600"></div>
                     <div class="flex-1 space-y-2">
-                        <div class="h-3 bg-gray-700 rounded w-3/4"></div>
-                        <div class="h-2 bg-gray-800 rounded w-1/2"></div>
+                        <div class="h-3 bg-gray-600 rounded w-3/4"></div>
+                        <div class="h-2 bg-gray-700 rounded w-1/2"></div>
                     </div>
                 </div>
             @endfor

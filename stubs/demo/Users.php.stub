@@ -13,14 +13,8 @@ class Users extends Component
     public bool $loading = true;
     public string $error = '';
 
-    public function mount()
-    {
-        $this->loadUsers();
-    }
-
     public function loadUsers()
     {
-        $this->loading = true;
         $this->error = '';
 
         try {
