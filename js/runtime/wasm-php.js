@@ -1,5 +1,5 @@
 import { PHP } from '@php-wasm/universal';
-import { getPHPLoaderModule } from '@php-wasm/web-8-2';
+import { getPHPLoaderModule } from '@php-wasm/web-8-3';
 import { loadPHPRuntime } from '@php-wasm/universal';
 
 let php = null;

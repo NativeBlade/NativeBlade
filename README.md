@@ -52,7 +52,7 @@ The installer will ask for your **app name** and **identifier**, then scaffold e
 
 ```
 ✓ src-tauri/          — Tauri project (Cargo.toml, main.rs, tauri.conf.json)
-✓ layouts/            — app.blade.php, auth.blade.php
+✓ layouts/            — app.blade.php
 ✓ vite.wasm.config.js — Vite config pointing to vendor
 ✓ AppServiceProvider  — NativeBlade config block
 ```
@@ -89,7 +89,7 @@ That's it. Your Laravel app is now a desktop application.
 └─────────────────────────────────────────────┘
 ```
 
-1. **Boot** — PHP 8.2 WebAssembly loads your Laravel app (bundled as JSON)
+1. **Boot** — PHP 8.3 WebAssembly loads your Laravel app (bundled as JSON)
 2. **Route** — Each navigation request runs through Laravel's router inside WASM
 3. **Render** — Blade/Livewire HTML is rendered and displayed in an iframe
 4. **Intercept** — A fetch interceptor routes all HTTP requests through the WASM runtime
@@ -357,11 +357,6 @@ Executes immediately on the client side:
     Go to Settings
 </button>
 
-{{-- Toast --}}
-<button onclick="__nbBridge('toast', { message: 'Saved!', type: 'success' })">
-    Toast
-</button>
-
 {{-- Camera --}}
 <button onclick="__nbBridge('camera')">Take Photo</button>
 <button onclick="__nbBridge('gallery')">Pick from Gallery</button>
@@ -397,7 +392,6 @@ Route::post('/api/export', function () {
 | `notification` | `{title, body}` | System notification |
 | `confirm` | `{message, title?}` | Confirm dialog (returns result) |
 | `navigate` | `{path}` | Navigate to route |
-| `toast` | `{message, type, duration?}` | Toast notification |
 | `camera` | `{quality?, maxWidth?}` | Open camera |
 | `gallery` | — | Open image picker |
 | `exit` | — | Close application |
@@ -504,7 +498,7 @@ NativeBlade supports two types of custom components:
 
 ### Shell Components
 
-Render **outside** the WebView (in the native shell). Perfect for toasts, floating buttons, modals that overlay the app.
+Render **outside** the WebView (in the native shell). Perfect for floating buttons, modals, or custom overlays.
 
 ```bash
 php artisan nativeblade:component session-timer
@@ -742,7 +736,6 @@ my-app/
 │   ├── views/
 │   │   ├── components/layouts/
 │   │   │   ├── app.blade.php              ← Main layout
-│   │   │   └── auth.blade.php             ← Auth layout (no shell)
 │   │   └── livewire/                      ← Your Livewire views
 │   └── css/app.css
 ├── routes/web.php
@@ -789,7 +782,7 @@ php artisan nativeblade:dev --platform=android
 php artisan nativeblade:config
 
 # Create a custom shell component
-php artisan nativeblade:component my-toast
+php artisan nativeblade:component my-widget
 ```
 
 Changes to Blade templates and PHP files are reflected instantly via hot reload — no manual rebuild needed.
@@ -848,7 +841,7 @@ NativeBlade/
 ### Areas Where You Can Help
 
 - **New native actions** — Add support for more Tauri plugins (clipboard, updater, global shortcuts)
-- **Shell components** — Built-in toast, modal, FAB, or other shell-level UI
+- **Shell components** — Built-in modal, FAB, or other shell-level UI
 - **Mobile improvements** — Better Android/iOS integration, gestures, deep links
 - **Performance** — WASM boot time, bundle size optimization, caching strategies
 - **Testing** — Unit tests for PHP classes, integration tests for the JS runtime
