@@ -1,4 +1,3 @@
-import { watch } from 'chokidar';
 import { readFileSync } from 'fs';
 import path from 'path';
 
@@ -18,7 +17,7 @@ export default function phpHmrPlugin(projectRoot) {
     function toWasmPath(filePath) {
         const rel = path.relative(projectRoot, filePath).replace(/\\/g, '/');
         for (const [dir, wasmDir] of Object.entries(wasmPathMap)) {
-            if (rel.startsWith(dir + '/') || rel === dir) {
+            if (rel.startsWith(dir + '/')) {
                 return wasmDir + rel.substring(dir.length);
             }
         }
@@ -29,40 +28,31 @@ export default function phpHmrPlugin(projectRoot) {
         name: 'nativeblade-php-hmr',
 
         configureServer(server) {
-            const watcher = watch([
-                path.join(projectRoot, 'app/**/*.php'),
-                path.join(projectRoot, 'resources/views/**/*.blade.php'),
-                path.join(projectRoot, 'routes/**/*.php'),
-                path.join(projectRoot, 'config/**/*.php'),
-                path.join(projectRoot, 'lang/**/*.{php,json}'),
-            ], {
-                ignoreInitial: true,
-                awaitWriteFinish: { stabilityThreshold: 100, pollInterval: 50 },
-            });
+            const dirs = ['app', 'resources/views', 'routes', 'config', 'lang'];
+            for (const dir of dirs) {
+                server.watcher.add(path.join(projectRoot, dir));
+            }
 
-            watcher.on('change', (filePath) => {
+            server.watcher.on('change', (filePath) => {
+                if (!/\.(php|blade\.php|json)$/.test(filePath)) return;
+
                 try {
                     const content = readFileSync(filePath, 'utf-8');
                     const wasmPath = toWasmPath(filePath);
                     version++;
 
                     changes.push({ wasmPath, content, version });
-
-                    // Keep only last 100 changes
                     if (changes.length > 100) changes.splice(0, changes.length - 100);
 
-                    // Send via Vite HMR
                     server.ws.send('php-file-changed', { wasmPath, content });
                 } catch {}
             });
 
-            // Serve polling endpoint
             server.middlewares.use((req, res, next) => {
                 if (!req.url.startsWith('/__php_changes')) return next();
 
                 const url = new URL(req.url, 'http://localhost');
                 const since = parseInt(url.searchParams.get('since') || '0', 10);
-
                 const pending = changes.filter(c => c.version > since);
 
                 res.setHeader('Content-Type', 'application/json');
