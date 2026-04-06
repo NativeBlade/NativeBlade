@@ -1,5 +1,6 @@
 import { getInstance } from './php-runtime.js';
 import { detectPlatform } from './filesystem.js';
+import * as httpBridge from './http-bridge.js';
 
 const STATIC_MIME = {
     '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
@@ -57,6 +58,14 @@ export async function handleRequest(path, options = {}) {
     let text = result.text || '';
 
     if (result.errors) console.warn('[NativeBlade PHP Errors]', result.errors);
+
+    // HTTP Bridge: if PHP needs an external request, fulfill it and re-run
+    if (await httpBridge.hasPendingRequest(php, text)) {
+        if (await httpBridge.fulfill(php)) {
+            return handleRequest(path, options);
+        }
+    }
+    httpBridge.done(php);
 
     try {
         const json = JSON.parse(text);

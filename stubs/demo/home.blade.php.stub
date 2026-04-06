@@ -29,4 +29,9 @@
         </div>
     </div>
 </div>
+
+<x-nativeblade-bottom-nav>
+    <x-nativeblade-tab icon="home" label="Home" href="/" />
+    <x-nativeblade-tab icon="users" label="Users" href="/users" />
+</x-nativeblade-bottom-nav>
 </div>

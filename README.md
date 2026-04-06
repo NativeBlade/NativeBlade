@@ -794,6 +794,60 @@ Changes to Blade templates and PHP files are reflected instantly via hot reload 
 
 ---
 
+## Laravel Compatibility
+
+NativeBlade runs Laravel inside PHP WebAssembly — there is no real server. This means some Laravel features work perfectly, some work through a bridge, and some are not available.
+
+### Works out of the box
+
+| Feature | Notes |
+|---------|-------|
+| Routing | Full Laravel router |
+| Blade / Livewire | Core of the framework |
+| Eloquent (SQLite) | Persisted to IndexedDB |
+| Middleware | Standard middleware pipeline |
+| Validation | All validation rules |
+| Collections | All collection methods |
+| Service Container / DI | Full dependency injection |
+| Localization | Lang files, `__()` helper |
+| Events (synchronous) | Event dispatch and listeners |
+| Carbon / Helpers | All date and string helpers |
+| Auth (via state) | Using `NativeBlade::setState()` instead of sessions |
+
+### Works via HTTP Bridge
+
+Laravel's `Http` facade works transparently through a bridge that routes requests through the native Tauri shell:
+
+```php
+// This just works — the bridge handles it automatically
+$response = Http::get('https://api.github.com/users');
+$users = $response->json();
+
+$response = Http::post('https://api.example.com/orders', [
+    'product_id' => 1,
+]);
+```
+
+Each `Http` call triggers a re-execution cycle (PHP signals the request, JS fulfills it, PHP re-runs with the cached response). For N external requests, there are N+1 PHP executions. This is transparent to your code but worth knowing for performance.
+
+### Does not work (not planned)
+
+| Feature | Why |
+|---------|-----|
+| Queues / Jobs | No background worker process in WASM |
+| Mail (SMTP) | No direct network I/O from PHP WASM |
+| Cache (Redis / Memcached) | No external cache services |
+| Sessions (file / database driver) | Use `NativeBlade::setState()` instead |
+| Broadcasting / WebSockets | No server to broadcast from |
+| Scheduling (cron) | No cron in WASM |
+| Storage (S3, FTP) | No filesystem drivers beyond local WASM FS |
+| Database (MySQL / Postgres) | Only SQLite is available |
+| Artisan commands | No CLI in WASM runtime |
+| Notifications (mail/database) | Use `NativeBlade::notification()` for native OS notifications |
+| `file_get_contents()` for URLs | Use `Http` facade instead (bridged) |
+
+---
+
 ## How NativeBlade Differs
 
 | | NativeBlade | Electron | React Native | Flutter |

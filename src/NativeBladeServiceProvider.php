@@ -19,6 +19,7 @@ class NativeBladeServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->patchWasmRequest();
+        $this->registerHttpBridge();
         $this->registerViews();
         $this->registerComponents();
         $this->registerViewComposer();
@@ -54,6 +55,23 @@ class NativeBladeServiceProvider extends ServiceProvider
             $contentProp->setAccessible(true);
             $contentProp->setValue($request, $body);
         }
+    }
+
+    private function registerHttpBridge(): void
+    {
+        if (!$this->isWasmRuntime()) {
+            return;
+        }
+
+        \Illuminate\Support\Facades\Http::globalOptions([
+            'handler' => \GuzzleHttp\HandlerStack::create(new Http\WasmHttpHandler()),
+        ]);
+    }
+
+    private function isWasmRuntime(): bool
+    {
+        return isset($_SERVER['NATIVEBLADE_PLATFORM'])
+            && $_SERVER['NATIVEBLADE_PLATFORM'] !== 'web';
     }
 
     private function registerViews(): void

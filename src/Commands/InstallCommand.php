@@ -243,8 +243,10 @@ class InstallCommand extends Command
         $this->publishStub('demo/NativeBladeAuth.php.stub', $middlewareDir . '/NativeBladeAuth.php');
         $this->publishStub('demo/Login.php.stub', $livewireDir . '/Login.php');
         $this->publishStub('demo/Home.php.stub', $livewireDir . '/Home.php');
+        $this->publishStub('demo/Users.php.stub', $livewireDir . '/Users.php');
         $this->publishStub('demo/login.blade.php.stub', $viewsDir . '/login.blade.php');
         $this->publishStub('demo/home.blade.php.stub', $viewsDir . '/home.blade.php');
+        $this->publishStub('demo/users.blade.php.stub', $viewsDir . '/users.blade.php');
         $this->publishStub('demo/routes.php.stub', base_path('routes/web.php'));
 
         $logo = NativeBladeServiceProvider::packagePath('logo_nb.png');

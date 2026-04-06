@@ -1,0 +1,44 @@
+<div>
+<x-nativeblade-header title="GitHub Users" :back="true" />
+
+<div class="max-w-2xl mx-auto">
+    @if($error)
+        <div class="bg-red-600/20 border border-red-600 text-red-400 px-4 py-3 rounded-lg mb-4 text-sm">
+            {{ $error }}
+            <button wire:click="loadUsers" class="underline ml-2">Retry</button>
+        </div>
+    @endif
+
+    {{-- Skeleton --}}
+    @if($loading)
+        <div class="grid grid-cols-2 gap-3">
+            @for($i = 0; $i < 12; $i++)
+                <div class="bg-gray-900 rounded-lg p-3 border border-gray-800 flex items-center gap-3 animate-pulse">
+                    <div class="w-10 h-10 rounded-full bg-gray-700"></div>
+                    <div class="flex-1 space-y-2">
+                        <div class="h-3 bg-gray-700 rounded w-3/4"></div>
+                        <div class="h-2 bg-gray-800 rounded w-1/2"></div>
+                    </div>
+                </div>
+            @endfor
+        </div>
+    @else
+        <div class="grid grid-cols-2 gap-3">
+            @foreach($users as $user)
+                <div class="bg-gray-900 rounded-lg p-3 border border-gray-800 flex items-center gap-3">
+                    <img src="{{ $user['avatar_url'] }}" alt="{{ $user['login'] }}" class="w-10 h-10 rounded-full">
+                    <div class="min-w-0">
+                        <p class="font-medium text-sm truncate">{{ $user['login'] }}</p>
+                        <p class="text-xs text-gray-500">ID {{ $user['id'] }}</p>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    @endif
+</div>
+
+<x-nativeblade-bottom-nav>
+    <x-nativeblade-tab icon="home" label="Home" href="/" />
+    <x-nativeblade-tab icon="users" label="Users" href="/users" />
+</x-nativeblade-bottom-nav>
+</div>
