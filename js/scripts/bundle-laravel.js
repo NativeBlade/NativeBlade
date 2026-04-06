@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, statSync, readdirSync, lstatSync } from 'fs';
+import { readFileSync, writeFileSync, statSync, readdirSync, mkdirSync, existsSync } from 'fs';
 import { join, relative, extname, resolve } from 'path';
 import { execSync } from 'child_process';
 
@@ -159,7 +159,7 @@ try {
     writeFileSync(join(ROOT, 'public', 'nativeblade-locale.json'), JSON.stringify({ locale }));
     const langSrc = join(ROOT, 'lang');
     const langDst = join(ROOT, 'public', 'lang');
-    try { readdirSync(langDst); } catch { require('fs').mkdirSync(langDst, { recursive: true }); }
+    if (!existsSync(langDst)) mkdirSync(langDst, { recursive: true });
     readdirSync(langSrc).filter(f => f.endsWith('.json')).forEach(f => {
         writeFileSync(join(langDst, f), readFileSync(join(langSrc, f)));
     });
