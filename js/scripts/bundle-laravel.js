@@ -49,6 +49,7 @@ const EXCLUDE_PATTERNS = [
     /\/node_modules\//,
     /\/storage\/framework\/views\//,
     /\/storage\/logs\//,
+    /platform_check\.php$/,
 ];
 
 const EXCLUDE_EXTENSIONS = [
