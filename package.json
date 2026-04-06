@@ -1,5 +1,6 @@
 {
   "private": true,
+  "type": "module",
   "devDependencies": {
     "@phosphor-icons/core": "^2.1.1"
   }
