@@ -29,11 +29,11 @@ export function render(data, activePath, appFrame) {
     const actions = (data.children || []).filter(c => c.type === 'action');
 
     const menuBtn = hasDrawer
-        ? `<button class="topbar-btn" data-menu="true">${svg('menu')}</button>`
+        ? `<button class="topbar-btn" data-menu="true">${svg('list')}</button>`
         : '';
 
     const backBtn = !hasDrawer && data.back === 'true'
-        ? `<button class="topbar-btn" data-back="true">${svg('back')}</button>`
+        ? `<button class="topbar-btn" data-back="true">${svg('arrow-left')}</button>`
         : '';
 
     const actionsHtml = actions.map(a => {

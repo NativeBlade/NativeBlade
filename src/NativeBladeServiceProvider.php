@@ -87,6 +87,7 @@ class NativeBladeServiceProvider extends ServiceProvider
         Blade::component('nativeblade-tab', Components\NbTab::class);
         Blade::component('nativeblade-drawer', Components\NbDrawer::class);
         Blade::component('nativeblade-drawer-item', Components\NbDrawerItem::class);
+        Blade::component('nativeblade-icon', Components\NbIcon::class);
     }
 
     private function registerViewComposer(): void

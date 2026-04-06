@@ -1,0 +1,15 @@
+node_modules/
+vendor/
+.idea/
+.vscode/
+.claude/
+.env
+
+*.log
+npm-debug.log*
+
+dist-wasm/
+target/
+
+.DS_Store
+Thumbs.db

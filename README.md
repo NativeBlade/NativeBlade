@@ -241,6 +241,44 @@ Menu items follow a simple convention:
 
 ---
 
+## Icons
+
+NativeBlade includes all 1,512 [Phosphor Icons](https://phosphoricons.com/) (regular style). Browse all available icons at [phosphoricons.com](https://phosphoricons.com/).
+
+### In Shell Components
+
+Use the icon name directly via the `icon` attribute:
+
+```blade
+<x-nativeblade-tab icon="house" label="Home" href="/" />
+<x-nativeblade-action icon="bell" action="/api/notifications" badge="3" />
+<x-nativeblade-drawer-item icon="gear" label="Settings" href="/settings" />
+```
+
+### In Blade Templates (Embedded)
+
+Use the `<x-nativeblade-icon>` component anywhere in your Blade views:
+
+```blade
+<x-nativeblade-icon name="house" />
+<x-nativeblade-icon name="gear" size="32" />
+<x-nativeblade-icon name="bell" size="20" class="text-red-400" />
+
+{{-- Inside a button --}}
+<button class="flex items-center gap-2">
+    <x-nativeblade-icon name="sign-out" size="18" />
+    Logout
+</button>
+```
+
+| Attribute | Default | Description |
+|-----------|---------|-------------|
+| `name` | — | Icon name from Phosphor (required) |
+| `size` | `24` | Width and height in pixels |
+| `class` | — | CSS classes |
+
+---
+
 ## Shell Components
 
 Shell components render **outside** the WebView — they never flicker during page transitions. Use them directly in your Blade templates:
@@ -256,7 +294,7 @@ Shell components render **outside** the WebView — they never flicker during pa
 
 {{-- Header with action buttons --}}
 <x-nativeblade-header title="Demo">
-    <x-nativeblade-action icon="search" action="/api/search" />
+    <x-nativeblade-action icon="magnifying-glass" action="/api/search" />
     <x-nativeblade-action icon="bell" action="/api/notifications" badge="3" />
 </x-nativeblade-header>
 ```
@@ -265,9 +303,9 @@ Shell components render **outside** the WebView — they never flicker during pa
 
 ```blade
 <x-nativeblade-bottom-nav>
-    <x-nativeblade-tab icon="home" label="Home" href="/" />
-    <x-nativeblade-tab icon="bolt" label="Demo" href="/demo" />
-    <x-nativeblade-tab icon="cog" label="Settings" href="/settings" />
+    <x-nativeblade-tab icon="house" label="Home" href="/" />
+    <x-nativeblade-tab icon="lightning" label="Demo" href="/demo" />
+    <x-nativeblade-tab icon="gear" label="Settings" href="/settings" />
 </x-nativeblade-bottom-nav>
 ```
 
@@ -275,9 +313,9 @@ Shell components render **outside** the WebView — they never flicker during pa
 
 ```blade
 <x-nativeblade-drawer title="My App">
-    <x-nativeblade-drawer-item icon="home" label="Home" href="/" />
-    <x-nativeblade-drawer-item icon="bolt" label="Demo" href="/demo" />
-    <x-nativeblade-drawer-item icon="cog" label="Settings" href="/settings" />
+    <x-nativeblade-drawer-item icon="house" label="Home" href="/" />
+    <x-nativeblade-drawer-item icon="lightning" label="Demo" href="/demo" />
+    <x-nativeblade-drawer-item icon="gear" label="Settings" href="/settings" />
 </x-nativeblade-drawer>
 ```
 
@@ -288,14 +326,14 @@ Shell components render **outside** the WebView — they never flicker during pa
 <div>
 <x-nativeblade-header title="My App" />
 <x-nativeblade-drawer title="My App">
-    <x-nativeblade-drawer-item icon="home" label="Home" href="/" />
-    <x-nativeblade-drawer-item icon="bolt" label="Demo" href="/demo" />
-    <x-nativeblade-drawer-item icon="cog" label="Settings" href="/settings" />
+    <x-nativeblade-drawer-item icon="house" label="Home" href="/" />
+    <x-nativeblade-drawer-item icon="lightning" label="Demo" href="/demo" />
+    <x-nativeblade-drawer-item icon="gear" label="Settings" href="/settings" />
 </x-nativeblade-drawer>
 <x-nativeblade-bottom-nav>
-    <x-nativeblade-tab icon="home" label="Home" href="/" />
-    <x-nativeblade-tab icon="bolt" label="Demo" href="/demo" />
-    <x-nativeblade-tab icon="cog" label="Settings" href="/settings" />
+    <x-nativeblade-tab icon="house" label="Home" href="/" />
+    <x-nativeblade-tab icon="lightning" label="Demo" href="/demo" />
+    <x-nativeblade-tab icon="gear" label="Settings" href="/settings" />
 </x-nativeblade-bottom-nav>
 
 <div class="max-w-2xl mx-auto">
@@ -503,10 +541,10 @@ NativeBlade supports two types of custom components:
 
 ### Shell Components
 
-Render **outside** the WebView (in the native shell). Perfect for floating buttons, modals, or custom overlays.
+Render **outside** the WebView (in the native shell). Perfect for floating buttons, toasts, modals, or custom overlays. Shell components never flicker during page transitions because they live in the parent window, not inside the iframe.
 
 ```bash
-php artisan nativeblade:component session-timer
+php artisan nativeblade:component fab-button
 # Select: shell
 ```
 
@@ -514,25 +552,55 @@ This creates:
 
 ```
 nativeblade-components/
-└── session-timer/
-    ├── session-timer.js        ← Render logic (DOM manipulation)
-    ├── session-timer.css       ← Styles
-    ├── SessionTimer.php        ← Laravel component class
-    └── session-timer.blade.php ← Blade template (data-nb attributes)
+└── fab-button/
+    ├── fab-button.js        ← Render logic (DOM manipulation)
+    ├── fab-button.css       ← Styles
+    ├── FabButton.php        ← Laravel component class
+    └── fab-button.blade.php ← Blade template (data-nb attributes)
 ```
 
-**How Shell Components Work:**
+**How it works:**
 
-The Blade template outputs a hidden `<div data-nb="session-timer">` with data attributes. The framework extracts these from the HTML response and passes them to the JavaScript `render()` function in the parent shell.
+1. Your Blade template outputs a hidden `<div data-nb="fab-button">` with data attributes
+2. The framework extracts these from the HTML response
+3. Your JS `render()` function receives the data and renders in the parent shell
+4. When the component is absent from a page, `render(null)` is called so you can hide it
+
+**Step 1 — Blade template** passes data to the shell via `data-*` attributes:
 
 ```blade
-{{-- session-timer.blade.php --}}
-<div data-nb="session-timer" data-remaining="{{ $remaining }}" style="display:none"></div>
+{{-- fab-button.blade.php --}}
+<div data-nb="fab-button" data-icon="{{ $icon }}" data-action="{{ $action }}" style="display:none"></div>
 ```
 
+**Step 2 — PHP class** defines the component props:
+
+```php
+// FabButton.php
+namespace App\NativeBlade\Components;
+
+use Illuminate\View\Component;
+
+class FabButton extends Component
+{
+    public function __construct(
+        public string $icon = 'plus',
+        public string $action = '',
+    ) {}
+
+    public function render()
+    {
+        return view('nbc::fab-button');
+    }
+}
+```
+
+**Step 3 — JavaScript** renders the component outside the WebView:
+
 ```javascript
-// session-timer.js
-import './session-timer.css';
+// fab-button.js
+import './fab-button.css';
+import { svg } from '@nativeblade/wasm-app/components/icons.js';
 
 let el = null;
 
@@ -543,21 +611,61 @@ export function render(config) {
     }
 
     if (!el) {
-        el = document.createElement('div');
-        el.id = 'nb-session-timer';
+        el = document.createElement('button');
+        el.id = 'nb-fab-button';
         document.body.appendChild(el);
+
+        el.addEventListener('click', () => {
+            const action = el.dataset.action;
+            if (action) {
+                // Navigate or trigger native action
+                window.postMessage({
+                    type: 'nativeblade-navigate',
+                    path: action,
+                }, '*');
+            }
+        });
     }
 
-    el.textContent = `Session: ${config.remaining}s`;
-    el.style.display = 'block';
+    el.innerHTML = svg(config.icon || 'plus');
+    el.dataset.action = config.action || '';
+    el.style.display = 'flex';
 }
 ```
 
-**Use in Blade:**
+**Step 4 — CSS** styles the floating button:
+
+```css
+/* fab-button.css */
+#nb-fab-button {
+    display: none;
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #a855f7;
+    border: none;
+    color: white;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    cursor: pointer;
+    z-index: 100;
+}
+#nb-fab-button svg { width: 24px; height: 24px; }
+```
+
+**Use in any Blade view:**
 
 ```blade
-<x-nativeblade-session-timer :remaining="$remaining" />
+<x-nativeblade-fab-button icon="plus" action="/create" />
 ```
+
+The FAB will render outside the WebView. Pages that don't include the component will automatically hide it.
+
+> **Icons in shell JS:** Import from `@nativeblade/wasm-app/components/icons.js` to use any of the 1,512 Phosphor icons via `svg('icon-name')`.
 
 ### Embedded Components
 
