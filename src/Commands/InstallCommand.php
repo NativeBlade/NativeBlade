@@ -178,6 +178,17 @@ class InstallCommand extends Command
             $this->line("  <fg=yellow>→</> npm install failed, run manually:");
             $this->line("     npm install " . implode(' ', $deps));
         }
+
+        // Add "tauri" script to package.json (required by Tauri Android/iOS Gradle build)
+        $packageJsonPath = base_path('package.json');
+        if (file_exists($packageJsonPath)) {
+            $packageJson = json_decode(file_get_contents($packageJsonPath), true);
+            if (!isset($packageJson['scripts']['tauri'])) {
+                $packageJson['scripts']['tauri'] = 'tauri';
+                file_put_contents($packageJsonPath, json_encode($packageJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+                $this->line("  <fg=green>✓</> Added 'tauri' script to package.json");
+            }
+        }
     }
 
     private function updateAppServiceProvider(): void
