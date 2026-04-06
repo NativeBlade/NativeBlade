@@ -18,6 +18,7 @@ class NativeBladeServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->patchWasmRequest();
         $this->registerViews();
         $this->registerComponents();
         $this->registerViewComposer();
@@ -30,6 +31,27 @@ class NativeBladeServiceProvider extends ServiceProvider
                 Commands\DevCommand::class,
                 Commands\ComponentCommand::class,
             ]);
+        }
+    }
+
+    private function patchWasmRequest(): void
+    {
+        if (isset($GLOBALS['__wasm_request_body'])) {
+            $body = $GLOBALS['__wasm_request_body'];
+            $request = $this->app['request'];
+
+            $contentType = $request->header('Content-Type', '');
+
+            if (str_contains($contentType, 'application/json')) {
+                $data = json_decode($body, true) ?: [];
+                $request->merge($data);
+                $request->setJson(new \Symfony\Component\HttpFoundation\InputBag($data));
+            }
+
+            $reflection = new \ReflectionClass($request);
+            $contentProp = $reflection->getProperty('content');
+            $contentProp->setAccessible(true);
+            $contentProp->setValue($request, $body);
         }
     }
 
