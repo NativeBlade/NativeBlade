@@ -1,9 +1,7 @@
 pub mod commands;
 
-use tauri::Manager;
-
 pub fn build() -> tauri::Builder<tauri::Wry> {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
@@ -14,17 +12,20 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
             commands::health::check_backend,
             commands::config::get_config,
         ])
-        .setup(|app| {
-            #[cfg(not(mobile))]
+        .setup(|_app| {
+            #[cfg(desktop)]
             {
-                let handle = app.handle();
+                let handle = _app.handle();
                 if let Some(menu) = commands::menu::build_menu(handle) {
-                    let _ = app.set_menu(menu);
+                    let _ = _app.set_menu(menu);
                 }
                 commands::tray::setup(handle);
             }
             Ok(())
-        })
+        });
+
+    #[cfg(desktop)]
+    let builder = builder
         .on_menu_event(|app, event| {
             commands::menu::handle_menu_event(app, &event);
         })
@@ -35,5 +36,7 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
                     let _ = window.hide();
                 }
             }
-        })
+        });
+
+    builder
 }

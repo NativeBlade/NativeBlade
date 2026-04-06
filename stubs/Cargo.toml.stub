@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 description = "{{APP_NAME}}"
 
+[lib]
+name = "{{CRATE_NAME}}"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
 [[bin]]
 name = "{{CRATE_NAME}}"
 path = "src/main.rs"
