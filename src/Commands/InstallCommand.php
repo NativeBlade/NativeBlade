@@ -130,8 +130,8 @@ class InstallCommand extends Command
         }
 
         $content = preg_replace(
-            '/(public function boot\(\).*?\{)\s*(\n\s*(?:\/\/.*)?)/s',
-            "$1\n{$stub}\n",
+            '/(public function boot\(\).*?\{)\s*(\n\s*(?:\/\/.*)?)\s*\}/s',
+            "$1\n{$stub}\n    }",
             $content
         );
 
