@@ -35,7 +35,7 @@ export default defineConfig({
         },
     },
     optimizeDeps: {
-        exclude: ['@php-wasm/web-8-3'],
+        exclude: ['@php-wasm/web-8-2', '@php-wasm/web-8-3'],
     },
     assetsInclude: ['**/*.so', '**/*.wasm'],
     build: {
