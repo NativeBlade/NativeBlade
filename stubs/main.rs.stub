@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    {{CRATE_NAME}}::run();
+    {{CRATE_NAME}}_lib::run();
 }

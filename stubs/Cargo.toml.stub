@@ -5,7 +5,7 @@ edition = "2021"
 description = "{{APP_NAME}}"
 
 [lib]
-name = "{{CRATE_NAME}}"
+name = "{{CRATE_NAME}}_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
