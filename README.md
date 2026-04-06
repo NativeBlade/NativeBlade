@@ -766,7 +766,9 @@ Everything in `vendor/nativeblade/nativeblade/` — you never touch framework co
 | Command | Description |
 |---------|-------------|
 | `php artisan nativeblade:install` | Interactive setup — scaffolds Tauri project, layouts, config |
-| `php artisan nativeblade:dev` | Start development server with hot reload |
+| `php artisan nativeblade:add android` | Add Android platform scaffold |
+| `php artisan nativeblade:add ios` | Add iOS platform scaffold (macOS only) |
+| `php artisan nativeblade:dev` | Start desktop development server with hot reload |
 | `php artisan nativeblade:dev --platform=android` | Run on Android device |
 | `php artisan nativeblade:dev --platform=ios` | Run on iOS simulator |
 | `php artisan nativeblade:config` | Regenerate Tauri configs from PHP |
