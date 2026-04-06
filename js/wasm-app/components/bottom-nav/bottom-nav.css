@@ -1,0 +1,29 @@
+#bottom-nav {
+    display: none;
+    background: #111827;
+    border-top: 1px solid #1f2937;
+    padding-bottom: env(safe-area-inset-bottom);
+}
+#bottom-nav .nav-items {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    height: 56px;
+}
+#bottom-nav a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+    padding: 6px 0;
+    text-decoration: none;
+    color: #6b7280;
+    transition: color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+}
+#bottom-nav a.active { color: #a855f7; }
+#bottom-nav a svg { width: 20px; height: 20px; }
+#bottom-nav a span { font-size: 10px; }

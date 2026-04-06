@@ -1,0 +1,69 @@
+import { svg } from '../icons.js';
+
+let el = null;
+let navigateFn = null;
+let onMenuClick = null;
+let onBackFn = null;
+
+export function setHandler(fn) { navigateFn = fn; }
+export function setMenuHandler(fn) { onMenuClick = fn; }
+export function setBackHandler(fn) { onBackFn = fn; }
+
+export function render(data, activePath, appFrame) {
+    if (!data) {
+        if (el) el.style.display = 'none';
+        return;
+    }
+
+    if (!el) {
+        el = document.createElement('header');
+        el.id = 'top-bar';
+        const app = document.getElementById('app');
+        document.body.insertBefore(el, app);
+    }
+
+    if (data.bg) el.style.setProperty('background', data.bg);
+    if (data.borderColor) el.style.setProperty('border-bottom-color', data.borderColor);
+
+    const hasDrawer = !!onMenuClick;
+    const actions = (data.children || []).filter(c => c.type === 'action');
+
+    const menuBtn = hasDrawer
+        ? `<button class="topbar-btn" data-menu="true">${svg('menu')}</button>`
+        : '';
+
+    const backBtn = !hasDrawer && data.back === 'true'
+        ? `<button class="topbar-btn" data-back="true">${svg('back')}</button>`
+        : '';
+
+    const actionsHtml = actions.map(a => {
+        const badge = a.badge ? `<span class="topbar-badge">${a.badge}</span>` : '';
+        const style = a.color ? ` style="color:${a.color}"` : '';
+        return `<button class="topbar-btn" data-action="${a.action}"${style}>${svg(a.icon)}${badge}</button>`;
+    }).join('');
+
+    const titleStyle = data.color ? ` style="color:${data.color}"` : '';
+
+    el.innerHTML = `<div class="topbar-inner">
+        ${menuBtn}${backBtn}
+        <span class="topbar-title"${titleStyle}>${data.title || ''}</span>
+        <div class="topbar-actions">${actionsHtml}</div>
+    </div>`;
+
+    el.style.display = 'block';
+
+    el.onclick = (e) => {
+        if (e.target.closest('[data-menu]')) {
+            if (onMenuClick) onMenuClick();
+            return;
+        }
+        if (e.target.closest('[data-back]')) {
+            if (navigateFn && onBackFn) navigateFn(onBackFn());
+            return;
+        }
+        const actionEl = e.target.closest('[data-action]');
+        if (actionEl?.dataset.action?.startsWith('/')) {
+            appFrame?.contentWindow?.postMessage({ type: 'nativeblade-nb-action', url: actionEl.dataset.action }, '*');
+        }
+    };
+}

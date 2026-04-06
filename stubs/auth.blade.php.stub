@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>{{ $title ?? 'Login - {{APP_NAME}}' }}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    @vite(['resources/css/app.css'])
+    @livewireStyles
+</head>
+<body class="bg-gray-950 text-white min-h-screen flex items-center justify-center" style="padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)">
+
+    {{ $slot }}
+
+    @livewireScripts
+
+    <script id="__nb-shell-config" type="application/json">@json($shellConfig ?? [])</script>
+</body>
+</html>

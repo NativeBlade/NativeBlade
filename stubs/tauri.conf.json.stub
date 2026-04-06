@@ -1,0 +1,45 @@
+{
+    "$schema": "https://raw.githubusercontent.com/nicedoc/tauri/dev/tooling/cli/schema.json",
+    "productName": "{{APP_NAME}}",
+    "version": "0.1.0",
+    "identifier": "{{IDENTIFIER}}",
+    "build": {
+        "beforeDevCommand": "npx vite --config vite.wasm.config.js",
+        "devUrl": "http://localhost:1420",
+        "frontendDist": "../dist-wasm"
+    },
+    "app": {
+        "windows": [
+            {
+                "title": "{{APP_NAME}}",
+                "width": 1200,
+                "height": 800,
+                "resizable": true,
+                "fullscreen": false,
+                "minWidth": 800,
+                "minHeight": 600
+            }
+        ],
+        "withGlobalTauri": true,
+        "security": {
+            "csp": null
+        }
+    },
+    "bundle": {
+        "active": true,
+        "targets": "all",
+        "resources": [
+            "../.env",
+            "../lang/*.json",
+            "menu.json",
+            "tray.json"
+        ],
+        "icon": [
+            "icons/32x32.png",
+            "icons/128x128.png",
+            "icons/128x128@2x.png",
+            "icons/icon.icns",
+            "icons/icon.ico"
+        ]
+    }
+}

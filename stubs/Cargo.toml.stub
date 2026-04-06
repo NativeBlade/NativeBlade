@@ -1,0 +1,16 @@
+[package]
+name = "{{IDENTIFIER}}"
+version = "0.1.0"
+edition = "2021"
+description = "{{APP_NAME}}"
+
+[[bin]]
+name = "{{IDENTIFIER}}-app"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+nativeblade = { path = "{{NATIVEBLADE_RUST_PATH}}" }
+tauri = { version = "2", features = [] }

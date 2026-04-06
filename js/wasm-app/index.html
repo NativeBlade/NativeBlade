@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>NativeBlade</title>
+    <link rel="stylesheet" href="./components/bottom-nav/bottom-nav.css">
+    <link rel="stylesheet" href="./components/top-bar/top-bar.css">
+    <link rel="stylesheet" href="./components/camera/camera.css">
+    <link rel="stylesheet" href="./components/drawer/drawer.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0a0a0a; color: #fff; font-family: system-ui, sans-serif; display: flex; flex-direction: column; height: 100vh; }
+        #splash { display: flex; align-items: center; justify-content: center; height: 100vh; flex-direction: column; gap: 24px; }
+        .logo { font-size: 32px; font-weight: 700; color: #a855f7; }
+        .spinner { width: 32px; height: 32px; border: 3px solid #1f1f1f; border-top-color: #a855f7; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .status { font-size: 14px; color: #666; }
+        #app { display: none; flex: 1; width: 100%; border: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="splash">
+        <div class="logo">NativeBlade</div>
+        <div class="spinner"></div>
+        <div class="status" id="status">Iniciando...</div>
+    </div>
+    <iframe id="app"></iframe>
+    <script type="module" src="./app.js"></script>
+</body>
+</html>
