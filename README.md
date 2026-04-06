@@ -17,6 +17,12 @@
 
 ---
 
+<p align="center">
+  <img src="hello.gif" alt="NativeBlade Demo" width="600">
+</p>
+
+---
+
 NativeBlade lets Laravel developers build **desktop** and **mobile** apps using only **PHP and Blade**. Your entire Laravel + Livewire application runs inside a PHP WebAssembly runtime, wrapped in a [Tauri 2](https://v2.tauri.app) shell. No JavaScript frameworks. No API layers. Just the Laravel you already know.
 
 ## Features
