@@ -257,14 +257,14 @@ class InstallCommand extends Command
             }
         }
 
-        $jsLang = resource_path('js/lang');
-        if (!is_dir($jsLang)) mkdir($jsLang, 0755, true);
+        $langDir = base_path('lang');
+        if (!is_dir($langDir)) mkdir($langDir, 0755, true);
 
         $langSource = NativeBladeServiceProvider::packagePath('stubs/lang');
         if (is_dir($langSource)) {
             foreach (scandir($langSource) as $file) {
                 if ($file === '.' || $file === '..') continue;
-                copy("{$langSource}/{$file}", "{$jsLang}/{$file}");
+                copy("{$langSource}/{$file}", "{$langDir}/{$file}");
             }
         }
 
