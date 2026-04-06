@@ -18,6 +18,7 @@ for (const scope of ['@php-wasm', '@tauri-apps']) {
 
 export default defineConfig({
     root: path.resolve(__dirname, 'resources/js'),
+    publicDir: path.resolve(__dirname, 'public'),
     resolve: {
         alias: {
             '@nativeblade': nativebladeBase,

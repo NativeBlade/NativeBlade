@@ -107,6 +107,7 @@ class InstallCommand extends Command
         }
 
         $this->publishStub('app.blade.php.stub', $layoutDir . '/app.blade.php');
+        $this->publishStub('auth.blade.php.stub', $layoutDir . '/auth.blade.php');
 
         $this->line("  <fg=green>✓</> Blade layouts published");
     }
@@ -155,12 +156,15 @@ class InstallCommand extends Command
     private function buildAssets(): void
     {
         $this->line('  Building CSS assets...');
-        exec('cd ' . escapeshellarg(base_path()) . ' && npm run build 2>&1', $output, $code);
+        $cwd = getcwd();
+        chdir(base_path());
+        exec('npm run build 2>&1', $output, $code);
+        chdir($cwd);
 
         if ($code === 0) {
             $this->line("  <fg=green>✓</> CSS assets built");
         } else {
-            $this->line("  <fg=yellow>→</> Run manually: npm run build");
+            $this->line("  <fg=yellow>→</> npm run build failed. Run manually: npm run build");
         }
     }
 
