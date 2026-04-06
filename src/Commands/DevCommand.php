@@ -27,6 +27,13 @@ class DevCommand extends Command
 
         $this->printBanner($platform, $host, $port);
 
+        // Ensure dist-wasm exists (Tauri checks frontendDist at compile time)
+        $distDir = base_path('dist-wasm');
+        if (!is_dir($distDir)) {
+            mkdir($distDir, 0755, true);
+            file_put_contents($distDir . '/index.html', '<!-- dev mode placeholder -->');
+        }
+
         $this->info('Building Laravel bundle...');
         $bundleScript = NativeBladeServiceProvider::packagePath('js/scripts/bundle-laravel.js');
         $this->exec("node {$bundleScript} " . base_path());
