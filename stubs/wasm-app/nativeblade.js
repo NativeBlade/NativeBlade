@@ -1,1 +1,1 @@
-import '@shell/app.js';
+import '@nativeblade/wasm-app/app.js';

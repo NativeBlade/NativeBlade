@@ -1,0 +1,31 @@
+<?php
+
+namespace App\Providers;
+
+use Illuminate\Support\ServiceProvider;
+use NativeBlade\Facades\NativeBlade;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        //
+    }
+
+    public function boot(): void
+    {
+        NativeBlade::desktop(function ($config) {
+            $config->title('{{APP_NAME}}')
+                ->identifier('{{IDENTIFIER}}')
+                ->size(1200, 800)
+                ->minSize(800, 600)
+                ->resizable();
+        });
+
+        NativeBlade::mobile(function ($config) {
+            $config->orientation('portrait')
+                ->statusBar(style: 'dark', color: '#0a0a0a')
+                ->splash(bg: '#0a0a0a');
+        });
+    }
+}

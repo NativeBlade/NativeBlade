@@ -201,27 +201,8 @@ class InstallCommand extends Command
             return;
         }
 
-        $stub = file_get_contents($this->stubPath('AppServiceProvider.stub'));
-        $stub = $this->replacePlaceholders($stub);
-
-        $useStatement = "use NativeBlade\\Facades\\NativeBlade;\n";
-
-        if (!str_contains($content, 'NativeBlade\\Facades\\NativeBlade')) {
-            $content = preg_replace(
-                '/(namespace [^;]+;\n)/',
-                "$1\n{$useStatement}",
-                $content
-            );
-        }
-
-        $content = preg_replace(
-            '/(public function boot\(\).*?\{)\s*(\n\s*(?:\/\/.*)?)\s*\}/s',
-            "$1\n{$stub}\n    }",
-            $content
-        );
-
-        file_put_contents($providerPath, $content);
-        $this->line("  <fg=green>✓</> AppServiceProvider updated");
+        $this->publishStub('AppServiceProvider.php.stub', $providerPath);
+        $this->line("  <fg=green>✓</> AppServiceProvider replaced");
     }
 
     private function updateBootstrap(): void
