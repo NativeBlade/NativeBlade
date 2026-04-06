@@ -122,6 +122,7 @@ class ConfigCommand extends Command
         $themePath = base_path('src-tauri/gen/android/app/src/main/res/values/themes.xml');
         if (!file_exists($themePath)) return;
 
+        $themeName = $this->detectAndroidThemeName();
         $statusColor = $config['statusBar']['color'] ?? '#FF0A0A0A';
         $navColor = $config['navigationBar']['color'] ?? '#FF0A0A0A';
         $lightStatus = ($config['statusBar']['style'] ?? 'dark') === 'light' ? 'true' : 'false';
@@ -131,7 +132,7 @@ class ConfigCommand extends Command
 
         $xml = <<<XML
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.nativeblade" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="{$themeName}" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="android:statusBarColor">{$statusColor}</item>
         <item name="android:navigationBarColor">{$navColor}</item>
         <item name="android:windowLightStatusBar" tools:targetApi="23">{$lightStatus}</item>
@@ -145,6 +146,19 @@ XML;
         if (file_exists($nightPath)) file_put_contents($nightPath, $xml);
 
         $this->line("  <fg=green>✓</> Android theme updated");
+    }
+
+    private function detectAndroidThemeName(): string
+    {
+        $manifestPath = base_path('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
+        if (!file_exists($manifestPath)) return 'Theme.nativeblade';
+
+        $manifest = file_get_contents($manifestPath);
+        if (preg_match('/android:theme="@style\/([^"]+)"/', $manifest, $matches)) {
+            return $matches[1];
+        }
+
+        return 'Theme.nativeblade';
     }
 
     private function generateSplash(array $desktop, array $mobile): void

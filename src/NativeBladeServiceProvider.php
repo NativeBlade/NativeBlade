@@ -27,6 +27,7 @@ class NativeBladeServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 Commands\InstallCommand::class,
+                Commands\AddCommand::class,
                 Commands\ConfigCommand::class,
                 Commands\DevCommand::class,
                 Commands\ComponentCommand::class,
