@@ -29,7 +29,6 @@ class InstallCommand extends Command
         $this->publishViteConfig();
         $this->publishDefaultConfigs();
         $this->installNpmDependencies();
-        $this->buildAssets();
         $this->publishDemo();
         $this->updateAppServiceProvider();
         $this->updateBootstrap();
@@ -40,7 +39,8 @@ class InstallCommand extends Command
         $this->info('');
         $this->info('  Next steps:');
         $this->info('    1. Review config in app/Providers/AppServiceProvider.php');
-        $this->info('    2. Run: php artisan nativeblade:dev');
+        $this->info('    2. npm run build');
+        $this->info('    3. php artisan nativeblade:dev');
         $this->info('');
 
         return 0;
@@ -151,21 +151,6 @@ class InstallCommand extends Command
         ], JSON_PRETTY_PRINT));
 
         $this->line("  <fg=green>✓</> Default configs created");
-    }
-
-    private function buildAssets(): void
-    {
-        $this->line('  Building CSS assets...');
-        $cwd = getcwd();
-        chdir(base_path());
-        exec('npm run build 2>&1', $output, $code);
-        chdir($cwd);
-
-        if ($code === 0) {
-            $this->line("  <fg=green>✓</> CSS assets built");
-        } else {
-            $this->line("  <fg=yellow>→</> npm run build failed. Run manually: npm run build");
-        }
     }
 
     private function installNpmDependencies(): void

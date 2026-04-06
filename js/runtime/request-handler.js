@@ -12,8 +12,8 @@ export async function handleRequest(path, options = {}) {
     const php = getInstance();
     if (!php) throw new Error('PHP not initialized');
 
-    const staticResult = tryServeStatic(php, path);
-    if (staticResult) return staticResult;
+    // const staticResult = tryServeStatic(php, path);
+    // if (staticResult) return staticResult;
 
     const method = (options.method || 'GET').toUpperCase();
     const body = options.body || '';

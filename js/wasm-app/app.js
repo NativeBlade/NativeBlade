@@ -30,15 +30,17 @@ async function main() {
         startAutoSync();
 
         try {
-            const { listen } = await import('@tauri-apps/api/event');
-            listen('nativeblade-menu', (event) => {
-                const action = event.payload;
-                if (action.startsWith('/')) {
-                    navigate(action);
-                } else {
-                    handleNativeAction(action, {}, appFrame);
-                }
-            });
+            if (window.__TAURI_INTERNALS__) {
+                const { listen } = await import('@tauri-apps/api/event');
+                await listen('nativeblade-menu', (event) => {
+                    const action = event.payload;
+                    if (action.startsWith('/')) {
+                        navigate(action);
+                    } else {
+                        handleNativeAction(action, {}, appFrame);
+                    }
+                });
+            }
         } catch {}
 
         await navigate('/');
