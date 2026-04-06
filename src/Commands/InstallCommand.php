@@ -71,6 +71,7 @@ class InstallCommand extends Command
         }
 
         $this->publishStub('main.rs.stub', $srcDir . '/main.rs');
+        $this->publishStub('lib.rs.stub', $srcDir . '/lib.rs');
         $this->publishStub('build.rs.stub', $tauriDir . '/build.rs');
         $this->publishStub('Cargo.toml.stub', $tauriDir . '/Cargo.toml', [
             '{{NATIVEBLADE_RUST_PATH}}' => $this->rustCratePath(),

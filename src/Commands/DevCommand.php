@@ -57,7 +57,12 @@ class DevCommand extends Command
         sleep(3);
 
         $this->info('Starting Tauri Android dev...');
-        $configJson = json_encode(['build' => ['devUrl' => "http://{$host}:{$port}"]]);
+        $configJson = json_encode([
+            'build' => [
+                'devUrl' => "http://{$host}:{$port}",
+                'beforeDevCommand' => '',
+            ],
+        ]);
         $escaped = PHP_OS_FAMILY === 'Windows'
             ? '"' . str_replace('"', '\\"', $configJson) . '"'
             : escapeshellarg($configJson);
@@ -75,7 +80,10 @@ class DevCommand extends Command
 
         $this->info('Starting Tauri iOS dev...');
         $this->exec("npx tauri ios dev --config " . escapeshellarg(json_encode([
-            'build' => ['devUrl' => "http://{$host}:{$port}"],
+            'build' => [
+                'devUrl' => "http://{$host}:{$port}",
+                'beforeDevCommand' => '',
+            ],
         ])));
 
         $vite->stop(0);
