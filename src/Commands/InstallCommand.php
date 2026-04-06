@@ -283,7 +283,7 @@ class InstallCommand extends Command
     private function replacePlaceholders(string $content, array $extra = []): string
     {
         $words = preg_split('/[^a-zA-Z0-9]+/', $this->appName, -1, PREG_SPLIT_NO_EMPTY);
-        $crateName = strtolower($words[0] ?? '') . implode('', array_map('ucfirst', array_map('strtolower', array_slice($words, 1))));
+        $crateName = strtolower(implode('_', $words));
 
         $replacements = array_merge([
             '{{APP_NAME}}' => $this->appName,
