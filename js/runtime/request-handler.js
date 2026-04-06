@@ -1,9 +1,19 @@
 import { getInstance } from './php-runtime.js';
 import { detectPlatform } from './filesystem.js';
 
+const STATIC_MIME = {
+    '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+    '.css': 'text/css', '.js': 'application/javascript',
+    '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
+};
+
 export async function handleRequest(path, options = {}) {
     const php = getInstance();
     if (!php) throw new Error('PHP not initialized');
+
+    const staticResult = tryServeStatic(php, path);
+    if (staticResult) return staticResult;
 
     const method = (options.method || 'GET').toUpperCase();
     const body = options.body || '';
@@ -46,6 +56,8 @@ export async function handleRequest(path, options = {}) {
     const result = await php.run({ code });
     let text = result.text || '';
 
+    if (result.errors) console.warn('[NativeBlade PHP Errors]', result.errors);
+
     try {
         const json = JSON.parse(text);
         if (json?.nativeblade && json?.actions) {
@@ -56,6 +68,24 @@ export async function handleRequest(path, options = {}) {
     if (!isJson) text = inlineAssets(text, php);
 
     return { text, errors: result.errors, httpStatusCode: result.httpStatusCode || 200 };
+}
+
+function tryServeStatic(php, path) {
+    const cleanPath = path.split('?')[0];
+    const ext = cleanPath.substring(cleanPath.lastIndexOf('.'));
+    const mime = STATIC_MIME[ext];
+    if (!mime) return null;
+
+    const filePath = '/app/public' + cleanPath;
+    try {
+        const content = php.readFileAsText(filePath);
+        if (content.startsWith('data:')) {
+            return { text: content, errors: '', httpStatusCode: 200 };
+        }
+        return { text: content, errors: '', httpStatusCode: 200 };
+    } catch {
+        return null;
+    }
 }
 
 function inlineAssets(html, php) {
@@ -74,7 +104,7 @@ function inlineAssets(html, php) {
     );
 
     html = html.replace(
-        /<script\s+src="[^"]*\/livewire[^"]*\/livewire(?:\.min)?\.js[^"]*"([^>]*)><\/script>/g,
+        /<script\s+src="[^"]*livewire[^"]*\.js[^"]*"([^>]*)><\/script>/g,
         (m, attrs) => {
             try {
                 let js;
@@ -88,5 +118,17 @@ function inlineAssets(html, php) {
     );
 
     if (inlineJs) html = html.replace('</body>', '<script>' + inlineJs + '</script></body>');
+
+    html = html.replace(
+        /(<img[^>]*src=")https?:\/\/[^"]*\/([^"]+\.(png|jpg|jpeg|gif|svg))("[^>]*>)/gi,
+        (m, before, file, ext, after) => {
+            try {
+                const content = php.readFileAsText('/app/public/' + file);
+                if (content.startsWith('data:')) return before + content + after;
+            } catch {}
+            return m;
+        }
+    );
+
     return html;
 }

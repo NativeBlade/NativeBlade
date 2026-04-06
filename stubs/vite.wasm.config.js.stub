@@ -1,21 +1,42 @@
 import { defineConfig } from 'vite';
 import path from 'path';
+import { readdirSync } from 'fs';
 
+const projectRoot = path.resolve(__dirname);
 const nativebladeBase = path.resolve(__dirname, 'vendor/nativeblade/nativeblade/js');
+const nodeModules = path.join(projectRoot, 'node_modules');
+
+const scopedAliases = {};
+for (const scope of ['@php-wasm', '@tauri-apps']) {
+    const scopePath = path.join(nodeModules, scope);
+    try {
+        for (const pkg of readdirSync(scopePath)) {
+            scopedAliases[`${scope}/${pkg}`] = path.join(scopePath, pkg);
+        }
+    } catch {}
+}
 
 export default defineConfig({
-    root: path.join(nativebladeBase, 'wasm-app'),
+    root: path.resolve(__dirname, 'resources/js'),
     resolve: {
         alias: {
             '@nativeblade': nativebladeBase,
             '@components': path.resolve(__dirname, 'nativeblade-components'),
+            ...scopedAliases,
         },
     },
     server: {
         port: 1420,
         strictPort: true,
         host: '0.0.0.0',
+        fs: {
+            allow: [nativebladeBase, projectRoot],
+        },
     },
+    optimizeDeps: {
+        exclude: ['@php-wasm/web-8-3'],
+    },
+    assetsInclude: ['**/*.so', '**/*.wasm'],
     build: {
         outDir: path.resolve(__dirname, 'dist-wasm'),
         emptyOutDir: true,

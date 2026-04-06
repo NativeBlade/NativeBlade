@@ -72,13 +72,16 @@ class NativeResponse
         return $this;
     }
 
-    public function toResponse(): JsonResponse
+    public function toResponse(): ?JsonResponse
     {
-        $component = Livewire::current();
+        $isLivewireUpdate = request()->is('livewire/update') || request()->header('X-Livewire');
 
-        if ($component) {
-            $component->dispatch('__nativeblade', actions: $this->actions);
-            return response()->json(['ok' => true]);
+        if ($isLivewireUpdate) {
+            $component = Livewire::current();
+            if ($component) {
+                $component->dispatch('__nativeblade', actions: $this->actions);
+                return null;
+            }
         }
 
         return response()->json([

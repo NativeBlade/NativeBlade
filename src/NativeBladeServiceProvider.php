@@ -2,7 +2,6 @@
 
 namespace NativeBlade;
 
-use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -19,7 +18,6 @@ class NativeBladeServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        $this->disableCsrf();
         $this->registerViews();
         $this->registerComponents();
         $this->registerViewComposer();
@@ -86,13 +84,6 @@ class NativeBladeServiceProvider extends ServiceProvider
         if (!empty($viewPaths)) {
             $this->app['view']->addNamespace('nbc', $viewPaths);
         }
-    }
-
-    private function disableCsrf(): void
-    {
-        $this->app->resolving(VerifyCsrfToken::class, function ($middleware) {
-            $middleware->except(['*']);
-        });
     }
 
     public static function packagePath(string $path = ''): string

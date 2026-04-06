@@ -37,7 +37,7 @@ export async function renderAll(components, activePath, appFrame) {
 
 async function tryLoadCustom(name) {
     try {
-        const mod = await import(`../nativeblade-components/${name}/${name}.js`);
+        const mod = await import(`@components/${name}/${name}.js`);
         registry[name] = mod;
     } catch {}
 }

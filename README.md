@@ -35,7 +35,7 @@ NativeBlade lets Laravel developers build **desktop** and **mobile** apps using 
 - PHP 8.3+
 - Laravel 11, 12, or 13
 - Livewire 3
-- Node.js 18+
+- Node.js 20+
 - Rust (for Tauri builds) — [install here](https://www.rust-lang.org/tools/install)
 
 ## Installation

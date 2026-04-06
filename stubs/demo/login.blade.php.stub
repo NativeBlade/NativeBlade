@@ -1,0 +1,36 @@
+<div class="w-full max-w-sm px-6">
+    <div class="text-center mb-8">
+        <img src="{{ asset('logo_nb.png') }}" alt="{{APP_NAME}}" class="w-20 h-20 mx-auto mb-4 rounded-2xl">
+        <h1 class="text-3xl font-bold text-red-400">{{APP_NAME}}</h1>
+        <p class="text-gray-500 mt-2">Sign in to your account</p>
+    </div>
+
+    @if($error)
+        <div class="bg-red-600/20 border border-red-600 text-red-400 px-4 py-2 rounded-lg mb-4 text-sm">
+            {{ $error }}
+        </div>
+    @endif
+
+    <div class="space-y-4">
+        <div>
+            <label class="block text-sm text-gray-400 mb-1">Email</label>
+            <input type="email" wire:model="email"
+                class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-red-500 focus:outline-none"
+                placeholder="admin@admin.com">
+        </div>
+
+        <div>
+            <label class="block text-sm text-gray-400 mb-1">Password</label>
+            <input type="password" wire:model="password"
+                class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-red-500 focus:outline-none"
+                placeholder="123456">
+        </div>
+
+        <button wire:click="login"
+            class="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-semibold">
+            Sign In
+        </button>
+    </div>
+
+    <p class="text-center text-xs text-gray-600 mt-8">admin@admin.com / 123456</p>
+</div>

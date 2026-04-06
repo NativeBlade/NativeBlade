@@ -30,7 +30,6 @@
         "targets": "all",
         "resources": [
             "../.env",
-            "../lang/*.json",
             "menu.json",
             "tray.json"
         ],

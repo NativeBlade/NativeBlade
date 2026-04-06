@@ -1,0 +1,32 @@
+<div>
+<x-nativeblade-header title="{{APP_NAME}}" />
+
+<div class="max-w-2xl mx-auto">
+    <div class="text-center mb-8">
+        <img src="{{ asset('logo_nb.png') }}" alt="{{APP_NAME}}" class="w-16 h-16 mx-auto mb-4 rounded-2xl">
+        <h1 class="text-2xl font-bold">Welcome, {{ $userName }}!</h1>
+        <p class="text-gray-400 mt-2">Your NativeBlade app is running.</p>
+    </div>
+
+    <div class="bg-gray-900 rounded-lg p-4 border border-gray-800 mb-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-400">Signed in as</p>
+                <p class="font-semibold">{{ $userName }}</p>
+            </div>
+            <button wire:click="logout" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm">
+                Sign Out
+            </button>
+        </div>
+    </div>
+
+    <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
+        <h2 class="text-sm text-gray-400 mb-2">System Info</h2>
+        <div class="text-sm space-y-1">
+            <div class="flex justify-between"><span class="text-gray-500">PHP</span><span>{{ PHP_VERSION }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Laravel</span><span>{{ app()->version() }}</span></div>
+            <div class="flex justify-between"><span class="text-gray-500">Mode</span><span class="text-red-400">WASM</span></div>
+        </div>
+    </div>
+</div>
+</div>

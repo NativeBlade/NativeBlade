@@ -1,0 +1,15 @@
+{
+    "splash.loading": "Loading...",
+    "splash.waiting": "Waiting for server... (:attempts)",
+    "splash.connected": "Connected!",
+    "splash.failed": "Failed to connect to server",
+    "boot.runtime": "Loading PHP...",
+    "boot.filesystem": "Preparing files...",
+    "boot.bundle": "Loading application...",
+    "boot.bundle_progress": "Loading files... :loaded/:total",
+    "boot.config": "Configuring...",
+    "boot.migrations": "Updating database...",
+    "boot.state": "Restoring data...",
+    "boot.rendering": "Rendering...",
+    "boot.ready": "Ready!"
+}

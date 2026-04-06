@@ -1,8 +1,8 @@
-import { readFileSync, writeFileSync, statSync, readdirSync } from 'fs';
-import { join, relative, extname } from 'path';
+import { readFileSync, writeFileSync, statSync, readdirSync, lstatSync } from 'fs';
+import { join, relative, extname, resolve } from 'path';
 import { execSync } from 'child_process';
 
-const ROOT = process.argv[2] || 'C:/xampp/htdocs/phpstay';
+const ROOT = process.argv[2] || process.cwd();
 
 try {
     execSync('composer install --no-dev --optimize-autoloader --quiet', { cwd: ROOT, stdio: 'inherit' });
@@ -54,8 +54,15 @@ const EXCLUDE_PATTERNS = [
 const EXCLUDE_EXTENSIONS = [
     '.md', '.txt', '.yml', '.yaml', '.xml', '.neon', '.dist',
     '.lock', '.editorconfig', '.gitignore', '.gitattributes',
-    '.png', '.jpg', '.gif', '.svg', '.ico',
+    '.ico',
 ];
+
+const BINARY_EXTENSIONS = ['.png', '.jpg', '.gif', '.woff', '.woff2', '.ttf'];
+
+const MIME_TYPES = {
+    '.png': 'image/png', '.jpg': 'image/jpeg', '.gif': 'image/gif',
+    '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
+};
 
 const ALWAYS_INCLUDE = [
     /composer\.json$/,
@@ -75,25 +82,28 @@ function shouldInclude(filePath) {
 
     const ext = extname(filePath).toLowerCase();
     if (EXCLUDE_EXTENSIONS.includes(ext)) return false;
+    if (BINARY_EXTENSIONS.includes(ext) && !rel.startsWith('public/')) return false;
 
     return true;
 }
 
-function collectFiles(dir, files = []) {
+function collectFiles(dir, files = [], virtualBase = null) {
     try {
         const entries = readdirSync(dir, { withFileTypes: true });
         for (const entry of entries) {
-            const fullPath = join(dir, entry.name);
-            if (entry.isDirectory()) {
-                const rel = '/' + relative(ROOT, fullPath).replace(/\\/g, '/') + '/';
+            const realFullPath = join(dir, entry.name);
+            const virtualPath = virtualBase ? join(virtualBase, entry.name) : realFullPath;
+            const stat = statSync(realFullPath);
+            if (stat.isDirectory()) {
+                const rel = '/' + relative(ROOT, virtualPath).replace(/\\/g, '/') + '/';
                 let skip = false;
                 for (const pattern of EXCLUDE_PATTERNS) {
                     if (pattern.test(rel)) { skip = true; break; }
                 }
-                if (!skip) collectFiles(fullPath, files);
-            } else if (entry.isFile()) {
-                if (shouldInclude(fullPath)) {
-                    files.push(fullPath);
+                if (!skip) collectFiles(realFullPath, files, virtualPath);
+            } else if (stat.isFile()) {
+                if (shouldInclude(virtualPath)) {
+                    files.push({ real: realFullPath, virtual: virtualPath });
                 }
             }
         }
@@ -119,14 +129,20 @@ for (const file of INCLUDE_FILES) {
 for (const dir of INCLUDE_DIRS) {
     const fullDir = join(ROOT, dir);
     const files = collectFiles(fullDir);
-    for (const file of files) {
-        const rel = '/' + relative(ROOT, file).replace(/\\/g, '/');
+    for (const { real, virtual } of files) {
+        const rel = '/' + relative(ROOT, virtual).replace(/\\/g, '/');
         try {
-            const stat = statSync(file);
+            const stat = statSync(real);
             if (stat.size > 2000000) continue;
-            const content = readFileSync(file, 'utf-8');
-            bundle[rel] = content;
-            totalSize += content.length;
+            const ext = extname(real).toLowerCase();
+            if (BINARY_EXTENSIONS.includes(ext)) {
+                const mime = MIME_TYPES[ext] || 'application/octet-stream';
+                const b64 = readFileSync(real).toString('base64');
+                bundle[rel] = `data:${mime};base64,${b64}`;
+            } else {
+                bundle[rel] = readFileSync(real, 'utf-8');
+            }
+            totalSize += (bundle[rel] || '').length;
             fileCount++;
         } catch {}
     }

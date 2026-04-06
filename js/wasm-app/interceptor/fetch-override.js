@@ -21,6 +21,8 @@ export const code = `
             else path = '/' + url;
         }
         if (!path) path = '/';
+        var method = opts.method||(isReq?url.method:'GET');
+        if (method !== 'GET') console.log('[NativeBlade Fetch Interceptor]', method, path);
         if (path.includes('plugin') || path.includes('__tauri') || path.startsWith('/ipc')) return _orig.call(window, url, opts);
 
         return (isReq ? url.text() : Promise.resolve(opts.body || '')).then(function(body) {

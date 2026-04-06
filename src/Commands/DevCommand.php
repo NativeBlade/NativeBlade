@@ -29,7 +29,7 @@ class DevCommand extends Command
 
         $this->info('Building Laravel bundle...');
         $bundleScript = NativeBladeServiceProvider::packagePath('js/scripts/bundle-laravel.js');
-        $this->exec("node {$bundleScript}");
+        $this->exec("node {$bundleScript} " . base_path());
 
         match ($platform) {
             'desktop' => $this->runDesktop($port),

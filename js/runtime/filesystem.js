@@ -43,7 +43,7 @@ export async function loadBundle(onProgress) {
 export function patchEnv() {
     const php = getInstance();
     let env = php.readFileAsText('/app/.env');
-    env = env.replace(/APP_DEBUG=.*/, 'APP_DEBUG=false');
+    env = env.replace(/APP_DEBUG=.*/, 'APP_DEBUG=true');
     env = env.replace(/DB_CONNECTION=.*/, 'DB_CONNECTION=sqlite');
     env = env.replace(/SESSION_DRIVER=.*/, 'SESSION_DRIVER=file');
     env = env.replace(/CACHE_STORE=.*/, 'CACHE_STORE=file');

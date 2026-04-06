@@ -22,11 +22,17 @@ class InstallCommand extends Command
         $this->appName = $this->ask('App name', config('app.name', 'MyApp'));
         $this->identifier = $this->ask('Identifier (com.example.app)', $this->guessIdentifier());
 
+        $this->installComposerDependencies();
         $this->scaffoldTauri();
         $this->publishLayouts();
+        $this->publishWasmApp();
         $this->publishViteConfig();
         $this->publishDefaultConfigs();
+        $this->installNpmDependencies();
+        $this->buildAssets();
+        $this->publishDemo();
         $this->updateAppServiceProvider();
+        $this->updateBootstrap();
         $this->createDirectories();
 
         $this->info('');
@@ -38,6 +44,18 @@ class InstallCommand extends Command
         $this->info('');
 
         return 0;
+    }
+
+    private function installComposerDependencies(): void
+    {
+        $this->line('  Installing Livewire...');
+        exec('cd ' . escapeshellarg(base_path()) . ' && composer require livewire/livewire 2>&1', $output, $code);
+
+        if ($code === 0) {
+            $this->line("  <fg=green>✓</> Livewire installed");
+        } else {
+            $this->line("  <fg=yellow>→</> Run manually: composer require livewire/livewire");
+        }
     }
 
     private function scaffoldTauri(): void
@@ -59,6 +77,24 @@ class InstallCommand extends Command
         ]);
         $this->publishStub('tauri.conf.json.stub', $tauriDir . '/tauri.conf.json');
 
+        $iconsSource = NativeBladeServiceProvider::packagePath('stubs/icons');
+        if (is_dir($iconsSource)) {
+            foreach (scandir($iconsSource) as $file) {
+                if ($file === '.' || $file === '..') continue;
+                copy("{$iconsSource}/{$file}", "{$tauriDir}/icons/{$file}");
+            }
+        }
+
+        $capsDir = $tauriDir . '/capabilities';
+        if (!is_dir($capsDir)) mkdir($capsDir, 0755, true);
+        $capsSource = NativeBladeServiceProvider::packagePath('stubs/capabilities');
+        if (is_dir($capsSource)) {
+            foreach (scandir($capsSource) as $file) {
+                if ($file === '.' || $file === '..') continue;
+                copy("{$capsSource}/{$file}", "{$capsDir}/{$file}");
+            }
+        }
+
         $this->line("  <fg=green>✓</> src-tauri/ scaffolded");
     }
 
@@ -71,9 +107,21 @@ class InstallCommand extends Command
         }
 
         $this->publishStub('app.blade.php.stub', $layoutDir . '/app.blade.php');
-        $this->publishStub('auth.blade.php.stub', $layoutDir . '/auth.blade.php');
 
         $this->line("  <fg=green>✓</> Blade layouts published");
+    }
+
+    private function publishWasmApp(): void
+    {
+        $dir = resource_path('js');
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        $this->publishStub('wasm-app/index.html', $dir . '/index.html');
+        $this->publishStub('wasm-app/nativeblade.js', $dir . '/nativeblade.js');
+
+        $this->line("  <fg=green>✓</> resources/js/ published (splash + entry point)");
     }
 
     private function publishViteConfig(): void
@@ -102,6 +150,43 @@ class InstallCommand extends Command
         ], JSON_PRETTY_PRINT));
 
         $this->line("  <fg=green>✓</> Default configs created");
+    }
+
+    private function buildAssets(): void
+    {
+        $this->line('  Building CSS assets...');
+        exec('cd ' . escapeshellarg(base_path()) . ' && npm run build 2>&1', $output, $code);
+
+        if ($code === 0) {
+            $this->line("  <fg=green>✓</> CSS assets built");
+        } else {
+            $this->line("  <fg=yellow>→</> Run manually: npm run build");
+        }
+    }
+
+    private function installNpmDependencies(): void
+    {
+        $deps = [
+            '@php-wasm/web@^3.1.15',
+            '@php-wasm/universal@^3.1.15',
+            '@tauri-apps/cli@^2',
+            '@tauri-apps/api@^2',
+            '@tauri-apps/plugin-dialog@^2',
+            '@tauri-apps/plugin-notification@^2',
+            '@tauri-apps/plugin-process@^2',
+            '@tauri-apps/plugin-store@^2',
+        ];
+
+        $this->line('  Installing npm dependencies...');
+        $cmd = 'cd ' . escapeshellarg(base_path()) . ' && npm install ' . implode(' ', $deps) . ' 2>&1';
+        exec($cmd, $output, $code);
+
+        if ($code === 0) {
+            $this->line("  <fg=green>✓</> npm dependencies installed");
+        } else {
+            $this->line("  <fg=yellow>→</> npm install failed, run manually:");
+            $this->line("     npm install " . implode(' ', $deps));
+        }
     }
 
     private function updateAppServiceProvider(): void
@@ -139,6 +224,56 @@ class InstallCommand extends Command
         $this->line("  <fg=green>✓</> AppServiceProvider updated");
     }
 
+    private function updateBootstrap(): void
+    {
+        $path = base_path('bootstrap/app.php');
+        if (!file_exists($path)) return;
+
+        $content = file_get_contents($path);
+
+        if (str_contains($content, 'validateCsrfTokens')) {
+            $this->line("  <fg=yellow>→</> bootstrap/app.php already configured, skipped");
+            return;
+        }
+
+        $content = str_replace(
+            '->withMiddleware(function (Middleware $middleware): void {',
+            "->withMiddleware(function (Middleware \$middleware): void {\n        \$middleware->validateCsrfTokens(except: ['*']);\n        \$middleware->alias(['nb.auth' => \\App\\Http\\Middleware\\NativeBladeAuth::class]);",
+            $content
+        );
+
+        file_put_contents($path, $content);
+        $this->line("  <fg=green>✓</> bootstrap/app.php updated (CSRF disabled)");
+    }
+
+    private function publishDemo(): void
+    {
+        $livewireDir = app_path('Livewire');
+        $viewsDir = resource_path('views/livewire');
+
+        if (!is_dir($livewireDir)) mkdir($livewireDir, 0755, true);
+        if (!is_dir($viewsDir)) mkdir($viewsDir, 0755, true);
+
+        $middlewareDir = app_path('Http/Middleware');
+        if (!is_dir($middlewareDir)) mkdir($middlewareDir, 0755, true);
+
+        $this->publishStub('demo/NativeBladeAuth.php.stub', $middlewareDir . '/NativeBladeAuth.php');
+        $this->publishStub('demo/Login.php.stub', $livewireDir . '/Login.php');
+        $this->publishStub('demo/Home.php.stub', $livewireDir . '/Home.php');
+        $this->publishStub('demo/login.blade.php.stub', $viewsDir . '/login.blade.php');
+        $this->publishStub('demo/home.blade.php.stub', $viewsDir . '/home.blade.php');
+        $this->publishStub('demo/routes.php.stub', base_path('routes/web.php'));
+
+        $logo = NativeBladeServiceProvider::packagePath('logo_nb.png');
+        if (file_exists($logo)) {
+            copy($logo, public_path('logo_nb.png'));
+        }
+
+        @unlink(resource_path('views/welcome.blade.php'));
+
+        $this->line("  <fg=green>✓</> Demo app published (Login + Home)");
+    }
+
     private function createDirectories(): void
     {
         $dirs = [
@@ -149,6 +284,17 @@ class InstallCommand extends Command
         foreach ($dirs as $dir) {
             if (!is_dir($dir)) {
                 mkdir($dir, 0755, true);
+            }
+        }
+
+        $jsLang = resource_path('js/lang');
+        if (!is_dir($jsLang)) mkdir($jsLang, 0755, true);
+
+        $langSource = NativeBladeServiceProvider::packagePath('stubs/lang');
+        if (is_dir($langSource)) {
+            foreach (scandir($langSource) as $file) {
+                if ($file === '.' || $file === '..') continue;
+                copy("{$langSource}/{$file}", "{$jsLang}/{$file}");
             }
         }
 
@@ -164,9 +310,13 @@ class InstallCommand extends Command
 
     private function replacePlaceholders(string $content, array $extra = []): string
     {
+        $crateName = strtolower(preg_replace('/[^a-zA-Z0-9]/', '-', $this->appName));
+        $crateName = trim(preg_replace('/-+/', '-', $crateName), '-');
+
         $replacements = array_merge([
             '{{APP_NAME}}' => $this->appName,
             '{{IDENTIFIER}}' => $this->identifier,
+            '{{CRATE_NAME}}' => $crateName,
         ], $extra);
 
         return str_replace(array_keys($replacements), array_values($replacements), $content);

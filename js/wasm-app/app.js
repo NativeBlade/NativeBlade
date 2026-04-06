@@ -1,3 +1,8 @@
+import './components/bottom-nav/bottom-nav.css';
+import './components/top-bar/top-bar.css';
+import './components/camera/camera.css';
+import './components/drawer/drawer.css';
+
 import { boot, t } from '../runtime/wasm-server.js';
 import { init as initShell } from './shell.js';
 import { init as initBridge, handleNativeAction } from './bridge.js';

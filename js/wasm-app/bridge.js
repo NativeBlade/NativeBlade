@@ -73,7 +73,7 @@ export function handleNativeAction(action, payload, appFrame) {
             if (comp?.render) {
                 comp.render(payload);
             } else {
-                import(`../nativeblade-components/${action}/${action}.js`)
+                import(`@components/${action}/${action}.js`)
                     .then(mod => { if (mod.render) mod.render(payload); })
                     .catch(() => {});
             }

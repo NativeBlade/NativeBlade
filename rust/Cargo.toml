@@ -7,10 +7,10 @@ license = "MIT"
 
 [lib]
 name = "nativeblade"
-crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["rlib"]
 
-[build-dependencies]
-tauri-build = { version = "2", features = [] }
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(mobile)', 'cfg(desktop)', 'cfg(dev)'] }
 
 [dependencies]
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
