@@ -119,12 +119,20 @@ function inlineAssets(html, php) {
 
     if (inlineJs) html = html.replace('</body>', '<script>' + inlineJs + '</script></body>');
 
+    const mimeMap = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml' };
+
     html = html.replace(
-        /(<img[^>]*src=")https?:\/\/[^"]*\/([^"]+\.(png|jpg|jpeg|gif|svg))("[^>]*>)/gi,
+        /(<img[^>]*src=")(?:https?:\/\/[^"]*)?\/([^"]+\.(png|jpg|jpeg|gif|svg))("[^>]*>)/gi,
         (m, before, file, ext, after) => {
             try {
                 const content = php.readFileAsText('/app/public/' + file);
                 if (content.startsWith('data:')) return before + content + after;
+                const mime = mimeMap[ext.toLowerCase()] || 'application/octet-stream';
+                const bytes = php.readFileAsBuffer('/app/public/' + file);
+                let binary = '';
+                for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+                const b64 = btoa(binary);
+                return before + 'data:' + mime + ';base64,' + b64 + after;
             } catch {}
             return m;
         }

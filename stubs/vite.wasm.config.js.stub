@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import path from 'path';
 import { readdirSync } from 'fs';
+import phpHmrPlugin from './vendor/nativeblade/nativeblade/js/vite-plugin-php-hmr.js';
 
 const projectRoot = path.resolve(__dirname);
 const nativebladeBase = path.resolve(__dirname, 'vendor/nativeblade/nativeblade/js');
@@ -17,6 +18,7 @@ for (const scope of ['@php-wasm', '@tauri-apps']) {
 }
 
 export default defineConfig({
+    plugins: [phpHmrPlugin(projectRoot)],
     root: path.resolve(__dirname, 'resources/js'),
     publicDir: path.resolve(__dirname, 'public'),
     resolve: {
