@@ -22,7 +22,6 @@ class NativeBladeServiceProvider extends ServiceProvider
         $this->registerHttpBridge();
         $this->registerViews();
         $this->registerComponents();
-        $this->registerDirectives();
         $this->registerViewComposer();
         $this->discoverCustomComponents();
         $this->discoverPackageComponents();
@@ -90,14 +89,9 @@ class NativeBladeServiceProvider extends ServiceProvider
         Blade::component('nativeblade-drawer', Components\NbDrawer::class);
         Blade::component('nativeblade-drawer-item', Components\NbDrawerItem::class);
         Blade::component('nativeblade-icon', Components\NbIcon::class);
+        Blade::component('nativeblade-image', Components\NbImage::class);
     }
 
-    private function registerDirectives(): void
-    {
-        Blade::directive('nbAsset', function ($expression) {
-            return "<?php echo \\NativeBlade\\NativeBladeServiceProvider::assetToDataUri({$expression}); ?>";
-        });
-    }
 
     private static array $assetCache = [];
 

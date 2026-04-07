@@ -287,19 +287,70 @@ Use the `<x-nativeblade-icon>` component anywhere in your Blade views:
 
 ## Assets
 
-NativeBlade runs inside an iframe with a dynamic origin — standard `asset()` URLs may not resolve during Livewire updates, causing images to disappear. Use the `@nbAsset` directive to inline images as base64 data URIs:
+NativeBlade runs inside an iframe — standard `asset()` URLs break during Livewire updates. Use the `<x-nativeblade-image>` component instead:
 
 ```blade
-{{-- Always works — even during Livewire updates --}}
-<img src="@nbAsset('logo.png')" alt="Logo">
-
-{{-- DON'T use asset() for images in NativeBlade --}}
-<img src="{{ asset('logo.png') }}" alt="Logo">
+<x-nativeblade-image asset="logo.png" alt="Logo" class="w-20 h-20 rounded-2xl" />
 ```
 
-`@nbAsset` reads the file from `public/`, converts it to a base64 data URI, and embeds it directly in the HTML. The image is always available regardless of the rendering context.
+The component converts the image to a base64 data URI, caches it in memory, and adds `wire:ignore.self` automatically so Livewire never breaks the image on re-renders.
+
+| Attribute | Default | Description |
+|-----------|---------|-------------|
+| `asset` | — | File name in `public/` (required) |
+| `alt` | `''` | Alt text |
+| `class` | `''` | CSS classes |
 
 Supported formats: PNG, JPG, GIF, SVG, WebP, ICO.
+
+## Livewire Directives
+
+NativeBlade extends Livewire with custom directives prefixed with `nb-`. No `onclick` or `__nbBridge` needed — everything is declarative in Blade.
+
+### `wire:nb-bridge`
+
+Triggers a native bridge action on click:
+
+```blade
+<button wire:nb-bridge="alert" wire:nb-payload='{"message":"Hello!","title":"Alert"}'>
+    Alert
+</button>
+
+<button wire:nb-bridge="toast" wire:nb-payload='{"message":"Saved!","type":"success"}'>
+    Toast
+</button>
+
+<button wire:nb-bridge="notification" wire:nb-payload='{"body":"New message","sound":"default"}'>
+    Push
+</button>
+
+<button wire:nb-bridge="vibrate" wire:nb-payload='{"duration":100}'>
+    Vibrate
+</button>
+
+<button wire:nb-bridge="scan">
+    Scan QR
+</button>
+
+<button wire:nb-bridge="clipboard_write" wire:nb-payload='{"text":"Copied!"}'>
+    Copy
+</button>
+
+<button wire:nb-bridge="open_url" wire:nb-payload='{"url":"https://github.com"}'>
+    Open
+</button>
+```
+
+### `wire:nb-navigate`
+
+Navigates using NativeBlade's internal history stack:
+
+```blade
+<button wire:nb-navigate="/users">Users</button>
+<button wire:nb-navigate="/settings">Settings</button>
+```
+
+> **Note:** Use `wire:nb-navigate` instead of standard `wire:navigate` — Livewire's built-in navigation doesn't work in the WASM context.
 
 ---
 

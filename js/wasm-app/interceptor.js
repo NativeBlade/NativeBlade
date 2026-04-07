@@ -87,6 +87,41 @@ export function inject(html) {
             window.Livewire.dispatch(event, payload);
         }
     });
+
+    function __nbRegisterDirectives() {
+        if (!window.Livewire) return;
+
+        Livewire.directive('nb-bridge', function(ctx) {
+            var action = ctx.directive.expression;
+            var handler = function() {
+                var p = ctx.el.getAttribute('wire:nb-payload');
+                var payload = p ? JSON.parse(p) : {};
+                window.parent.postMessage({ type: 'nativeblade-native', action: action, payload: payload }, '*');
+            };
+            ctx.el.addEventListener('click', handler);
+            ctx.cleanup(function() { ctx.el.removeEventListener('click', handler); });
+        });
+
+        Livewire.directive('nb-navigate', function(ctx) {
+            var path = ctx.directive.expression;
+            var handler = function(e) {
+                e.preventDefault();
+                window.parent.postMessage({ type: 'nativeblade-navigate', path: path }, '*');
+            };
+            ctx.el.addEventListener('click', handler);
+            ctx.cleanup(function() { ctx.el.removeEventListener('click', handler); });
+        });
+
+        Livewire.directive('nb-asset', function(ctx) {
+            ctx.el.setAttribute('wire:ignore.self', '');
+        });
+    }
+
+    if (document.readyState === 'complete') {
+        __nbRegisterDirectives();
+    } else {
+        document.addEventListener('DOMContentLoaded', __nbRegisterDirectives);
+    }
 })();
 <\/script>`;
     return html.replace('<head>', '<head><base href="http://localhost/">' + script);
