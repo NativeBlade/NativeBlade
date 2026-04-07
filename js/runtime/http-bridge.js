@@ -21,31 +21,42 @@ export async function fulfill(php) {
     abortController = new AbortController();
 
     try {
-        const pending = JSON.parse(php.readFileAsText(PENDING_PATH));
-        if (!pending?.url) {
+        const pendingList = JSON.parse(php.readFileAsText(PENDING_PATH));
+        if (!Array.isArray(pendingList) || pendingList.length === 0) {
             cleanup(php);
             return false;
         }
 
-        const options = { method: pending.method || 'GET', signal: abortController.signal };
-        if (pending.headers && Object.keys(pending.headers).length) {
-            options.headers = pending.headers;
-        }
-        if (pending.body) {
-            options.body = pending.body;
-        }
+        const signal = abortController.signal;
 
-        const response = await nativeFetch(pending.url, options);
-        const body = await response.text();
+        const fetches = pendingList.map(async (pending) => {
+            const options = { method: pending.method || 'GET', signal };
+            if (pending.headers && Object.keys(pending.headers).length) {
+                options.headers = pending.headers;
+            }
+            if (pending.body) {
+                options.body = pending.body;
+            }
 
-        const cached = JSON.stringify({
-            status: response.status,
-            headers: Object.fromEntries(response.headers.entries()),
-            body,
+            const response = await nativeFetch(pending.url, options);
+            const body = await response.text();
+
+            return {
+                key: pending.key,
+                data: {
+                    status: response.status,
+                    headers: Object.fromEntries(response.headers.entries()),
+                    body,
+                },
+            };
         });
 
+        const results = await Promise.all(fetches);
+
         try { php.mkdirTree(CACHE_DIR); } catch {}
-        php.writeFile(`${CACHE_DIR}/${pending.key}.json`, cached);
+        for (const { key, data } of results) {
+            php.writeFile(`${CACHE_DIR}/${key}.json`, JSON.stringify(data));
+        }
         try { php.unlink(PENDING_PATH); } catch {}
 
         abortController = null;

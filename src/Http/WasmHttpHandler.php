@@ -3,6 +3,7 @@
 namespace NativeBlade\Http;
 
 use GuzzleHttp\Promise\FulfilledPromise;
+use GuzzleHttp\Promise\Promise;
 use GuzzleHttp\Psr7\Response;
 use Psr\Http\Message\RequestInterface;
 
@@ -11,7 +12,37 @@ class WasmHttpHandler
     private const PENDING_FILE = '/tmp/__nb_http_pending.json';
     private const CACHE_DIR = '/tmp/__nb_http_cache';
 
-    public function __invoke(RequestInterface $request, array $options): FulfilledPromise
+    private static bool $poolMode = false;
+    private static array $pendingRequests = [];
+
+    public static function enablePool(): void
+    {
+        self::$poolMode = true;
+        self::$pendingRequests = [];
+    }
+
+    public static function flushPool(): void
+    {
+        if (empty(self::$pendingRequests)) {
+            self::$poolMode = false;
+            return;
+        }
+
+        if (!is_dir(self::CACHE_DIR)) {
+            @mkdir(self::CACHE_DIR, 0777, true);
+        }
+
+        file_put_contents(self::PENDING_FILE, json_encode(self::$pendingRequests));
+
+        self::$poolMode = false;
+        self::$pendingRequests = [];
+
+        header('X-NativeBlade-Http-Bridge: pending');
+        echo '__NB_HTTP_PENDING__';
+        exit(0);
+    }
+
+    public function __invoke(RequestInterface $request, array $options)
     {
         $url = (string) $request->getUri();
         $method = $request->getMethod();
@@ -36,10 +67,6 @@ class WasmHttpHandler
             return new FulfilledPromise($response);
         }
 
-        if (!is_dir(self::CACHE_DIR)) {
-            @mkdir(self::CACHE_DIR, 0777, true);
-        }
-
         $pending = [
             'key' => $key,
             'url' => $url,
@@ -48,7 +75,17 @@ class WasmHttpHandler
             'body' => $body ?: null,
         ];
 
-        file_put_contents(self::PENDING_FILE, json_encode($pending));
+        if (self::$poolMode) {
+            self::$pendingRequests[] = $pending;
+            return new FulfilledPromise(new Response(0, [], ''));
+        }
+
+        // Single request mode
+        if (!is_dir(self::CACHE_DIR)) {
+            @mkdir(self::CACHE_DIR, 0777, true);
+        }
+
+        file_put_contents(self::PENDING_FILE, json_encode([$pending]));
 
         header('X-NativeBlade-Http-Bridge: pending');
         echo '__NB_HTTP_PENDING__';

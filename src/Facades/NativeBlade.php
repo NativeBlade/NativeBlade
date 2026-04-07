@@ -31,6 +31,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static array state(?string $scope = null)
  * @method static void forget(string $key)
  * @method static void flush(?string $scope = null)
+ * @method static array pool(callable $callback)
  */
 class NativeBlade extends Facade
 {

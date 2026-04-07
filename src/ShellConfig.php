@@ -170,6 +170,14 @@ class ShellConfig
         }
     }
 
+    public function pool(callable $callback): array
+    {
+        Http\WasmHttpHandler::enablePool();
+        $results = \Illuminate\Support\Facades\Http::pool($callback);
+        Http\WasmHttpHandler::flushPool();
+        return $results;
+    }
+
     private function ensureTable(): void
     {
         DB::statement('CREATE TABLE IF NOT EXISTS nativeblade_state (key TEXT PRIMARY KEY, value TEXT, scope TEXT DEFAULT \'persistent\')');
