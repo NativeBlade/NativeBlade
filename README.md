@@ -473,106 +473,77 @@ class Home extends Component
 
 ## Native Actions
 
-NativeBlade provides two ways to trigger native functionality from Blade templates:
-
-### `__nbBridge(action, payload)` — Direct Native Action
-
-Executes immediately on the client side:
-
-```blade
-{{-- Alert dialog --}}
-<button onclick="__nbBridge('alert', { message: 'Hello!', title: 'Info' })">
-    Show Alert
-</button>
-
-{{-- Native notification --}}
-<button onclick="__nbBridge('notification', { title: 'Done', body: 'Task completed' })">
-    Notify
-</button>
-
-{{-- Navigate --}}
-<button onclick="__nbBridge('navigate', { path: '/settings' })">
-    Go to Settings
-</button>
-
-{{-- Camera --}}
-<button onclick="__nbBridge('camera')">Take Photo</button>
-<button onclick="__nbBridge('gallery')">Pick from Gallery</button>
-
-{{-- Exit app --}}
-<button onclick="__nbBridge('exit')">Quit</button>
-```
-
-### `__nbAction(url, method?, body?)` — Backend-Driven Action
-
-Calls a Laravel route that returns a `NativeResponse`:
-
-```blade
-<button onclick="__nbAction('/api/export')">Export Data</button>
-<button onclick="__nbAction('/api/logout', 'POST')">Logout</button>
-```
-
-```php
-// routes/web.php
-Route::post('/api/export', function () {
-    // ... do work ...
-    return NativeBlade::alert('Export complete!')
-        ->title('Success')
-        ->toResponse();
-});
-```
-
-### Available Actions
-
-| Action | Payload | Description |
-|--------|---------|-------------|
-| `alert` | `{message, title?, kind?}` | Native alert dialog |
-| `notification` | `{title, body}` | System notification |
-| `confirm` | `{message, title?}` | Confirm dialog (returns result) |
-| `navigate` | `{path}` | Navigate to route |
-| `camera` | `{quality?, maxWidth?}` | Open camera |
-| `gallery` | — | Open image picker |
-| `exit` | — | Close application |
-
----
-
-## NativeResponse
-
-`NativeResponse` is a fluent API for triggering native actions from PHP. It works transparently in both **controllers** and **Livewire components**:
+Use `wire:nb-bridge` directives in Blade (see [Livewire Directives](#livewire-directives)) or `NativeResponse` from PHP:
 
 ```php
 use NativeBlade\Facades\NativeBlade;
 
-// In a Controller — returns JSON intercepted by the fetch override
-return NativeBlade::navigate('/dashboard')->toResponse();
-
-// In a Livewire component — automatically dispatches via Livewire events
+// Works in both Controllers and Livewire components
+NativeBlade::alert('Export complete!')->title('Success')->toResponse();
+NativeBlade::notification('Task completed')->toResponse();
 NativeBlade::navigate('/dashboard')->toResponse();
-
-// Same API everywhere. NativeBlade detects the context automatically.
+NativeBlade::navigate('/', replace: true)->toResponse(); // no back navigation
 ```
 
-### Chaining Actions
+### Available Actions
+
+| Action | Blade directive | PHP method |
+|--------|----------------|------------|
+| Alert dialog | `wire:nb-bridge="alert"` | `NativeBlade::alert($msg)` |
+| Notification | `wire:nb-bridge="notification"` | `NativeBlade::notification($body)` |
+| Confirm dialog | `wire:nb-bridge="confirm"` | — |
+| Navigate | `wire:nb-navigate="/path"` | `NativeBlade::navigate($path)` |
+| Navigate (replace) | `wire:nb-navigate.replace="/path"` | `NativeBlade::navigate($path, replace: true)` |
+| Clipboard copy | `wire:nb-bridge="clipboard_write"` | — |
+| Clipboard paste | `wire:nb-bridge="clipboard_read"` | — |
+| Geolocation | `wire:nb-bridge="geolocation"` | — |
+| Vibrate | `wire:nb-bridge="vibrate"` | — |
+| Impact feedback | `wire:nb-bridge="impact"` | — |
+| Biometric auth | `wire:nb-bridge="biometric"` | — |
+| QR/Barcode scan | `wire:nb-bridge="scan"` | — |
+| NFC read | `wire:nb-bridge="nfc_read"` | — |
+| Open URL | `wire:nb-bridge="open_url"` | — |
+| OS info | `wire:nb-bridge="os_info"` | — |
+| Camera | `wire:nb-bridge="camera"` | — |
+| Exit app | `wire:nb-bridge="exit"` | `NativeBlade::exit()` |
+
+### Receiving results in Livewire
+
+Bridge actions that return data dispatch Livewire events automatically:
 
 ```php
-return NativeBlade::alert('Data exported successfully!')
-    ->title('Export')
-    ->navigate('/downloads')
-    ->toResponse();
+use Livewire\Attributes\On;
+
+#[On('nb:scan')]
+public function onScan($result) {
+    $this->qrCode = $result['content'] ?? '';
+}
+
+#[On('nb:geolocation')]
+public function onLocation($position) {
+    $this->lat = $position['coords']['latitude'] ?? null;
+}
+
+#[On('nb:clipboard')]
+public function onClipboard($text) {
+    $this->pastedText = $text ?? '';
+}
+
+#[On('nb:biometric')]
+public function onBiometric($success) {
+    $this->authenticated = $success ?? false;
+}
+
+#[On('nb:os-info')]
+public function onOsInfo($info) {
+    $this->osInfo = $info ?? [];
+}
+
+#[On('nb:confirm-result')]
+public function onConfirm($confirmed) {
+    $this->confirmed = $confirmed ?? false;
+}
 ```
-
-### Available Methods
-
-| Method | Description |
-|--------|-------------|
-| `alert(message)` | Show native alert |
-| `title(string)` | Set title for last action |
-| `confirm(label)` | Set confirm button label |
-| `cancel(label)` | Set cancel button label |
-| `notification(body)` | System notification |
-| `navigate(path)` | Navigate to route |
-| `exit()` | Close application |
-| `toResponse()` | Execute (auto-detects Controller vs Livewire) |
 
 ---
 
