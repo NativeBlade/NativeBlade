@@ -985,10 +985,9 @@ NativeBlade runs Laravel inside PHP WebAssembly — there is no real server. Thi
 
 ### Works via HTTP Bridge
 
-Laravel's `Http` facade works transparently through a bridge that routes requests through the native Tauri shell:
+Laravel's `Http` facade works transparently through a bridge. Since PHP WASM can't make network requests directly, NativeBlade intercepts `Http` calls and routes them through JavaScript:
 
 ```php
-// This just works — the bridge handles it automatically
 $response = Http::get('https://api.github.com/users');
 $users = $response->json();
 
@@ -997,7 +996,81 @@ $response = Http::post('https://api.example.com/orders', [
 ]);
 ```
 
-Each `Http` call triggers a re-execution cycle (PHP signals the request, JS fulfills it, PHP re-runs with the cached response). For N external requests, there are N+1 PHP executions. This is transparent to your code but worth knowing for performance.
+**How it works under the hood:**
+
+1. PHP calls `Http::get()` → no network available → writes the request to a temp file → exits
+2. JavaScript picks up the pending request → makes a real `fetch()` → caches the response
+3. PHP re-executes → finds the cached response → returns it to your code
+
+This is fully transparent — your code uses standard Laravel `Http` without any changes.
+
+**Sequential vs Parallel:**
+
+Each individual `Http` call triggers one re-execution cycle. For N sequential requests, there are N+1 PHP executions:
+
+```php
+// Sequential — 3 requests = 4 PHP executions
+$users = Http::get('https://api.com/users');
+$posts = Http::get('https://api.com/posts');
+$stats = Http::get('https://api.com/stats');
+```
+
+For better performance, use `NativeBlade::pool()` to run all requests in parallel with a single re-execution:
+
+```php
+// Parallel — 3 requests = 2 PHP executions (always)
+$responses = NativeBlade::pool(fn ($pool) => [
+    $pool->get('https://api.com/users'),
+    $pool->get('https://api.com/posts'),
+    $pool->get('https://api.com/stats'),
+]);
+
+$users = $responses[0]->json();
+$posts = $responses[1]->json();
+$stats = $responses[2]->json();
+```
+
+With `pool()`, all requests are collected in the first execution, JavaScript fetches them all simultaneously via `Promise.all()`, and the second execution has every response cached.
+
+**Best practice for pages with external data:**
+
+Use `wire:init` to keep navigation instant while data loads in the background:
+
+```php
+class Dashboard extends Component
+{
+    public array $users = [];
+    public bool $loading = true;
+
+    // Don't fetch in mount() — it blocks navigation
+    public function loadData()
+    {
+        $responses = NativeBlade::pool(fn ($pool) => [
+            $pool->get('https://api.com/users'),
+            $pool->get('https://api.com/stats'),
+        ]);
+
+        $this->users = $responses[0]->json();
+        $this->loading = false;
+    }
+
+    public function render()
+    {
+        return view('livewire.dashboard');
+    }
+}
+```
+
+```blade
+{{-- Page renders immediately with skeleton, data loads async --}}
+<div wire:init="loadData">
+    @if($loading)
+        {{-- skeleton --}}
+    @else
+        {{-- real content --}}
+    @endif
+</div>
+```
 
 ### Does not work (not planned)
 
