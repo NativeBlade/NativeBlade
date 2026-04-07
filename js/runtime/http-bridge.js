@@ -66,32 +66,13 @@ export function abort() {
     retryCount = 0;
 }
 
-let cacheTimer = null;
-
 export function done(php) {
     retryCount = 0;
     abortController = null;
-    if (cacheTimer) clearTimeout(cacheTimer);
-    cacheTimer = setTimeout(() => {
-        clearCache(php);
-        cacheTimer = null;
-    }, 10000);
 }
 
 function cleanup(php) {
     retryCount = 0;
     abortController = null;
     try { php.unlink(PENDING_PATH); } catch {}
-    clearCache(php);
-}
-
-function clearCache(php) {
-    try {
-        const files = php.listFiles(CACHE_DIR);
-        for (const f of files) {
-            if (f !== '.' && f !== '..') {
-                try { php.unlink(CACHE_DIR + '/' + f); } catch {}
-            }
-        }
-    } catch {}
 }
