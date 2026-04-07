@@ -69,10 +69,23 @@ export function abort() {
 export function done(php) {
     retryCount = 0;
     abortController = null;
+    clearCache(php);
 }
 
 function cleanup(php) {
     retryCount = 0;
     abortController = null;
     try { php.unlink(PENDING_PATH); } catch {}
+    clearCache(php);
+}
+
+function clearCache(php) {
+    try {
+        const files = php.listFiles(CACHE_DIR);
+        for (const f of files) {
+            if (f !== '.' && f !== '..') {
+                try { php.unlink(CACHE_DIR + '/' + f); } catch {}
+            }
+        }
+    } catch {}
 }

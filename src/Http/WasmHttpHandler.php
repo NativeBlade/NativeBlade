@@ -26,7 +26,6 @@ class WasmHttpHandler
 
         if (file_exists($cachePath)) {
             $data = json_decode(file_get_contents($cachePath), true);
-            @unlink($cachePath);
 
             $response = new Response(
                 $data['status'] ?? 200,
