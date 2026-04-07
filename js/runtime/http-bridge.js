@@ -66,10 +66,16 @@ export function abort() {
     retryCount = 0;
 }
 
+let cacheTimer = null;
+
 export function done(php) {
     retryCount = 0;
     abortController = null;
-    clearCache(php);
+    if (cacheTimer) clearTimeout(cacheTimer);
+    cacheTimer = setTimeout(() => {
+        clearCache(php);
+        cacheTimer = null;
+    }, 10000);
 }
 
 function cleanup(php) {

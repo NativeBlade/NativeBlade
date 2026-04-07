@@ -4,7 +4,7 @@ import { applyConfig } from './shell.js';
 import { handleNativeAction } from './bridge.js';
 import { extractShellConfig, inject } from './interceptor.js';
 import { abort as abortHttpBridge } from '../runtime/http-bridge.js';
-import { setOnBridgeComplete } from '../runtime/request-handler.js';
+import { setOnBridgeComplete, setCurrentPagePath } from '../runtime/request-handler.js';
 
 let appFrame = null;
 let splash = null;
@@ -79,6 +79,7 @@ export async function navigate(path, options = {}) {
 async function navigateInternal(path, options = {}) {
     abortHttpBridge();
     currentPath = path;
+    setCurrentPagePath(path);
     const version = ++navigationVersion;
     const response = await request(path, options);
 

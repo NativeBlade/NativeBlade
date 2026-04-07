@@ -3,9 +3,14 @@ import { detectPlatform } from './filesystem.js';
 import * as httpBridge from './http-bridge.js';
 
 let onBridgeComplete = null;
+let currentPagePath = '/';
 
 export function setOnBridgeComplete(fn) {
     onBridgeComplete = fn;
+}
+
+export function setCurrentPagePath(path) {
+    currentPagePath = path;
 }
 
 const STATIC_MIME = {
@@ -63,7 +68,8 @@ export async function handleRequest(path, options = {}) {
     if (result.errors) console.warn('[NativeBlade PHP Errors]', result.errors);
 
     if (await httpBridge.hasPendingRequest(php, text)) {
-        resolveBridgeInBackground(php, path, options);
+        const pagePath = currentPagePath;
+        fulfillInBackground(php, pagePath);
         return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
     }
     httpBridge.done(php);
@@ -80,34 +86,10 @@ export async function handleRequest(path, options = {}) {
     return { text, errors: result.errors, httpStatusCode: result.httpStatusCode || 200 };
 }
 
-async function resolveBridgeInBackground(php, path, options) {
+async function fulfillInBackground(php, pagePath) {
     const fulfilled = await httpBridge.fulfill(php);
-    if (!fulfilled) {
-        httpBridge.done(php);
-        return;
-    }
-    const result = await handleRequest(path, options);
-    if (result.bridgePending) return;
-    httpBridge.done(php);
-    if (onBridgeComplete) onBridgeComplete(path);
-}
-
-function tryServeStatic(php, path) {
-    const cleanPath = path.split('?')[0];
-    const ext = cleanPath.substring(cleanPath.lastIndexOf('.'));
-    const mime = STATIC_MIME[ext];
-    if (!mime) return null;
-
-    const filePath = '/app/public' + cleanPath;
-    try {
-        const content = php.readFileAsText(filePath);
-        if (content.startsWith('data:')) {
-            return { text: content, errors: '', httpStatusCode: 200 };
-        }
-        return { text: content, errors: '', httpStatusCode: 200 };
-    } catch {
-        return null;
-    }
+    if (!fulfilled) return;
+    if (onBridgeComplete) onBridgeComplete(pagePath);
 }
 
 function inlineAssets(html, php) {
