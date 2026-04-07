@@ -14,12 +14,14 @@
         "clipboard-manager:allow-read-text",
         "clipboard-manager:allow-write-text",
         "fs:default",
-        "geolocation:allow-get-current-position",
-        "geolocation:allow-watch-position",
         "opener:default",
         "os:default",
         "http:default",
         "deep-link:default",
-        "upload:default"
+        "upload:default",
+        "geolocation:allow-check-permissions",
+        "geolocation:allow-request-permissions",
+        "geolocation:allow-get-current-position",
+        "geolocation:allow-watch-position"
     ]
 }
