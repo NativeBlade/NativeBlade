@@ -24,6 +24,7 @@ class NativeBladeServiceProvider extends ServiceProvider
         $this->registerComponents();
         $this->registerViewComposer();
         $this->discoverCustomComponents();
+        $this->discoverPackageComponents();
 
         if ($this->app->runningInConsole()) {
             $this->commands([
@@ -125,6 +126,49 @@ class NativeBladeServiceProvider extends ServiceProvider
 
         if (!empty($viewPaths)) {
             $this->app['view']->addNamespace('nbc', $viewPaths);
+        }
+    }
+
+    private function discoverPackageComponents(): void
+    {
+        $installed = base_path('vendor/composer/installed.json');
+        if (!file_exists($installed)) return;
+
+        $data = json_decode(file_get_contents($installed), true);
+        $packages = $data['packages'] ?? $data;
+
+        foreach ($packages as $package) {
+            $extra = $package['extra']['nativeblade'] ?? null;
+            if (!$extra) continue;
+
+            $packageName = $package['name'] ?? '';
+            $packagePath = base_path('vendor/' . $packageName);
+
+            if (!empty($extra['components'])) {
+                foreach ($extra['components'] as $name => $class) {
+                    if (class_exists($class)) {
+                        Blade::component("nativeblade-{$name}", $class);
+                    }
+                }
+            }
+
+            if (!empty($extra['views'])) {
+                $viewPath = $packagePath . '/' . ltrim($extra['views'], '/');
+                if (is_dir($viewPath)) {
+                    $prefix = Str::slug(str_replace('/', '-', $packageName));
+                    $this->app['view']->addNamespace("nb-{$prefix}", $viewPath);
+                }
+            }
+
+            if (!empty($extra['js'])) {
+                $jsPaths = (array) $extra['js'];
+                foreach ($jsPaths as $name => $jsFile) {
+                    $fullPath = $packagePath . '/' . ltrim($jsFile, '/');
+                    if (file_exists($fullPath)) {
+                        config(["nativeblade.package_js.{$name}" => $fullPath]);
+                    }
+                }
+            }
         }
     }
 

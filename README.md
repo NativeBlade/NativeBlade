@@ -698,6 +698,39 @@ nativeblade-components/
 </x-nativeblade-stat-card>
 ```
 
+### Publishing a Component Package
+
+You can publish your own NativeBlade components as Composer packages. The community can install them with `composer require` and they work automatically.
+
+Your package just needs a `composer.json` with the `nativeblade` extra pointing to the component folder:
+
+```json
+{
+    "name": "your-vendor/your-component",
+    "extra": {
+        "nativeblade": {
+            "components": {
+                "your-component": "your-component"
+            }
+        }
+    }
+}
+```
+
+The component folder follows the same structure as `php artisan nativeblade:component`:
+
+```
+your-component/
+├── YourComponent.php        ← PHP class (namespace App\NativeBlade\Components)
+├── your-component.blade.php ← Blade template
+├── your-component.js        ← Shell JS (if shell component)
+└── your-component.css       ← Styles (if shell component)
+```
+
+When the user runs `php artisan nativeblade:dev`, the component is automatically synced to `nativeblade-components/` and available as `<x-nativeblade-your-component />`.
+
+See [nativeblade/nativeblade-toast](https://github.com/NativeBlade/nativeblade-toast) as an example of a published shell component.
+
 ---
 
 ## Navigation

@@ -34,6 +34,8 @@ class DevCommand extends Command
             file_put_contents($distDir . '/index.html', '<!-- dev mode placeholder -->');
         }
 
+        $synced = $this->syncPackageComponents();
+
         $this->info('Building Laravel bundle...');
         $bundleScript = NativeBladeServiceProvider::packagePath('js/scripts/bundle-laravel.js');
         $this->exec("node {$bundleScript} " . base_path());
@@ -165,5 +167,70 @@ class DevCommand extends Command
         }
 
         $this->newLine();
+    }
+
+    private function syncPackageComponents(): array
+    {
+        $installedPath = base_path('vendor/composer/installed.json');
+        if (!file_exists($installedPath)) return [];
+
+        $data = json_decode(file_get_contents($installedPath), true);
+        $packages = $data['packages'] ?? $data;
+        $names = [];
+
+        foreach ($packages as $package) {
+            $nb = $package['extra']['nativeblade'] ?? null;
+            if (!$nb || empty($nb['components'])) continue;
+
+            $pkgPath = base_path('vendor/' . ($package['name'] ?? ''));
+
+            foreach ($nb['components'] as $name => $folder) {
+                $srcDir = $pkgPath . '/' . ltrim($folder, '/');
+                if (!is_dir($srcDir)) continue;
+
+                $destDir = base_path("nativeblade-components/{$name}");
+
+                if (is_dir($destDir)) {
+                    foreach (scandir($destDir) as $old) {
+                        if ($old === '.' || $old === '..') continue;
+                        @unlink("{$destDir}/{$old}");
+                    }
+                } else {
+                    mkdir($destDir, 0755, true);
+                }
+
+                foreach (scandir($srcDir) as $file) {
+                    if ($file === '.' || $file === '..') continue;
+                    copy("{$srcDir}/{$file}", "{$destDir}/{$file}");
+                }
+
+                $names[] = $name;
+            }
+        }
+
+        if (!empty($names)) {
+            $this->newLine();
+            $this->line('  <fg=cyan;options=bold>External Components</>');
+            foreach ($names as $name) {
+                $this->line("  <fg=green>✓</> {$name}");
+            }
+            $this->newLine();
+        }
+
+        return $names;
+    }
+
+    private function cleanupPackageComponents(array $names): void
+    {
+        foreach ($names as $name) {
+            $dir = base_path("nativeblade-components/{$name}");
+            if (!is_dir($dir)) continue;
+
+            foreach (scandir($dir) as $file) {
+                if ($file === '.' || $file === '..') continue;
+                @unlink("{$dir}/{$file}");
+            }
+            @rmdir($dir);
+        }
     }
 }
