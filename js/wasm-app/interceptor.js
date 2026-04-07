@@ -75,6 +75,18 @@ export function inject(html) {
             __nbBridge(a.action.replace('so:', ''), a.data);
         });
     });
+
+    window.addEventListener('message', function(e) {
+        if (!e.data || !e.data.type) return;
+        var t = e.data.type;
+        if (t.indexOf('nativeblade-') !== 0) return;
+        var event = t.replace('nativeblade-', 'nb:');
+        var payload = Object.assign({}, e.data);
+        delete payload.type;
+        if (window.Livewire) {
+            window.Livewire.dispatch(event, payload);
+        }
+    });
 })();
 <\/script>`;
     return html.replace('<head>', '<head><base href="http://localhost/">' + script);

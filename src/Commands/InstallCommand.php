@@ -32,6 +32,7 @@ class InstallCommand extends Command
         $this->publishDemo();
         $this->updateAppServiceProvider();
         $this->updateBootstrap();
+        $this->patchTailwindSources();
         $this->createDirectories();
 
         $this->info('');
@@ -166,6 +167,18 @@ class InstallCommand extends Command
             '@tauri-apps/plugin-notification@^2',
             '@tauri-apps/plugin-process@^2',
             '@tauri-apps/plugin-store@^2',
+            '@tauri-apps/plugin-clipboard-manager@^2',
+            '@tauri-apps/plugin-fs@^2',
+            '@tauri-apps/plugin-geolocation@^2',
+            '@tauri-apps/plugin-haptics@^2',
+            '@tauri-apps/plugin-biometric@^2',
+            '@tauri-apps/plugin-barcode-scanner@^2',
+            '@tauri-apps/plugin-nfc@^2',
+            '@tauri-apps/plugin-opener@^2',
+            '@tauri-apps/plugin-os@^2',
+            '@tauri-apps/plugin-http@^2',
+            '@tauri-apps/plugin-deep-link@^2',
+            '@tauri-apps/plugin-upload@^2',
         ];
 
         $this->line('  Installing npm dependencies...');
@@ -244,9 +257,11 @@ class InstallCommand extends Command
         $this->publishStub('demo/Login.php.stub', $livewireDir . '/Login.php');
         $this->publishStub('demo/Home.php.stub', $livewireDir . '/Home.php');
         $this->publishStub('demo/Users.php.stub', $livewireDir . '/Users.php');
+        $this->publishStub('demo/Tests.php.stub', $livewireDir . '/Tests.php');
         $this->publishStub('demo/login.blade.php.stub', $viewsDir . '/login.blade.php');
         $this->publishStub('demo/home.blade.php.stub', $viewsDir . '/home.blade.php');
         $this->publishStub('demo/users.blade.php.stub', $viewsDir . '/users.blade.php');
+        $this->publishStub('demo/tests.blade.php.stub', $viewsDir . '/tests.blade.php');
         $this->publishStub('demo/routes.php.stub', base_path('routes/web.php'));
 
         $logo = NativeBladeServiceProvider::packagePath('logo_nb.png');
@@ -257,6 +272,33 @@ class InstallCommand extends Command
         @unlink(resource_path('views/welcome.blade.php'));
 
         $this->line("  <fg=green>✓</> Demo app published (Login + Home)");
+    }
+
+    private function patchTailwindSources(): void
+    {
+        $cssPath = resource_path('css/app.css');
+        if (!file_exists($cssPath)) return;
+
+        $content = file_get_contents($cssPath);
+
+        if (str_contains($content, 'nativeblade')) {
+            $this->line("  <fg=yellow>→</> Tailwind sources already patched, skipped");
+            return;
+        }
+
+        $sources = "@source '../../vendor/nativeblade/nativeblade/src/**/*.php';\n"
+            . "@source '../../vendor/nativeblade/nativeblade/resources/**/*.blade.php';\n"
+            . "@source '../../nativeblade-components/**/*.blade.php';";
+
+        $content = preg_replace(
+            "/(@source\s+'\.\.\/\*\*\/\*\.blade\.php';)/",
+            "$1\n" . $sources,
+            $content,
+            1
+        );
+
+        file_put_contents($cssPath, $content);
+        $this->line("  <fg=green>✓</> Tailwind sources patched");
     }
 
     private function createDirectories(): void

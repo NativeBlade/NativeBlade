@@ -47,8 +47,13 @@ class ConfigCommand extends Command
         if (isset($desktop['icon'])) {
             $iconSrc = base_path($desktop['icon']);
             if (file_exists($iconSrc)) {
-                exec("npx tauri icon {$iconSrc}");
-                $this->line("  <fg=green>✓</> Icons generated from {$desktop['icon']}");
+                $conf['bundle']['icon'] = [
+                    'icons/32x32.png',
+                    'icons/128x128.png',
+                    'icons/128x128@2x.png',
+                    'icons/icon.icns',
+                    'icons/icon.ico',
+                ];
             }
         }
         if (isset($desktop['width'])) $conf['app']['windows'][0]['width'] = $desktop['width'];

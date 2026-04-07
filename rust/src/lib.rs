@@ -7,6 +7,23 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_geolocation::init())
+        .plugin(tauri_plugin_haptics::init())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_upload::init());
+
+    #[cfg(mobile)]
+    let builder = builder
+        .plugin(tauri_plugin_biometric::init())
+        .plugin(tauri_plugin_barcode_scanner::init())
+        .plugin(tauri_plugin_nfc::init());
+
+    let builder = builder
         .invoke_handler(tauri::generate_handler![
             commands::bridge::native_action,
             commands::health::check_backend,

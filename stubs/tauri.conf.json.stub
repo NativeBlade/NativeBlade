@@ -14,6 +14,7 @@
                 "title": "{{APP_NAME}}",
                 "width": 1200,
                 "height": 800,
+                "center": true,
                 "resizable": true,
                 "fullscreen": false,
                 "minWidth": 800,

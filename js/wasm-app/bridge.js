@@ -2,9 +2,18 @@ import * as camera from './components/camera/camera.js';
 import { getComponent } from './component-registry.js';
 
 let appFrameRef = null;
+let isTauri = false;
+
 let dialogApi = null;
 let notificationApi = null;
-let isTauri = false;
+let clipboardApi = null;
+let geolocationApi = null;
+let hapticsApi = null;
+let biometricApi = null;
+let barcodeApi = null;
+let nfcApi = null;
+let openerApi = null;
+let osApi = null;
 
 export async function init(appFrame) {
     appFrameRef = appFrame;
@@ -14,7 +23,17 @@ export async function init(appFrame) {
         dialogApi = await import('@tauri-apps/plugin-dialog');
         notificationApi = await import('@tauri-apps/plugin-notification');
         isTauri = true;
-    } catch {
+    } catch {}
+
+    if (isTauri) {
+        try { clipboardApi = await import('@tauri-apps/plugin-clipboard-manager'); } catch {}
+        try { geolocationApi = await import('@tauri-apps/plugin-geolocation'); } catch {}
+        try { hapticsApi = await import('@tauri-apps/plugin-haptics'); } catch {}
+        try { biometricApi = await import('@tauri-apps/plugin-biometric'); } catch {}
+        try { barcodeApi = await import('@tauri-apps/plugin-barcode-scanner'); } catch {}
+        try { nfcApi = await import('@tauri-apps/plugin-nfc'); } catch {}
+        try { openerApi = await import('@tauri-apps/plugin-opener'); } catch {}
+        try { osApi = await import('@tauri-apps/plugin-os'); } catch {}
     }
 }
 
@@ -30,14 +49,6 @@ export function handleNativeAction(action, payload, appFrame) {
             }
             break;
 
-        case 'notification':
-            if (isTauri) {
-                notificationApi.sendNotification({ title, body: payload.body });
-            } else {
-                appFrame?.contentWindow?.postMessage({ type: 'nativeblade-alert', message: payload.body }, '*');
-            }
-            break;
-
         case 'confirm':
             if (isTauri) {
                 dialogApi.confirm(payload.message, { title, kind: payload.kind || 'warning' })
@@ -47,6 +58,143 @@ export function handleNativeAction(action, payload, appFrame) {
             } else {
                 const confirmed = confirm(payload.message);
                 appFrame?.contentWindow?.postMessage({ type: 'nativeblade-confirm-result', confirmed }, '*');
+            }
+            break;
+
+        case 'notification':
+            if (isTauri && notificationApi) {
+                (async () => {
+                    let granted = await notificationApi.isPermissionGranted();
+                    if (!granted) {
+                        const perm = await notificationApi.requestPermission();
+                        granted = perm === 'granted';
+                    }
+                    if (!granted) return;
+                    const opts = { title, body: payload.body || '' };
+                    if (payload.sound) opts.sound = payload.sound;
+                    if (payload.icon) opts.icon = payload.icon;
+                    if (payload.channel) opts.channelId = payload.channel;
+                    notificationApi.sendNotification(opts);
+                })();
+            } else {
+                appFrame?.contentWindow?.postMessage({ type: 'nativeblade-alert', message: payload.body }, '*');
+            }
+            break;
+
+        case 'clipboard_write':
+            if (clipboardApi) {
+                clipboardApi.writeText(payload.text || '');
+            }
+            break;
+
+        case 'clipboard_read':
+            if (clipboardApi) {
+                clipboardApi.readText().then(text => {
+                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-clipboard', text }, '*');
+                });
+            }
+            break;
+
+        case 'geolocation':
+            if (geolocationApi) {
+                (async () => {
+                    let state = await geolocationApi.checkPermissions();
+                    if (state.location !== 'granted') {
+                        state = await geolocationApi.requestPermissions(['location']);
+                    }
+                    if (state.location !== 'granted') return;
+                    const pos = await geolocationApi.getCurrentPosition();
+                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-geolocation', position: pos }, '*');
+                })().catch(() => {});
+            }
+            break;
+
+        case 'vibrate':
+            if (hapticsApi) {
+                hapticsApi.vibrate(payload.duration || 100);
+            }
+            break;
+
+        case 'impact':
+            if (hapticsApi) {
+                hapticsApi.impactFeedback(payload.style || 'medium');
+            }
+            break;
+
+        case 'selection':
+            if (hapticsApi) {
+                hapticsApi.selectionFeedback();
+            }
+            break;
+
+        case 'biometric':
+            if (biometricApi) {
+                (async () => {
+                    const status = await biometricApi.checkStatus();
+                    if (!status.isAvailable) {
+                        appFrame?.contentWindow?.postMessage({ type: 'nativeblade-biometric', success: false, error: 'Biometric not available' }, '*');
+                        return;
+                    }
+                    await biometricApi.authenticate(payload.reason || 'Authenticate', {
+                        allowDeviceCredential: payload.allowDeviceCredential ?? true,
+                    });
+                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-biometric', success: true }, '*');
+                })().catch(err => {
+                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-biometric', success: false, error: err.message }, '*');
+                });
+            }
+            break;
+
+        case 'scan':
+            if (barcodeApi) {
+                (async () => {
+                    let state = await barcodeApi.checkPermissions();
+                    if (state !== 'granted') {
+                        state = await barcodeApi.requestPermissions();
+                    }
+                    if (state !== 'granted') return;
+                    const result = await barcodeApi.scan({ formats: payload.formats || [] });
+                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-scan', result }, '*');
+                })().catch(() => {});
+            }
+            break;
+
+        case 'nfc_read':
+            if (nfcApi) {
+                (async () => {
+                    const available = await nfcApi.isAvailable();
+                    if (!available) return;
+                    const tag = await nfcApi.scan({ type: 'ndef' });
+                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-nfc', tag }, '*');
+                })().catch(() => {});
+            }
+            break;
+
+        case 'open_url':
+            if (openerApi) {
+                openerApi.openUrl(payload.url || '');
+            }
+            break;
+
+        case 'open_file':
+            if (openerApi) {
+                openerApi.openPath(payload.path || '');
+            }
+            break;
+
+        case 'os_info':
+            if (osApi) {
+                Promise.all([
+                    osApi.platform(),
+                    osApi.version(),
+                    osApi.arch(),
+                    osApi.locale(),
+                ]).then(([platform, version, arch, locale]) => {
+                    appFrame?.contentWindow?.postMessage({
+                        type: 'nativeblade-os-info',
+                        info: { platform, version, arch, locale }
+                    }, '*');
+                });
             }
             break;
 

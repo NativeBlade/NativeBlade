@@ -53,6 +53,8 @@ class AddCommand extends Command
             $this->line('  <fg=yellow>→</> Android scaffold already exists, skipped');
         }
 
+        $this->patchAndroidPermissions();
+        $this->generateIcons();
         $this->call('nativeblade:config');
 
         $this->info('');
@@ -72,6 +74,8 @@ class AddCommand extends Command
         $this->exec($this->tauriCliCommand('tauri ios init --ci'));
         $this->line('  <fg=green>✓</> iOS scaffold generated');
 
+        $this->patchIosPermissions();
+        $this->generateIcons();
         $this->call('nativeblade:config');
 
         $this->info('');
@@ -95,6 +99,88 @@ class AddCommand extends Command
         return PHP_OS_FAMILY === 'Windows'
             ? "npx.cmd {$args}"
             : "npx {$args}";
+    }
+
+    private function generateIcons(): void
+    {
+        $iconSrc = base_path('src-tauri/icons/logo.png');
+        if (!file_exists($iconSrc)) return;
+
+        $this->line('  Generating platform icons...');
+        $this->exec($this->tauriCliCommand("tauri icon {$iconSrc}"));
+        $this->line('  <fg=green>✓</> Icons generated');
+    }
+
+    private function patchIosPermissions(): void
+    {
+        $plist = base_path('src-tauri/gen/apple/App/Info.plist');
+        if (!file_exists($plist)) return;
+
+        $content = file_get_contents($plist);
+
+        if (str_contains($content, 'NSCameraUsageDescription')) {
+            $this->line('  <fg=yellow>→</> iOS permissions already patched');
+            return;
+        }
+
+        $permissions = <<<'PERMS'
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to scan barcodes and QR codes</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs your location</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs your location</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>This app uses Face ID for authentication</string>
+	<key>NFCReaderUsageDescription</key>
+	<string>This app needs NFC access to read tags</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to your photo library</string>
+PERMS;
+
+        $content = str_replace(
+            '</dict>',
+            $permissions . "\n</dict>",
+            $content
+        );
+
+        file_put_contents($plist, $content);
+        $this->line('  <fg=green>✓</> iOS permissions patched');
+    }
+
+    private function patchAndroidPermissions(): void
+    {
+        $manifest = base_path('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
+        if (!file_exists($manifest)) return;
+
+        $content = file_get_contents($manifest);
+
+        if (str_contains($content, 'ACCESS_FINE_LOCATION')) {
+            $this->line('  <fg=yellow>→</> Android permissions already patched');
+            return;
+        }
+
+        $permissions = <<<'PERMS'
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+PERMS;
+
+        $content = str_replace(
+            '<uses-permission android:name="android.permission.INTERNET" />',
+            '<uses-permission android:name="android.permission.INTERNET" />' . "\n" . $permissions,
+            $content
+        );
+
+        file_put_contents($manifest, $content);
+        $this->line('  <fg=green>✓</> Android permissions patched');
     }
 
     private function publishStub(string $stub, string $dest, array $extra = []): void

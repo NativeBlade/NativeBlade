@@ -44,5 +44,6 @@
 <x-nativeblade-bottom-nav>
     <x-nativeblade-tab icon="house" label="Home" href="/" />
     <x-nativeblade-tab icon="users" label="Users" href="/users" />
+    <x-nativeblade-tab icon="flask" label="Tests" href="/tests" />
 </x-nativeblade-bottom-nav>
 </div>

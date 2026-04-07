@@ -18,6 +18,7 @@ class AppServiceProvider extends ServiceProvider
             $config->title('{{APP_NAME}}')
                 ->identifier('{{IDENTIFIER}}')
                 ->size(1200, 800)
+                ->icon('src-tauri/icons/logo.png')
                 ->minSize(800, 600)
                 ->resizable();
         });

@@ -1,0 +1,13 @@
+{
+    "identifier": "mobile",
+    "description": "Additional capabilities for mobile platforms",
+    "platforms": ["android", "iOS"],
+    "windows": ["main"],
+    "permissions": [
+        "haptics:default",
+        "biometric:default",
+        "barcode-scanner:allow-scan",
+        "barcode-scanner:allow-cancel",
+        "nfc:default"
+    ]
+}
