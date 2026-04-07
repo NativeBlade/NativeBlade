@@ -285,6 +285,24 @@ Use the `<x-nativeblade-icon>` component anywhere in your Blade views:
 
 ---
 
+## Assets
+
+NativeBlade runs inside an iframe with a dynamic origin — standard `asset()` URLs may not resolve during Livewire updates, causing images to disappear. Use the `@nbAsset` directive to inline images as base64 data URIs:
+
+```blade
+{{-- Always works — even during Livewire updates --}}
+<img src="@nbAsset('logo.png')" alt="Logo">
+
+{{-- DON'T use asset() for images in NativeBlade --}}
+<img src="{{ asset('logo.png') }}" alt="Logo">
+```
+
+`@nbAsset` reads the file from `public/`, converts it to a base64 data URI, and embeds it directly in the HTML. The image is always available regardless of the rendering context.
+
+Supported formats: PNG, JPG, GIF, SVG, WebP, ICO.
+
+---
+
 ## Shell Components
 
 Shell components render **outside** the WebView — they never flicker during page transitions. Use them directly in your Blade templates:

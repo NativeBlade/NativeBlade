@@ -22,6 +22,7 @@ class NativeBladeServiceProvider extends ServiceProvider
         $this->registerHttpBridge();
         $this->registerViews();
         $this->registerComponents();
+        $this->registerDirectives();
         $this->registerViewComposer();
         $this->discoverCustomComponents();
         $this->discoverPackageComponents();
@@ -89,6 +90,46 @@ class NativeBladeServiceProvider extends ServiceProvider
         Blade::component('nativeblade-drawer', Components\NbDrawer::class);
         Blade::component('nativeblade-drawer-item', Components\NbDrawerItem::class);
         Blade::component('nativeblade-icon', Components\NbIcon::class);
+    }
+
+    private function registerDirectives(): void
+    {
+        Blade::directive('nbAsset', function ($expression) {
+            return "<?php echo \\NativeBlade\\NativeBladeServiceProvider::assetToDataUri({$expression}); ?>";
+        });
+    }
+
+    private static array $assetCache = [];
+
+    public static function assetToDataUri(string $file): string
+    {
+        if (isset(self::$assetCache[$file])) {
+            return self::$assetCache[$file];
+        }
+
+        $path = public_path($file);
+        if (!file_exists($path)) return asset($file);
+
+        $content = file_get_contents($path);
+
+        if (str_starts_with($content, 'data:')) {
+            self::$assetCache[$file] = $content;
+            return $content;
+        }
+
+        $mime = match(strtolower(pathinfo($file, PATHINFO_EXTENSION))) {
+            'png' => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'svg' => 'image/svg+xml',
+            'ico' => 'image/x-icon',
+            'webp' => 'image/webp',
+            default => 'application/octet-stream',
+        };
+
+        $result = 'data:' . $mime . ';base64,' . base64_encode($content);
+        self::$assetCache[$file] = $result;
+        return $result;
     }
 
     private function registerViewComposer(): void
