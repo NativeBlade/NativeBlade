@@ -3,6 +3,7 @@ import { schedulePersist } from './state-store.js';
 import { applyConfig } from './shell.js';
 import { handleNativeAction } from './bridge.js';
 import { extractShellConfig, inject } from './interceptor.js';
+import { abort as abortHttpBridge } from '../runtime/http-bridge.js';
 
 let appFrame = null;
 let splash = null;
@@ -44,6 +45,7 @@ export function init(frame, splashEl) {
 }
 
 export async function navigate(path, options = {}) {
+    abortHttpBridge();
     previousPath = currentPath;
     currentPath = path;
     const response = await request(path, options);

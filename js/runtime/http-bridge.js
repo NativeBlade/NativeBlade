@@ -5,27 +5,20 @@ const MAX_RETRIES = 10;
 const nativeFetch = window.fetch.bind(window);
 
 let retryCount = 0;
+let abortController = null;
 
-/**
- * Check if PHP output signals a pending HTTP request.
- * If so, fulfill it and return true (caller should re-execute PHP).
- */
 export async function hasPendingRequest(php, output) {
     return typeof output === 'string' && output.includes('__NB_HTTP_PENDING__');
 }
 
-/**
- * Fulfill the pending HTTP request by making a real fetch,
- * then caching the result in the WASM filesystem for the PHP re-run.
- * Returns true if fulfilled successfully and PHP should be re-executed.
- */
 export async function fulfill(php) {
     if (retryCount >= MAX_RETRIES) {
-        console.error('[NativeBlade HTTP] Max retries reached');
         cleanup(php);
         return false;
     }
     retryCount++;
+
+    abortController = new AbortController();
 
     try {
         const pending = JSON.parse(php.readFileAsText(PENDING_PATH));
@@ -34,9 +27,7 @@ export async function fulfill(php) {
             return false;
         }
 
-        console.log(`[NativeBlade HTTP] ${pending.method} ${pending.url}`);
-
-        const options = { method: pending.method || 'GET' };
+        const options = { method: pending.method || 'GET', signal: abortController.signal };
         if (pending.headers && Object.keys(pending.headers).length) {
             options.headers = pending.headers;
         }
@@ -57,22 +48,33 @@ export async function fulfill(php) {
         php.writeFile(`${CACHE_DIR}/${pending.key}.json`, cached);
         try { php.unlink(PENDING_PATH); } catch {}
 
+        abortController = null;
         return true;
     } catch (err) {
-        console.error('[NativeBlade HTTP] Bridge error:', err);
+        abortController = null;
+        if (err.name === 'AbortError') return false;
         cleanup(php);
         return false;
     }
 }
 
-/** Reset retry counter and clean cache — call after a full request cycle completes. */
+export function abort() {
+    if (abortController) {
+        abortController.abort();
+        abortController = null;
+    }
+    retryCount = 0;
+}
+
 export function done(php) {
     retryCount = 0;
+    abortController = null;
     clearCache(php);
 }
 
 function cleanup(php) {
     retryCount = 0;
+    abortController = null;
     try { php.unlink(PENDING_PATH); } catch {}
     clearCache(php);
 }
