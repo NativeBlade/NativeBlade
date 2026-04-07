@@ -2,15 +2,10 @@ import { getInstance } from './php-runtime.js';
 import { detectPlatform } from './filesystem.js';
 import * as httpBridge from './http-bridge.js';
 
-let onBridgeComplete = null;
-let currentPagePath = '/';
+let pendingBridgeCallback = null;
 
 export function setOnBridgeComplete(fn) {
-    onBridgeComplete = fn;
-}
-
-export function setCurrentPagePath(path) {
-    currentPagePath = path;
+    pendingBridgeCallback = fn;
 }
 
 const STATIC_MIME = {
@@ -68,8 +63,7 @@ export async function handleRequest(path, options = {}) {
     if (result.errors) console.warn('[NativeBlade PHP Errors]', result.errors);
 
     if (await httpBridge.hasPendingRequest(php, text)) {
-        const pagePath = currentPagePath;
-        fulfillInBackground(php, pagePath);
+        fulfillInBackground(php, path, options);
         return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
     }
     httpBridge.done(php);
@@ -86,10 +80,16 @@ export async function handleRequest(path, options = {}) {
     return { text, errors: result.errors, httpStatusCode: result.httpStatusCode || 200 };
 }
 
-async function fulfillInBackground(php, pagePath) {
+async function fulfillInBackground(php, originalPath, originalOptions) {
     const fulfilled = await httpBridge.fulfill(php);
     if (!fulfilled) return;
-    if (onBridgeComplete) onBridgeComplete(pagePath);
+
+    const result = await handleRequest(originalPath, originalOptions);
+    if (result.bridgePending) return;
+
+    if (pendingBridgeCallback) {
+        pendingBridgeCallback(result);
+    }
 }
 
 function inlineAssets(html, php) {

@@ -4,13 +4,14 @@ import { applyConfig } from './shell.js';
 import { handleNativeAction } from './bridge.js';
 import { extractShellConfig, inject } from './interceptor.js';
 import { abort as abortHttpBridge } from '../runtime/http-bridge.js';
-import { setOnBridgeComplete, setCurrentPagePath } from '../runtime/request-handler.js';
+import { setOnBridgeComplete } from '../runtime/request-handler.js';
 
 let appFrame = null;
 let splash = null;
 let currentPath = '/';
 let historyStack = [];
 let navigationVersion = 0;
+let pendingMessageId = null;
 
 export function goBack() {
     if (historyStack.length > 0) {
@@ -35,9 +36,16 @@ export function init(frame, splashEl) {
     appFrame = frame;
     splash = splashEl;
 
-    setOnBridgeComplete((path) => {
-        if (path === currentPath) {
-            navigateInternal(path);
+    setOnBridgeComplete((result) => {
+        if (pendingMessageId !== null && !result.bridgePending) {
+            try {
+                appFrame.contentWindow.postMessage({
+                    type: 'nativeblade-response',
+                    id: pendingMessageId,
+                    result: { text: result.text, httpStatusCode: result.httpStatusCode }
+                }, '*');
+            } catch {}
+            pendingMessageId = null;
         }
     });
 
@@ -48,7 +56,10 @@ export function init(frame, splashEl) {
             const { id, path, options } = event.data;
             try {
                 const result = await request(path, options);
-                if (result.bridgePending) return;
+                if (result.bridgePending) {
+                    pendingMessageId = id;
+                    return;
+                }
                 appFrame.contentWindow.postMessage({
                     type: 'nativeblade-response', id,
                     result: { text: result.text, httpStatusCode: result.httpStatusCode }
@@ -70,6 +81,7 @@ export function init(frame, splashEl) {
 
 export async function navigate(path, options = {}) {
     abortHttpBridge();
+    pendingMessageId = null;
     if (currentPath !== path) {
         historyStack.push(currentPath);
     }
@@ -79,7 +91,6 @@ export async function navigate(path, options = {}) {
 async function navigateInternal(path, options = {}) {
     abortHttpBridge();
     currentPath = path;
-    setCurrentPagePath(path);
     const version = ++navigationVersion;
     const response = await request(path, options);
 
