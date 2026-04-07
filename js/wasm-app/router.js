@@ -8,11 +8,26 @@ import { abort as abortHttpBridge } from '../runtime/http-bridge.js';
 let appFrame = null;
 let splash = null;
 let currentPath = '/';
-let previousPath = '/';
+let historyStack = [];
 let navigationVersion = 0;
 
+export function goBack() {
+    if (historyStack.length > 0) {
+        const prev = historyStack.pop();
+        navigateInternal(prev);
+    }
+}
+
+export function canGoBack() {
+    return historyStack.length > 0;
+}
+
+export function getCurrentPath() {
+    return currentPath;
+}
+
 export function getPreviousPath() {
-    return previousPath;
+    return historyStack.length > 0 ? historyStack[historyStack.length - 1] : '/';
 }
 
 export function init(frame, splashEl) {
@@ -47,7 +62,14 @@ export function init(frame, splashEl) {
 
 export async function navigate(path, options = {}) {
     abortHttpBridge();
-    previousPath = currentPath;
+    if (currentPath !== path) {
+        historyStack.push(currentPath);
+    }
+    return navigateInternal(path, options);
+}
+
+async function navigateInternal(path, options = {}) {
+    abortHttpBridge();
     currentPath = path;
     const version = ++navigationVersion;
     const response = await request(path, options);
@@ -74,16 +96,5 @@ export async function navigate(path, options = {}) {
     appFrame.style.display = 'block';
     await applyConfig(config, path);
 
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    try {
-        appFrame.contentWindow.location.replace(url);
-    } catch {
-        appFrame.src = url;
-    }
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-export function getCurrentPath() {
-    return currentPath;
+    appFrame.srcdoc = html;
 }

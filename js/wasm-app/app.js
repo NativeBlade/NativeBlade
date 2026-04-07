@@ -6,7 +6,7 @@ import './components/drawer/drawer.css';
 import { boot, t } from '../runtime/wasm-server.js';
 import { init as initShell } from './shell.js';
 import { init as initBridge, handleNativeAction } from './bridge.js';
-import { init as initRouter, navigate, getCurrentPath, getPreviousPath } from './router.js';
+import { init as initRouter, navigate, getCurrentPath, goBack } from './router.js';
 import { init as initHotReload } from './hot-reload.js';
 import { init as initStore, restoreToWasm, startAutoSync } from './state-store.js';
 
@@ -43,12 +43,8 @@ async function main() {
             }
         } catch {}
 
-        window.addEventListener('popstate', (e) => {
-            e.preventDefault();
-            const prev = getPreviousPath();
-            if (prev && prev !== getCurrentPath()) {
-                navigate(prev);
-            }
+        window.addEventListener('popstate', () => {
+            goBack();
             history.pushState(null, '', location.href);
         });
         history.pushState(null, '', location.href);

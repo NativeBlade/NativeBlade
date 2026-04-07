@@ -2,7 +2,7 @@ import { register, renderAll, getComponent, updateActive as updateAll } from './
 import * as bottomNav from './components/bottom-nav/bottom-nav.js';
 import * as topBar from './components/top-bar/top-bar.js';
 import * as drawer from './components/drawer/drawer.js';
-import { getPreviousPath } from './router.js';
+import { goBack } from './router.js';
 
 let appFrame = null;
 
@@ -11,7 +11,7 @@ export function init(frame, navigateFn) {
 
     bottomNav.setHandler(navigateFn);
     topBar.setHandler(navigateFn);
-    topBar.setBackHandler(() => getPreviousPath());
+    topBar.setBackHandler(() => { goBack(); return null; });
     drawer.setHandler(navigateFn);
 
     register('bottom-nav', bottomNav);

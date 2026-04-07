@@ -58,7 +58,10 @@ export function render(data, activePath, appFrame) {
             return;
         }
         if (e.target.closest('[data-back]')) {
-            if (navigateFn && onBackFn) navigateFn(onBackFn());
+            if (onBackFn) {
+                const path = onBackFn();
+                if (path && navigateFn) navigateFn(path);
+            }
             return;
         }
         const actionEl = e.target.closest('[data-action]');
