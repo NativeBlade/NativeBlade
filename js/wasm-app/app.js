@@ -9,6 +9,7 @@ import { init as initBridge, handleNativeAction } from './bridge.js';
 import { init as initRouter, navigate, getCurrentPath, goBack } from './router.js';
 import { init as initHotReload } from './hot-reload.js';
 import { init as initStore, restoreToWasm, startAutoSync } from './state-store.js';
+import './nb.js';
 
 const splash = document.getElementById('splash');
 const appFrame = document.getElementById('app');

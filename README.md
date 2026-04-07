@@ -700,6 +700,59 @@ nativeblade-components/
 
 ---
 
+## Navigation
+
+NativeBlade manages its own navigation stack — the browser history is not used. This works consistently across desktop and mobile (including Android swipe back).
+
+### From PHP (Livewire / Controllers)
+
+```php
+use NativeBlade\Facades\NativeBlade;
+
+NativeBlade::navigate('/dashboard')->toResponse();
+```
+
+> `$this->redirect()` does not work in WASM context. Always use `NativeBlade::navigate()`.
+
+### From Blade Templates (Embedded)
+
+```blade
+{{-- Link — intercepted automatically --}}
+<a href="/users">Users</a>
+
+{{-- Button via bridge --}}
+<button onclick="__nbBridge('navigate', { path: '/users' })">Users</button>
+```
+
+### From Shell Components (JavaScript)
+
+```javascript
+// Via import
+import { nb } from '@nativeblade/wasm-app/nb.js';
+
+nb.navigate('/users');
+nb.goBack();
+nb.canGoBack();       // true/false
+nb.getCurrentPath();  // '/users'
+nb.icon('house');     // returns SVG string
+```
+
+```javascript
+// Or via global (no import needed)
+window.__nb.navigate('/users');
+window.__nb.goBack();
+```
+
+### Back Navigation
+
+Back navigation uses an internal history stack, not the browser:
+
+- **Header back button** — `<x-nativeblade-header :back="true" />` pops the stack automatically
+- **Android swipe back** — intercepted and routed through the stack
+- **Programmatic** — `nb.goBack()` from shell JS, or `__nbBridge('navigate', { path: '/' })` from Blade
+
+---
+
 ## Livewire Integration
 
 NativeBlade works seamlessly with Livewire. Use `wire:model`, `wire:click`, `wire:poll`, and all Livewire features as usual:
