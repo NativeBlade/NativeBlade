@@ -34,12 +34,13 @@ class InstallCommand extends Command
         $this->updateBootstrap();
         $this->patchTailwindSources();
         $this->createDirectories();
+        $this->call('nativeblade:config');
 
         $this->info('');
         $this->info('  ✓ NativeBlade installed successfully!');
         $this->info('');
         $this->info('  Next steps:');
-        $this->info('    1. Review config in app/Providers/AppServiceProvider.php');
+        $this->info('    1. Review generated config in app/Providers/AppServiceProvider.php');
         $this->info('    2. npm run build');
         $this->info('    3. Optional mobile: php artisan nativeblade:add android');
         $this->info('    4. php artisan nativeblade:dev');
