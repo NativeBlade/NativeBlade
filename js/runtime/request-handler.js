@@ -2,6 +2,12 @@ import { getInstance } from './php-runtime.js';
 import { detectPlatform } from './filesystem.js';
 import * as httpBridge from './http-bridge.js';
 
+let onBridgeComplete = null;
+
+export function setOnBridgeComplete(fn) {
+    onBridgeComplete = fn;
+}
+
 const STATIC_MIME = {
     '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
     '.gif': 'image/gif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
@@ -12,9 +18,6 @@ const STATIC_MIME = {
 export async function handleRequest(path, options = {}) {
     const php = getInstance();
     if (!php) throw new Error('PHP not initialized');
-
-    // const staticResult = tryServeStatic(php, path);
-    // if (staticResult) return staticResult;
 
     const method = (options.method || 'GET').toUpperCase();
     const body = options.body || '';
@@ -59,11 +62,9 @@ export async function handleRequest(path, options = {}) {
 
     if (result.errors) console.warn('[NativeBlade PHP Errors]', result.errors);
 
-    // HTTP Bridge: if PHP needs an external request, fulfill it and re-run
     if (await httpBridge.hasPendingRequest(php, text)) {
-        if (await httpBridge.fulfill(php)) {
-            return handleRequest(path, options);
-        }
+        resolveBridgeInBackground(php, path, options);
+        return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
     }
     httpBridge.done(php);
 
@@ -77,6 +78,18 @@ export async function handleRequest(path, options = {}) {
     if (!isJson) text = inlineAssets(text, php);
 
     return { text, errors: result.errors, httpStatusCode: result.httpStatusCode || 200 };
+}
+
+async function resolveBridgeInBackground(php, path, options) {
+    const fulfilled = await httpBridge.fulfill(php);
+    if (!fulfilled) {
+        httpBridge.done(php);
+        return;
+    }
+    const result = await handleRequest(path, options);
+    if (result.bridgePending) return;
+    httpBridge.done(php);
+    if (onBridgeComplete) onBridgeComplete(path);
 }
 
 function tryServeStatic(php, path) {

@@ -4,6 +4,7 @@ import { applyConfig } from './shell.js';
 import { handleNativeAction } from './bridge.js';
 import { extractShellConfig, inject } from './interceptor.js';
 import { abort as abortHttpBridge } from '../runtime/http-bridge.js';
+import { setOnBridgeComplete } from '../runtime/request-handler.js';
 
 let appFrame = null;
 let splash = null;
@@ -33,6 +34,12 @@ export function getPreviousPath() {
 export function init(frame, splashEl) {
     appFrame = frame;
     splash = splashEl;
+
+    setOnBridgeComplete((path) => {
+        if (path === currentPath) {
+            navigateInternal(path);
+        }
+    });
 
     window.addEventListener('message', async (event) => {
         const { type } = event.data || {};
@@ -76,6 +83,8 @@ async function navigateInternal(path, options = {}) {
 
     if (version !== navigationVersion) return;
 
+    if (response.bridgePending) return;
+
     if (response.nativeblade) {
         for (const action of response.nativeblade) {
             handleNativeAction(action.action.replace('so:', ''), action.data, appFrame);
@@ -84,7 +93,6 @@ async function navigateInternal(path, options = {}) {
     }
 
     if (!response.text || response.text.trim() === '') {
-        console.error('Empty response', response.errors);
         return;
     }
 
