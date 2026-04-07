@@ -48,6 +48,7 @@ export function init(frame, splashEl) {
             const { id, path, options } = event.data;
             try {
                 const result = await request(path, options);
+                if (result.bridgePending) return;
                 appFrame.contentWindow.postMessage({
                     type: 'nativeblade-response', id,
                     result: { text: result.text, httpStatusCode: result.httpStatusCode }
