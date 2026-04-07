@@ -114,9 +114,9 @@ class ShellConfig
         return (new NativeResponse())->notification($body);
     }
 
-    public function navigate(string $path): NativeResponse
+    public function navigate(string $path, bool $replace = false): NativeResponse
     {
-        return (new NativeResponse())->navigate($path);
+        return (new NativeResponse())->navigate($path, $replace);
     }
 
     public function response(): NativeResponse

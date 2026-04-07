@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static bool isWeb()
  * @method static \NativeBlade\NativeResponse alert(string $message)
  * @method static \NativeBlade\NativeResponse notification(string $body)
- * @method static \NativeBlade\NativeResponse navigate(string $path)
+ * @method static \NativeBlade\NativeResponse navigate(string $path, bool $replace = false)
  * @method static \NativeBlade\NativeResponse response()
  * @method static void setState(string $key, mixed $value, string $scope = 'persistent')
  * @method static mixed getState(string $key, mixed $default = null)
