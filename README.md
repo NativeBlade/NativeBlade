@@ -1149,5 +1149,6 @@ MIT
 ---
 
 <p align="center">
-  Built with Laravel, Livewire, Tauri, and PHP WebAssembly.
+  Built with Laravel, Livewire, Tauri, and PHP WebAssembly.<br>
+  <a href="https://www.linkedin.com/in/jefferson-silva-66bba7aa/">Jefferson T.S</a>
 </p>
