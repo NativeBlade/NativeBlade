@@ -9,6 +9,7 @@ let appFrame = null;
 let splash = null;
 let currentPath = '/';
 let previousPath = '/';
+let navigationVersion = 0;
 
 export function getPreviousPath() {
     return previousPath;
@@ -48,7 +49,10 @@ export async function navigate(path, options = {}) {
     abortHttpBridge();
     previousPath = currentPath;
     currentPath = path;
+    const version = ++navigationVersion;
     const response = await request(path, options);
+
+    if (version !== navigationVersion) return;
 
     if (response.nativeblade) {
         for (const action of response.nativeblade) {
@@ -72,8 +76,12 @@ export async function navigate(path, options = {}) {
 
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
-    appFrame.src = url;
-    appFrame.onload = () => URL.revokeObjectURL(url);
+    try {
+        appFrame.contentWindow.location.replace(url);
+    } catch {
+        appFrame.src = url;
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function getCurrentPath() {
