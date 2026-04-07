@@ -350,6 +350,26 @@ Navigates using NativeBlade's internal history stack:
 <button wire:nb-navigate="/settings">Settings</button>
 ```
 
+Use the `.replace` modifier to replace the current entry in the history stack instead of adding a new one. This prevents the user from swiping back to the previous page (useful after login, logout, or onboarding flows):
+
+```blade
+{{-- After login — user can't swipe back to login screen --}}
+<button wire:nb-navigate.replace="/">Home</button>
+```
+
+From PHP:
+
+```php
+// replace: true prevents back navigation to the current page
+NativeBlade::navigate('/', replace: true)->toResponse();
+```
+
+From shell JS:
+
+```javascript
+window.__nb.navigateReplace('/');
+```
+
 > **Note:** Use `wire:nb-navigate` instead of standard `wire:navigate` — Livewire's built-in navigation doesn't work in the WASM context.
 
 ---

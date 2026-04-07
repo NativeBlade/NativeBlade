@@ -72,7 +72,11 @@ export function init(frame, splashEl) {
                 }, '*');
             }
         } else if (type === 'nativeblade-navigate') {
-            await navigate(event.data.path);
+            if (event.data.replace) {
+                await navigateReplace(event.data.path);
+            } else {
+                await navigate(event.data.path);
+            }
         } else if (type === 'nativeblade-native') {
             handleNativeAction(event.data.action, event.data.payload, appFrame);
         }
@@ -85,6 +89,12 @@ export async function navigate(path, options = {}) {
     if (currentPath !== path) {
         historyStack.push(currentPath);
     }
+    return navigateInternal(path, options);
+}
+
+export async function navigateReplace(path, options = {}) {
+    abortHttpBridge();
+    pendingMessageId = null;
     return navigateInternal(path, options);
 }
 

@@ -54,11 +54,11 @@ class NativeResponse
         return $this;
     }
 
-    public function navigate(string $path): static
+    public function navigate(string $path, bool $replace = false): static
     {
         $this->actions[] = [
             'action' => 'so:navigate',
-            'data' => ['path' => $path],
+            'data' => ['path' => $path, 'replace' => $replace],
         ];
         return $this;
     }

@@ -104,9 +104,10 @@ export function inject(html) {
 
         Livewire.directive('nb-navigate', function(ctx) {
             var path = ctx.directive.expression;
+            var replace = ctx.directive.modifiers.includes('replace');
             var handler = function(e) {
                 e.preventDefault();
-                window.parent.postMessage({ type: 'nativeblade-navigate', path: path }, '*');
+                window.parent.postMessage({ type: 'nativeblade-navigate', path: path, replace: replace }, '*');
             };
             ctx.el.addEventListener('click', handler);
             ctx.cleanup(function() { ctx.el.removeEventListener('click', handler); });

@@ -22,7 +22,7 @@ class Login extends Component
             ]);
             NativeBlade::setState('auth.logged_at', now()->timestamp);
 
-            return NativeBlade::navigate('/')->toResponse();
+            return NativeBlade::navigate('/', replace: true)->toResponse();
         }
 
         $this->error = 'Invalid credentials';
