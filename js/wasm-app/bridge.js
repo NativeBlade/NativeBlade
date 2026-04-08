@@ -210,6 +210,18 @@ export function handleNativeAction(action, payload, appFrame) {
             window.postMessage({ type: 'nativeblade-navigate', path: payload.path, replace: !!payload.replace }, '*');
             break;
 
+        case 'showModal': {
+            const modal = getComponent('modal');
+            if (modal?.show) modal.show();
+            break;
+        }
+
+        case 'hideModal': {
+            const modal = getComponent('modal');
+            if (modal?.hide) modal.hide();
+            break;
+        }
+
         case 'exit':
             try {
                 import('@tauri-apps/plugin-process').then(m => m.exit(0));

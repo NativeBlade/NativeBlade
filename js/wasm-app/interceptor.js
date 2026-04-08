@@ -29,6 +29,11 @@ export function extractShellConfig(html) {
 
         if (children.length) data.children = children;
 
+        const slotHtml = el.innerHTML.trim();
+        if (slotHtml && !children.length) {
+            data.slotHtml = slotHtml;
+        }
+
         if (!components[type]) components[type] = data;
         else if (Array.isArray(components[type])) components[type].push(data);
         else components[type] = [components[type], data];
@@ -79,6 +84,7 @@ export function inject(html) {
     window.addEventListener('message', function(e) {
         if (!e.data || !e.data.type) return;
         var t = e.data.type;
+
         if (t.indexOf('nativeblade-') !== 0) return;
         var event = t.replace('nativeblade-', 'nb:');
         var payload = Object.assign({}, e.data);
@@ -125,5 +131,6 @@ export function inject(html) {
     }
 })();
 <\/script>`;
-    return html.replace('<head>', '<head><base href="http://localhost/">' + script);
+    const safeAreaStyle = `<style>:root{--nb-safe-top:0px;--nb-safe-bottom:0px}</style>`;
+    return html.replace('<head>', '<head><base href="http://localhost/">' + safeAreaStyle + script);
 }

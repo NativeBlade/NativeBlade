@@ -1,0 +1,225 @@
+<div>
+<style>
+    @keyframes nb-shake { 0%,100% { transform: translateX(0) } 20%,60% { transform: translateX(-8px) } 40%,80% { transform: translateX(8px) } }
+    @keyframes nb-celebrate { 0% { transform: scale(1) } 50% { transform: scale(1.15) } 100% { transform: scale(1) } }
+    @keyframes nb-fade-up { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
+    @keyframes nb-slide-up { from { transform: translateY(80px) } to { transform: translateY(0) } }
+    @keyframes nb-slide-x { from { opacity: 0; transform: translateX(50px) } to { opacity: 1; transform: translateX(0) } }
+    .nb-shake { animation: nb-shake 0.4s ease-in-out; }
+    .nb-celebrate { animation: nb-celebrate 0.5s ease-in-out; }
+    .nb-fade-up { animation: nb-fade-up 0.4s ease-out both; }
+    .nb-slide-up { animation: nb-slide-up 0.3s ease-out both; }
+    .nb-slide-x { animation: nb-slide-x 0.5s ease-out both; }
+</style>
+
+@if($finished)
+    @php $perfect = $score === $totalQuestions; @endphp
+    <style>
+        @keyframes nb-confetti { 0% { transform:translateY(0) rotate(0deg);opacity:1 } 100% { transform:translateY(100vh) rotate(720deg);opacity:0 } }
+        @keyframes nb-spring { 0% { transform:scale(0.5) rotate(-30deg) } 60% { transform:scale(1.1) rotate(5deg) } 100% { transform:scale(1) rotate(0deg) } }
+        @keyframes nb-xp-fill { from { width: 80% } to { width: 100% } }
+        @keyframes nb-shimmer { from { transform: translateX(-100%) skewX(-20deg) } to { transform: translateX(200%) skewX(-20deg) } }
+        .nb-spring { animation: nb-spring 0.6s ease-out both; animation-delay: 0.1s; }
+    </style>
+
+    <div class="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden" style="padding-top:var(--nb-safe-top, 0px);padding-bottom:var(--nb-safe-bottom, 0px)">
+
+        {{-- Confetti --}}
+        <div class="absolute inset-0 pointer-events-none overflow-hidden">
+            @for($i = 0; $i < 25; $i++)
+                @php
+                    $colors = ['#e74c3c','#f1c40f','#ffffff','#8B0000','#c0392b'];
+                    $color = $colors[array_rand($colors)];
+                    $left = rand(5, 95);
+                    $delay = rand(0, 500) / 1000;
+                    $dur = 2.5 + rand(0, 200) / 100;
+                @endphp
+                <div style="position:absolute;top:-20px;left:{{ $left }}%;width:12px;height:12px;background:{{ $color }};border-radius:2px;animation:nb-confetti {{ $dur }}s ease-in {{ $delay }}s both"></div>
+            @endfor
+        </div>
+
+        {{-- Star --}}
+        <div class="flex flex-col items-center w-full z-10 flex-1 justify-center mt-8">
+            <div class="nb-spring relative mb-6">
+                <div class="absolute inset-0 bg-[#f1c40f] blur-[60px] opacity-40 rounded-full"></div>
+                <x-nativeblade-icon name="star-fill" size="112" class="text-[#f1c40f] relative z-10 drop-shadow-[0_0_20px_rgba(241,196,15,0.8)]" />
+            </div>
+
+            <h1 class="nb-fade-up text-4xl font-black text-center uppercase text-[#f1c40f] mb-2" style="animation-delay:0.2s">
+                Lesson Complete!
+            </h1>
+            <p class="nb-fade-up text-[#9ca3af] text-center font-medium mb-8" style="animation-delay:0.3s">
+                {{ $perfect ? 'Perfect score!' : 'You completed the lesson!' }}
+            </p>
+
+            {{-- Stats --}}
+            <div class="nb-fade-up grid grid-cols-3 gap-3 w-full max-w-sm mb-8" style="animation-delay:0.4s">
+                <div class="bg-[#1a1a1a] border border-[#8B0000] rounded-xl p-3 flex flex-col items-center justify-center shadow-[0_0_15px_rgba(139,0,0,0.2)]">
+                    <x-nativeblade-icon name="star-fill" size="24" class="text-[#f1c40f] mb-1" />
+                    <span class="text-[10px] text-[#9ca3af] uppercase font-bold text-center">XP Earned</span>
+                    <span class="text-[#f1c40f] font-black text-lg">+{{ $score * 10 }}</span>
+                </div>
+                <div class="bg-[#1a1a1a] border border-[#8B0000] rounded-xl p-3 flex flex-col items-center justify-center shadow-[0_0_15px_rgba(139,0,0,0.2)]">
+                    <x-nativeblade-icon name="flame-fill" size="24" class="text-[#e74c3c] mb-1" />
+                    <span class="text-[10px] text-[#9ca3af] uppercase font-bold text-center">Streak</span>
+                    <span class="text-[#e74c3c] font-black text-lg">{{ $perfect ? '+1' : '—' }}</span>
+                </div>
+                <div class="bg-[#1a1a1a] border border-[#8B0000] rounded-xl p-3 flex flex-col items-center justify-center shadow-[0_0_15px_rgba(139,0,0,0.2)]">
+                    <x-nativeblade-icon name="target" size="24" class="text-[#2ecc71] mb-1" />
+                    <span class="text-[10px] text-[#9ca3af] uppercase font-bold text-center">Lessons</span>
+                    <span class="text-[#2ecc71] font-black text-lg">{{ $score }}/{{ $totalQuestions }}</span>
+                </div>
+            </div>
+
+            {{-- XP Bar --}}
+            <div class="nb-fade-up w-full max-w-sm mb-10" style="animation-delay:0.5s">
+                <div class="flex justify-between text-xs font-bold mb-2">
+                    <span class="text-[#f1c40f]">Level {{ intdiv($xp ?? 0, 200) + 1 }}</span>
+                    <span class="text-[#9ca3af]">{{ $perfect ? 'Max Level!' : (($xp ?? 0) + $score * 10) . ' XP' }}</span>
+                </div>
+                <div class="h-4 bg-[#1a1a1a] rounded-full overflow-hidden border border-[#2a2a2a]">
+                    <div class="h-full bg-[#f1c40f] rounded-full shadow-[0_0_15px_rgba(241,196,15,0.8)] relative overflow-hidden" style="width:{{ min(100, (($xp ?? 0) + $score * 10) % 200 / 2) }}%;animation:nb-xp-fill 1.2s ease-out 0.6s both">
+                        <div class="absolute top-0 bottom-0 w-[20%] bg-gradient-to-r from-transparent via-white/50 to-transparent" style="animation:nb-shimmer 2s linear infinite"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Actions --}}
+        <div class="w-full max-w-sm mt-auto flex flex-col gap-4 z-10">
+            <button onclick="__nbBridge('navigate', { path: '/', replace: true })"
+                class="nb-fade-up w-full bg-[#c0392b] text-white font-black text-lg py-4 rounded-xl shadow-[0_4px_0_rgba(139,0,0,1)] active:translate-y-[4px] active:shadow-none transition-all uppercase tracking-wider relative overflow-hidden group" style="animation-delay:0.5s">
+                Continue
+            </button>
+            <button onclick="__nbBridge('toast', { message: 'Coming soon!', type: 'info' })"
+                class="nb-fade-up w-full bg-transparent border-2 border-[#2a2a2a] text-[#9ca3af] font-bold text-base py-3 rounded-xl hover:text-white hover:border-[#9ca3af] transition-all uppercase tracking-wide flex items-center justify-center gap-2" style="animation-delay:0.6s">
+                <x-nativeblade-icon name="share-network" size="20" />
+                Share
+            </button>
+        </div>
+
+        <p class="nb-fade-up mt-5 text-[#9ca3af] text-xs font-bold uppercase tracking-widest flex items-center gap-1 z-10" style="animation-delay:0.7s">
+            <x-nativeblade-icon name="star-fill" size="12" class="text-[#f1c40f]" />
+            Lesson completed!
+        </p>
+    </div>
+
+@else
+    <div class="min-h-screen flex flex-col">
+
+        {{-- Header --}}
+        <header class="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a] px-4 pb-3 flex items-center justify-between gap-4" style="padding-top:max(var(--nb-safe-top, 20px), 20px)">
+            <button onclick="__nbBridge('navigate', { path: '/' })" class="text-[#9ca3af] active:text-white transition-colors">
+                <x-nativeblade-icon name="x" size="24" />
+            </button>
+            <div class="flex-1 h-3 bg-[#1a1a1a] rounded-full overflow-hidden border border-[#2a2a2a]">
+                <div class="h-full bg-[#c0392b] rounded-full shadow-[0_0_10px_rgba(192,57,43,0.5)] transition-all duration-700"
+                     style="width: {{ (($currentQuestion + ($answered ? 1 : 0)) / $totalQuestions) * 100 }}%"></div>
+            </div>
+            <div class="flex items-center gap-1">
+                <x-nativeblade-icon name="heart-fill" size="20" class="text-[#e74c3c]" />
+                <x-nativeblade-icon name="heart-fill" size="20" class="text-[#e74c3c]" />
+                <x-nativeblade-icon name="heart-fill" size="20" class="text-[#e74c3c]" style="opacity:0.4" />
+            </div>
+        </header>
+
+        <div class="h-16"></div>
+
+        {{-- Question --}}
+        <div class="flex-1 px-4 py-6 flex flex-col">
+            <div class="nb-slide-x mb-3">
+                <p class="text-[#9ca3af] text-sm font-bold uppercase tracking-widest mb-3">Translate this word in portuguese</p>
+                <h2 class="text-3xl font-black tracking-tight leading-tight">
+                    {{ $questions[$currentQuestion]['q'] }}
+                </h2>
+            </div>
+
+            <div class="space-y-3 mt-auto mb-4">
+                @foreach($questions[$currentQuestion]['options'] as $idx => $option)
+                    @php
+                        $isSelected = $selected === $option;
+                        $isCorrect = $correct === $option;
+                        $isWrong = $isSelected && !$isCorrect && $answered;
+                        $letters = ['A','B','C','D'];
+
+                        if ($answered && $isCorrect) {
+                            $optClasses = 'bg-[rgba(46,204,113,0.1)] border-[#2ecc71] shadow-[0_4px_0_rgba(46,204,113,0.5)]';
+                            $labelClasses = 'text-[#2ecc71]';
+                            $badgeClasses = 'bg-[#2ecc71] text-black';
+                            $anim = 'nb-celebrate';
+                        } elseif ($isWrong) {
+                            $optClasses = 'bg-[rgba(231,76,60,0.1)] border-[#e74c3c] shadow-[0_4px_0_rgba(231,76,60,0.5)]';
+                            $labelClasses = 'text-[#e74c3c]';
+                            $badgeClasses = 'bg-[#e74c3c] text-white';
+                            $anim = 'nb-shake';
+                        } elseif ($isSelected) {
+                            $optClasses = 'bg-[rgba(192,57,43,0.1)] border-[#c0392b] shadow-[0_4px_0_rgba(192,57,43,1)] -translate-y-[2px]';
+                            $labelClasses = 'text-white';
+                            $badgeClasses = 'bg-[#c0392b] text-white';
+                            $anim = '';
+                        } else {
+                            $optClasses = 'bg-[#1a1a1a] border-[#2a2a2a] shadow-[0_4px_0_rgba(42,42,42,1)] hover:bg-[#222]';
+                            $labelClasses = 'text-[#d1d5db]';
+                            $badgeClasses = 'bg-[#2a2a2a] text-[#9ca3af]';
+                            $anim = '';
+                        }
+                    @endphp
+
+                    <button wire:click="select('{{ $option }}')"
+                        @if($answered) disabled @endif
+                        class="nb-fade-up w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 {{ $optClasses }} {{ $anim }} {{ !$answered ? 'active:translate-y-[2px] active:shadow-none' : '' }}"
+                        style="animation-delay: {{ $idx * 0.08 }}s">
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0 {{ $badgeClasses }}">
+                            {{ $letters[$idx] }}
+                        </div>
+                        <span class="font-medium text-lg flex-1 {{ $labelClasses }}">{{ $option }}</span>
+                        @if($answered && $isCorrect)
+                            <x-nativeblade-icon name="check-circle" size="20" class="text-[#2ecc71]" />
+                        @elseif($isWrong)
+                            <x-nativeblade-icon name="x-circle" size="20" class="text-[#e74c3c]" />
+                        @endif
+                    </button>
+                @endforeach
+            </div>
+        </div>
+
+        {{-- Bottom --}}
+        @if($answered)
+            <div class="nb-slide-up sticky bottom-0 p-4 border-t {{ $selected === $correct ? 'bg-[#0f1a0f] border-[#2ecc71]' : 'bg-[#1a0a0a] border-[#e74c3c]' }}">
+                <div class="flex items-center gap-2 mb-3">
+                    @if($selected === $correct)
+                        <x-nativeblade-icon name="check-circle" size="24" class="text-[#2ecc71]" />
+                        <p class="font-black text-lg text-[#2ecc71]">Correct!</p>
+                    @else
+                        <x-nativeblade-icon name="x-circle" size="24" class="text-[#e74c3c]" />
+                        <p class="font-black text-lg text-[#e74c3c]">Incorrect!</p>
+                    @endif
+                </div>
+                @if($selected !== $correct)
+                    <p class="text-[#9ca3af] text-sm mb-3">
+                        Correct answer: <span class="text-white font-bold">{{ $correct }}</span>
+                    </p>
+                @endif
+                <button wire:click="next"
+                    class="w-full py-4 rounded-xl font-bold text-lg uppercase tracking-wide text-white active:translate-y-[4px] active:shadow-none transition-all
+                    {{ $selected === $correct
+                        ? 'bg-[#2ecc71] shadow-[0_4px_0_rgba(39,174,96,1)]'
+                        : 'bg-[#e74c3c] shadow-[0_4px_0_rgba(192,57,43,1)]' }}">
+                    {{ $currentQuestion + 1 >= $totalQuestions ? 'See Results' : 'Continue' }}
+                </button>
+            </div>
+        @else
+            <div class="sticky bottom-0 p-4 border-t border-[#2a2a2a] bg-[#111111]">
+                <p class="text-[#9ca3af] text-sm text-center mb-3 font-medium">Select the best answer</p>
+                <button wire:click="check"
+                    class="w-full py-4 rounded-xl font-bold text-lg uppercase tracking-wide transition-all
+                    {{ $selected
+                        ? 'bg-[#8B0000] text-white shadow-[0_4px_0_rgba(60,0,0,1)] active:translate-y-[4px] active:shadow-none hover:bg-[#c0392b]'
+                        : 'bg-[#2a2a2a] text-[#6b7280] cursor-not-allowed' }}">
+                    Check
+                </button>
+            </div>
+        @endif
+    </div>
+@endif
+</div>

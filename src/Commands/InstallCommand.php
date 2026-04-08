@@ -257,13 +257,15 @@ class InstallCommand extends Command
 
         $this->publishStub('demo/NativeBladeAuth.php.stub', $middlewareDir . '/NativeBladeAuth.php');
         $this->publishStub('demo/Login.php.stub', $livewireDir . '/Login.php');
-        $this->publishStub('demo/Home.php.stub', $livewireDir . '/Home.php');
-        $this->publishStub('demo/Users.php.stub', $livewireDir . '/Users.php');
-        $this->publishStub('demo/Tests.php.stub', $livewireDir . '/Tests.php');
+        $this->publishStub('demo/Trail.php.stub', $livewireDir . '/Trail.php');
+        $this->publishStub('demo/Lesson.php.stub', $livewireDir . '/Lesson.php');
+        $this->publishStub('demo/Rank.php.stub', $livewireDir . '/Rank.php');
+        $this->publishStub('demo/Profile.php.stub', $livewireDir . '/Profile.php');
         $this->publishStub('demo/login.blade.php.stub', $viewsDir . '/login.blade.php');
-        $this->publishStub('demo/home.blade.php.stub', $viewsDir . '/home.blade.php');
-        $this->publishStub('demo/users.blade.php.stub', $viewsDir . '/users.blade.php');
-        $this->publishStub('demo/tests.blade.php.stub', $viewsDir . '/tests.blade.php');
+        $this->publishStub('demo/trail.blade.php.stub', $viewsDir . '/trail.blade.php');
+        $this->publishStub('demo/lesson.blade.php.stub', $viewsDir . '/lesson.blade.php');
+        $this->publishStub('demo/rank.blade.php.stub', $viewsDir . '/rank.blade.php');
+        $this->publishStub('demo/profile.blade.php.stub', $viewsDir . '/profile.blade.php');
         $this->publishStub('demo/routes.php.stub', base_path('routes/web.php'));
 
         $logo = NativeBladeServiceProvider::packagePath('logo_nb.png');
@@ -273,7 +275,7 @@ class InstallCommand extends Command
 
         @unlink(resource_path('views/welcome.blade.php'));
 
-        $this->line("  <fg=green>✓</> Demo app published (Login + Home)");
+        $this->line("  <fg=green>✓</> Demo app published (Login, Trail, Lesson, Rank, Profile)");
     }
 
     private function patchTailwindSources(): void

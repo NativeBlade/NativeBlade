@@ -7,10 +7,8 @@ export function setHandler(fn) {
     onNavigate = fn;
 }
 
-export function render(data, activePath) {
-    const items = data?.children?.filter(c => c.type === 'tab') || [];
-
-    if (!items.length) {
+export function render(data, activePath, appFrame) {
+    if (!data) {
         if (el) el.style.display = 'none';
         return;
     }
@@ -20,16 +18,28 @@ export function render(data, activePath) {
         el.id = 'bottom-nav';
         document.body.appendChild(el);
         el.addEventListener('click', (e) => {
-            const link = e.target.closest('[data-path]');
+            const link = e.target.closest('[data-path]') || e.target.closest('[data-nav]');
             if (link && onNavigate) {
                 e.preventDefault();
-                onNavigate(link.dataset.path);
+                onNavigate(link.dataset.path || link.dataset.nav);
             }
         });
     }
 
     if (data.bg) el.style.setProperty('background', data.bg);
     if (data.borderColor) el.style.setProperty('border-top-color', data.borderColor);
+
+    if (data.slotHtml) {
+        el.innerHTML = data.slotHtml;
+        el.style.display = 'block';
+        return;
+    }
+
+    const items = data?.children?.filter(c => c.type === 'tab') || [];
+    if (!items.length) {
+        if (el) el.style.display = 'none';
+        return;
+    }
 
     const normalized = activePath === '/' ? '/' : (activePath || '/').replace(/\/$/, '');
     const activeColor = data.activeColor || '#a855f7';

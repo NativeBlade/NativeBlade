@@ -13,6 +13,15 @@ class Login extends Component
     public string $password = '';
     public string $error = '';
 
+    public function mount()
+    {
+        NativeBlade::forget('auth.user');
+        NativeBlade::forget('auth.logged_at');
+        NativeBlade::forget('trail.xp');
+        NativeBlade::forget('trail.streak');
+        NativeBlade::forget('trail.completed');
+    }
+
     public function login()
     {
         if ($this->email === 'admin@admin.com' && $this->password === '123456') {

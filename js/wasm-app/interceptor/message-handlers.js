@@ -23,6 +23,11 @@ export const handlers = {
         }
     `,
 
+    'nativeblade-safe-area': `
+        document.documentElement.style.setProperty('--nb-safe-top', e.data.top + 'px');
+        document.documentElement.style.setProperty('--nb-safe-bottom', e.data.bottom + 'px');
+    `,
+
     'nativeblade-camera-result': `
         var preview = document.getElementById('photo-preview');
         if (preview) {

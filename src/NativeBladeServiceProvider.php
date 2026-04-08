@@ -91,6 +91,7 @@ class NativeBladeServiceProvider extends ServiceProvider
         Blade::component('nativeblade-drawer-item', Components\NbDrawerItem::class);
         Blade::component('nativeblade-icon', Components\NbIcon::class);
         Blade::component('nativeblade-image', Components\NbImage::class);
+        Blade::component('nativeblade-modal', Components\NbModal::class);
     }
 
 

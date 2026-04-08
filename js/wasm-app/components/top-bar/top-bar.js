@@ -25,6 +25,13 @@ export function render(data, activePath, appFrame) {
     if (data.bg) el.style.setProperty('background', data.bg);
     if (data.borderColor) el.style.setProperty('border-bottom-color', data.borderColor);
 
+    if (data.slotHtml) {
+        el.innerHTML = data.slotHtml;
+        el.style.display = 'block';
+        bindClicks(el, appFrame);
+        return;
+    }
+
     const hasDrawer = !!onMenuClick;
     const actions = (data.children || []).filter(c => c.type === 'action');
 
@@ -51,7 +58,10 @@ export function render(data, activePath, appFrame) {
     </div>`;
 
     el.style.display = 'block';
+    bindClicks(el, appFrame);
+}
 
+function bindClicks(el, appFrame) {
     el.onclick = (e) => {
         if (e.target.closest('[data-menu]')) {
             if (onMenuClick) onMenuClick();
@@ -62,6 +72,11 @@ export function render(data, activePath, appFrame) {
                 const path = onBackFn();
                 if (path && navigateFn) navigateFn(path);
             }
+            return;
+        }
+        const navEl = e.target.closest('[data-nav]');
+        if (navEl) {
+            window.postMessage({ type: 'nativeblade-navigate', path: navEl.dataset.nav }, '*');
             return;
         }
         const actionEl = e.target.closest('[data-action]');
