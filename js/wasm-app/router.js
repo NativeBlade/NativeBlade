@@ -12,6 +12,7 @@ let currentPath = '/';
 let historyStack = [];
 let navigationVersion = 0;
 let pendingMessageId = null;
+let transition = 'none';
 
 export function goBack() {
     if (historyStack.length > 0) {
@@ -30,6 +31,10 @@ export function getCurrentPath() {
 
 export function getPreviousPath() {
     return historyStack.length > 0 ? historyStack[historyStack.length - 1] : '/';
+}
+
+export function setTransition(t) {
+    transition = t || 'none';
 }
 
 export function init(frame, splashEl) {
@@ -72,10 +77,11 @@ export function init(frame, splashEl) {
                 }, '*');
             }
         } else if (type === 'nativeblade-navigate') {
+            const opts = event.data.transition ? { transition: event.data.transition } : {};
             if (event.data.replace) {
-                await navigateReplace(event.data.path);
+                await navigateReplace(event.data.path, opts);
             } else {
-                await navigate(event.data.path);
+                await navigate(event.data.path, opts);
             }
         } else if (type === 'nativeblade-native') {
             handleNativeAction(event.data.action, event.data.payload, appFrame);
@@ -121,11 +127,37 @@ async function navigateInternal(path, options = {}) {
 
     let html = response.text;
     const config = extractShellConfig(html);
+    const pageTransition = options.transition || config.transition || transition;
     html = inject(html);
 
     splash.style.display = 'none';
     appFrame.style.display = 'block';
     await applyConfig(config, path);
 
-    appFrame.srcdoc = html;
+    if (pageTransition !== 'none' && appFrame.srcdoc) {
+        const parent = appFrame.parentElement;
+        parent.style.overflow = 'hidden';
+        appFrame.style.opacity = '0';
+        if (pageTransition === 'slide') {
+            appFrame.style.transform = 'translateX(60px)';
+        }
+        await new Promise(r => setTimeout(r, 150));
+        if (version !== navigationVersion) { parent.style.overflow = ''; return; }
+        appFrame.srcdoc = html;
+        if (pageTransition === 'slide') {
+            appFrame.style.transform = 'translateX(-60px)';
+        }
+        appFrame.addEventListener('load', function onLoad() {
+            appFrame.removeEventListener('load', onLoad);
+            requestAnimationFrame(() => {
+                appFrame.style.opacity = '1';
+                appFrame.style.transform = 'translateX(0)';
+                setTimeout(() => { parent.style.overflow = ''; }, 200);
+            });
+        });
+    } else {
+        appFrame.style.opacity = '1';
+        appFrame.style.transform = 'translateX(0)';
+        appFrame.srcdoc = html;
+    }
 }

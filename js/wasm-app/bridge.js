@@ -207,7 +207,7 @@ export function handleNativeAction(action, payload, appFrame) {
             break;
 
         case 'navigate':
-            window.postMessage({ type: 'nativeblade-navigate', path: payload.path, replace: !!payload.replace }, '*');
+            window.postMessage({ type: 'nativeblade-navigate', path: payload.path, replace: !!payload.replace, transition: payload.transition }, '*');
             break;
 
         case 'showModal': {

@@ -8,6 +8,7 @@ class ShellConfig
 {
     private array $config = [];
     private static array $appConfigs = [];
+    private static string $transition = 'none';
 
     public function bottomNav(array $items): static
     {
@@ -23,7 +24,11 @@ class ShellConfig
 
     public function get(): array
     {
-        return $this->config;
+        $config = $this->config;
+        if (static::$transition !== 'none') {
+            $config['transition'] = static::$transition;
+        }
+        return $config;
     }
 
     public function desktop(callable $callback): void
@@ -57,6 +62,17 @@ class ShellConfig
     public static function getAppConfigs(): array
     {
         return static::$appConfigs;
+    }
+
+    public function transition(string $type = 'fade'): static
+    {
+        static::$transition = $type;
+        return $this;
+    }
+
+    public static function getTransition(): string
+    {
+        return static::$transition;
     }
 
     public function platform(): string

@@ -3,6 +3,16 @@
     background: #111827;
     border-bottom: 1px solid #1f2937;
     padding-top: env(safe-area-inset-top);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+#top-bar * {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+    -webkit-user-select: none;
 }
 #top-bar .topbar-inner {
     display: flex;

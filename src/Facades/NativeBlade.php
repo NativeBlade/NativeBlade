@@ -32,6 +32,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static void forget(string $key)
  * @method static void flush(?string $scope = null)
  * @method static array pool(callable $callback)
+ * @method static static transition(string $type = 'fade')
  */
 class NativeBlade extends Facade
 {

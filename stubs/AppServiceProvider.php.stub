@@ -28,5 +28,7 @@ class AppServiceProvider extends ServiceProvider
                 ->statusBar(style: 'dark', color: '#0a0a0a')
                 ->splash(bg: '#0a0a0a');
         });
+
+        NativeBlade::transition('slide');
     }
 }

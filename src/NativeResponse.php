@@ -63,6 +63,15 @@ class NativeResponse
         return $this;
     }
 
+    public function transition(string $type): static
+    {
+        if (!empty($this->actions)) {
+            $last = &$this->actions[count($this->actions) - 1];
+            $last['data']['transition'] = $type;
+        }
+        return $this;
+    }
+
     public function exit(): static
     {
         $this->actions[] = [

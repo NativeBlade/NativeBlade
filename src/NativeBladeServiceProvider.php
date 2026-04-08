@@ -130,7 +130,7 @@ class NativeBladeServiceProvider extends ServiceProvider
 
     private function registerViewComposer(): void
     {
-        View::composer('components.layouts.app', function ($view) {
+        View::composer('components.layouts.*', function ($view) {
             $view->with('shellConfig', app('nativeblade')->get());
         });
     }

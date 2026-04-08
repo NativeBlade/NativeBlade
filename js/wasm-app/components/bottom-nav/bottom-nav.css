@@ -3,6 +3,16 @@
     background: #111827;
     border-top: 1px solid #1f2937;
     padding-bottom: env(safe-area-inset-bottom);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+#bottom-nav * {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+    -webkit-user-select: none;
 }
 #bottom-nav .nav-items {
     display: flex;
