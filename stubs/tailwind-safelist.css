@@ -1,0 +1,104 @@
+/* NativeBlade: Tailwind safelist - pregenerate all common utilities */
+
+/* Spacing */
+@source inline("{m,p,mx,my,mt,mb,ml,mr,px,py,pt,pb,pl,pr}-{0,0.5,1,1.5,2,2.5,3,3.5,4,5,6,7,8,9,10,11,12,14,16,20,24,28,32,36,40,44,48,52,56,60,64,72,80,96,auto}");
+@source inline("{-m,-mx,-my,-mt,-mb,-ml,-mr}-{0.5,1,1.5,2,2.5,3,3.5,4,5,6,7,8,9,10,11,12,14,16,20,24}");
+@source inline("{w,h,min-w,min-h,max-w,max-h}-{0,0.5,1,1.5,2,2.5,3,3.5,4,5,6,7,8,9,10,11,12,14,16,20,24,28,32,36,40,44,48,52,56,60,64,72,80,96,full,screen,auto,min,max,fit,xs,sm,md,lg,xl,2xl,3xl,4xl,5xl,6xl,7xl}");
+@source inline("{gap,gap-x,gap-y}-{0,0.5,1,1.5,2,2.5,3,3.5,4,5,6,7,8,9,10,11,12,14,16,20,24}");
+@source inline("{top,right,bottom,left,inset,inset-x,inset-y}-{0,0.5,1,1.5,2,2.5,3,3.5,4,5,6,7,8,auto}");
+@source inline("{space-x,space-y}-{0,0.5,1,1.5,2,2.5,3,3.5,4,5,6,7,8}");
+
+/* Layout */
+@source inline("{block,inline-block,inline,flex,inline-flex,grid,inline-grid,hidden,contents,table,table-row,table-cell,flow-root}");
+@source inline("{static,fixed,absolute,relative,sticky}");
+@source inline("{visible,invisible,collapse}");
+@source inline("{overflow,overflow-x,overflow-y}-{auto,hidden,clip,visible,scroll}");
+@source inline("z-{0,10,20,30,40,50,auto}");
+
+/* Flexbox & Grid */
+@source inline("{flex-row,flex-row-reverse,flex-col,flex-col-reverse,flex-wrap,flex-wrap-reverse,flex-nowrap}");
+@source inline("{flex-1,flex-auto,flex-initial,flex-none}");
+@source inline("{grow,grow-0,shrink,shrink-0}");
+@source inline("{items-start,items-end,items-center,items-baseline,items-stretch}");
+@source inline("{justify-normal,justify-start,justify-end,justify-center,justify-between,justify-around,justify-evenly,justify-stretch}");
+@source inline("{self-auto,self-start,self-end,self-center,self-stretch,self-baseline}");
+@source inline("{order-{1..12},order-first,order-last,order-none}");
+@source inline("grid-cols-{1..12,none,subgrid}");
+@source inline("grid-rows-{1..6,none,subgrid}");
+@source inline("{col,row}-span-{1..12,full}");
+@source inline("{col-start,col-end,row-start,row-end}-{1..13,auto}");
+@source inline("{place-content,place-items,place-self}-{start,end,center,stretch,between,around,evenly,baseline}");
+
+/* Typography */
+@source inline("{text-xs,text-sm,text-base,text-lg,text-xl,text-2xl,text-3xl,text-4xl,text-5xl,text-6xl,text-7xl,text-8xl,text-9xl}");
+@source inline("{font-thin,font-extralight,font-light,font-normal,font-medium,font-semibold,font-bold,font-extrabold,font-black}");
+@source inline("{italic,not-italic}");
+@source inline("{underline,overline,line-through,no-underline}");
+@source inline("{uppercase,lowercase,capitalize,normal-case}");
+@source inline("{text-left,text-center,text-right,text-justify,text-start,text-end}");
+@source inline("{whitespace-normal,whitespace-nowrap,whitespace-pre,whitespace-pre-line,whitespace-pre-wrap,whitespace-break-spaces}");
+@source inline("{break-normal,break-words,break-all,break-keep}");
+@source inline("{truncate,text-ellipsis,text-clip}");
+@source inline("{leading-none,leading-tight,leading-snug,leading-normal,leading-relaxed,leading-loose}");
+@source inline("leading-{3,4,5,6,7,8,9,10}");
+@source inline("tracking-{tighter,tight,normal,wide,wider,widest}");
+@source inline("{antialiased,subpixel-antialiased}");
+@source inline("line-clamp-{1,2,3,4,5,6,none}");
+
+/* Colors */
+@source inline("{text,bg,border,ring,outline,divide,accent,caret,fill,stroke,shadow,from,via,to}-{inherit,current,transparent,black,white}");
+@source inline("{text,bg,border,ring,shadow,from,via,to}-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,{100..900..100},950}");
+@source inline("{divide,outline,accent,caret,fill,stroke}-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,{100..900..100},950}");
+
+/* Borders */
+@source inline("{border,border-t,border-r,border-b,border-l,border-x,border-y}-{0,1,2,4,8}");
+@source inline("{rounded,rounded-t,rounded-r,rounded-b,rounded-l,rounded-tl,rounded-tr,rounded-bl,rounded-br}-{none,sm,md,lg,xl,2xl,3xl,full}");
+@source inline("{ring,ring-0,ring-1,ring-2,ring-4,ring-8,ring-inset}");
+@source inline("{outline,outline-none,outline-0,outline-1,outline-2,outline-4,outline-8}");
+@source inline("{outline-offset-0,outline-offset-1,outline-offset-2,outline-offset-4,outline-offset-8}");
+@source inline("{divide-x,divide-y}-{0,1,2,4,8,reverse}");
+
+/* Backgrounds & Effects */
+@source inline("{bg-fixed,bg-local,bg-scroll}");
+@source inline("{bg-auto,bg-cover,bg-contain}");
+@source inline("{bg-bottom,bg-center,bg-left,bg-left-bottom,bg-left-top,bg-right,bg-right-bottom,bg-right-top,bg-top}");
+@source inline("{bg-repeat,bg-no-repeat,bg-repeat-x,bg-repeat-y,bg-repeat-round,bg-repeat-space}");
+@source inline("{bg-none,bg-linear-to-t,bg-linear-to-tr,bg-linear-to-r,bg-linear-to-br,bg-linear-to-b,bg-linear-to-bl,bg-linear-to-l,bg-linear-to-tl}");
+@source inline("{opacity-{0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100}}");
+@source inline("{shadow-xs,shadow-sm,shadow,shadow-md,shadow-lg,shadow-xl,shadow-2xl,shadow-inner,shadow-none}");
+@source inline("{blur-none,blur-sm,blur,blur-md,blur-lg,blur-xl,blur-2xl,blur-3xl}");
+
+/* Transitions & Transforms */
+@source inline("{transition-none,transition-all,transition,transition-colors,transition-opacity,transition-shadow,transition-transform}");
+@source inline("duration-{0,75,100,150,200,300,500,700,1000}");
+@source inline("{ease-linear,ease-in,ease-out,ease-in-out}");
+@source inline("delay-{0,75,100,150,200,300,500,700,1000}");
+@source inline("{scale-0,scale-50,scale-75,scale-90,scale-95,scale-100,scale-105,scale-110,scale-125,scale-150,scale-200}");
+@source inline("{rotate-0,rotate-1,rotate-2,rotate-3,rotate-6,rotate-12,rotate-45,rotate-90,rotate-180}");
+@source inline("{translate-x,translate-y}-{0,0.5,1,1.5,2,2.5,3,3.5,4,5,6,7,8,9,10,11,12,14,16,20,24,1/2,1/3,2/3,1/4,2/4,3/4,full}");
+@source inline("{-translate-x,-translate-y}-{0.5,1,1.5,2,2.5,3,3.5,4,5,6,7,8,9,10,11,12,1/2,full}");
+@source inline("{skew-x,skew-y}-{0,1,2,3,6,12}");
+@source inline("{transform,transform-cpu,transform-gpu,transform-none}");
+@source inline("{origin-center,origin-top,origin-top-right,origin-right,origin-bottom-right,origin-bottom,origin-bottom-left,origin-left,origin-top-left}");
+
+/* Interactivity */
+@source inline("{cursor-auto,cursor-default,cursor-pointer,cursor-wait,cursor-text,cursor-move,cursor-help,cursor-not-allowed,cursor-none,cursor-crosshair,cursor-grab,cursor-grabbing}");
+@source inline("{select-none,select-text,select-all,select-auto}");
+@source inline("{resize-none,resize-y,resize-x,resize}");
+@source inline("{appearance-none,appearance-auto}");
+@source inline("{pointer-events-none,pointer-events-auto}");
+@source inline("{touch-auto,touch-none,touch-pan-x,touch-pan-y,touch-pinch-zoom,touch-manipulation}");
+@source inline("{scroll-auto,scroll-smooth}");
+@source inline("{will-change-auto,will-change-scroll,will-change-contents,will-change-transform}");
+
+/* Responsive + States */
+@source inline("{sm:,md:,lg:,xl:,2xl:}{block,inline-block,inline,flex,inline-flex,grid,hidden}");
+@source inline("{sm:,md:,lg:,xl:,2xl:}grid-cols-{1..12}");
+@source inline("{sm:,md:,lg:,xl:,2xl:}{text-xs,text-sm,text-base,text-lg,text-xl,text-2xl,text-3xl,text-4xl}");
+@source inline("{sm:,md:,lg:,xl:,2xl:}{p,px,py,m,mx,my}-{0,1,2,3,4,5,6,8,10,12,16,20,24}");
+@source inline("{sm:,md:,lg:,xl:,2xl:}{w,h}-{full,screen,auto,1/2,1/3,2/3,1/4,3/4}");
+@source inline("{sm:,md:,lg:,xl:,2xl:}{flex-row,flex-col,items-start,items-center,items-end,justify-start,justify-center,justify-between,justify-end}");
+@source inline("{hover:,focus:,active:,disabled:,group-hover:}{opacity-{0,25,50,75,100},scale-{95,100,105,110}}");
+@source inline("{hover:,focus:,active:}bg-{slate,gray,zinc,neutral,red,orange,amber,yellow,green,emerald,teal,cyan,blue,indigo,violet,purple,pink,rose}-{50,{100..900..100},950}");
+@source inline("{hover:,focus:,active:}text-{slate,gray,zinc,neutral,red,orange,amber,yellow,green,emerald,teal,cyan,blue,indigo,violet,purple,pink,rose}-{50,{100..900..100},950}");
+@source inline("{hover:,focus:,active:}border-{slate,gray,zinc,neutral,red,orange,amber,yellow,green,emerald,teal,cyan,blue,indigo,violet,purple,pink,rose}-{50,{100..900..100},950}");

@@ -301,6 +301,11 @@ class InstallCommand extends Command
             1
         );
 
+        $safelist = file_get_contents(NativeBladeServiceProvider::packagePath('stubs/tailwind-safelist.css'));
+        if ($safelist) {
+            $content .= "\n" . $safelist;
+        }
+
         file_put_contents($cssPath, $content);
         $this->line("  <fg=green>✓</> Tailwind sources patched");
     }

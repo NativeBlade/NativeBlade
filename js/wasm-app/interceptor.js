@@ -131,6 +131,5 @@ export function inject(html) {
     }
 })();
 <\/script>`;
-    const safeAreaStyle = `<style>:root{--nb-safe-top:0px;--nb-safe-bottom:0px}</style>`;
-    return html.replace('<head>', '<head><base href="http://localhost/">' + safeAreaStyle + script);
+    return html.replace('<head>', '<head><base href="http://localhost/">' + script);
 }

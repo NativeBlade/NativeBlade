@@ -7,10 +7,11 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @vite(['resources/css/app.css'])
     @livewireStyles
+    <style>:root{--nb-safe-top:env(safe-area-inset-top,0px);--nb-safe-bottom:env(safe-area-inset-bottom,0px)}</style>
 </head>
 <body class="bg-gray-950 text-white min-h-screen" style="padding-top: env(safe-area-inset-top)">
 
-    <main class="p-4">
+    <main>
         {{ $slot }}
     </main>
 
