@@ -468,6 +468,79 @@ class Home extends Component
 | `<x-nativeblade-tab>` | Tab item (icon + label + href) |
 | `<x-nativeblade-drawer>` | Side drawer / hamburger menu |
 | `<x-nativeblade-drawer-item>` | Drawer navigation item (icon + label + href) |
+| `<x-nativeblade-modal>` | Shell modal (renders above all shell components) |
+| `<x-nativeblade-safe>` | Safe area wrapper (device notch, home indicator) |
+
+### Modal
+
+Shell modal renders at z-index 9999, above all other shell components. Pre-rendered on navigation, shown/hidden via bridge:
+
+```blade
+{{-- Define modal content (always in the template, hidden by default) --}}
+<x-nativeblade-modal>
+    <div style="padding:24px">
+        <h3 style="font-size:18px;font-weight:900;color:#fff">Confirm?</h3>
+        <p style="color:#9ca3af;font-size:14px">Are you sure?</p>
+        <button data-nav="/next-page" data-replace style="...">Yes</button>
+        <button data-dismiss style="...">Cancel</button>
+    </div>
+</x-nativeblade-modal>
+
+{{-- Trigger it --}}
+<button wire:nb-bridge="showModal">Open Modal</button>
+```
+
+Inside the modal HTML: `data-dismiss` hides the modal, `data-nav="/path"` navigates (add `data-replace` for history replace).
+
+### Page Transitions
+
+Configure globally in `AppServiceProvider`:
+
+```php
+NativeBlade::transition('fade');  // fade between pages
+NativeBlade::transition('slide'); // slide + fade between pages
+NativeBlade::transition('none');  // no transition (default)
+```
+
+Or per-navigation:
+
+```php
+NativeBlade::navigate('/lesson/1')->transition('slide')->toResponse();
+NativeBlade::navigate('/')->transition('fade')->toResponse();
+```
+
+### Safe Area
+
+For pages **without** shell header/bottom-nav (embedded components), use `<x-nativeblade-safe>` or CSS variables to handle device notch and home indicator.
+
+**Wrapping content (normal flow):**
+
+```blade
+<x-nativeblade-safe>
+    <div>Your content here — gets padding for notch/home indicator</div>
+</x-nativeblade-safe>
+
+{{-- Only top --}}
+<x-nativeblade-safe :bottom="false">
+    <header>...</header>
+</x-nativeblade-safe>
+```
+
+**Fixed/absolute elements (CSS variables):**
+
+Layouts include `--nb-safe-top` and `--nb-safe-bottom` CSS variables mapped to device safe area insets. Use them on fixed/sticky elements:
+
+```blade
+<header class="fixed top-0" style="padding-top:max(var(--nb-safe-top), 12px)">
+    ...
+</header>
+
+<div class="sticky bottom-0" style="padding-bottom:max(var(--nb-safe-bottom), 16px)">
+    ...
+</div>
+```
+
+The component uses `NativeBlade::isIos()`, `isAndroid()`, `isDesktop()` to apply platform-appropriate values.
 
 ---
 
