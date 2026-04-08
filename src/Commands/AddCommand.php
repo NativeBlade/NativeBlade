@@ -54,7 +54,7 @@ class AddCommand extends Command
         }
 
         $this->patchAndroidPermissions();
-        $this->generateIcons();
+        $this->call('nativeblade:icon');
         $this->call('nativeblade:config');
 
         $this->info('');
@@ -75,7 +75,7 @@ class AddCommand extends Command
         $this->line('  <fg=green>✓</> iOS scaffold generated');
 
         $this->patchIosPermissions();
-        $this->generateIcons();
+        $this->call('nativeblade:icon');
         $this->call('nativeblade:config');
 
         $this->info('');
@@ -99,16 +99,6 @@ class AddCommand extends Command
         return PHP_OS_FAMILY === 'Windows'
             ? "npx.cmd {$args}"
             : "npx {$args}";
-    }
-
-    private function generateIcons(): void
-    {
-        $iconSrc = base_path('src-tauri/icons/logo.png');
-        if (!file_exists($iconSrc)) return;
-
-        $this->line('  Generating platform icons...');
-        $this->exec($this->tauriCliCommand("tauri icon {$iconSrc}"));
-        $this->line('  <fg=green>✓</> Icons generated');
     }
 
     private function patchIosPermissions(): void

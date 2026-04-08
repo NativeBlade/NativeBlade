@@ -22,7 +22,6 @@ class ConfigCommand extends Command
         $android = $configs['android'] ?? [];
         $ios = $configs['ios'] ?? [];
 
-        $this->generateAppIcons($desktop);
         $this->generateTauriConf($desktop);
         $this->generateMenu($desktop);
         $this->generateTray($desktop);
@@ -31,41 +30,6 @@ class ConfigCommand extends Command
 
         $this->info('  Config generated from PHP.');
         return 0;
-    }
-
-    private function generateAppIcons(array $desktop): void
-    {
-        $iconPath = $desktop['icon'] ?? null;
-        if (!$iconPath) return;
-
-        $iconSrc = base_path($iconPath);
-        if (!file_exists($iconSrc)) {
-            $this->line("  <fg=yellow>WARN</> App icon not found at {$iconPath}");
-            return;
-        }
-
-        $iconsDir = base_path('src-tauri/icons');
-        if (!is_dir($iconsDir)) {
-            mkdir($iconsDir, 0755, true);
-        }
-
-        copy($iconSrc, $iconsDir . '/logo.png');
-
-        $this->line('  Generating app icons...');
-        $process = Process::fromShellCommandline($this->tauriCliCommand('tauri icon ' . escapeshellarg($iconSrc)), base_path());
-        $process->setTimeout(null);
-        $process->setTty(Process::isTtySupported());
-        $process->run(function ($type, $buffer) {
-            $this->output->write($buffer);
-        });
-
-        if ($process->isSuccessful()) {
-            $this->line("  <fg=green>OK</> App icons generated");
-            return;
-        }
-
-        $this->line('  <fg=yellow>WARN</> Unable to generate app icons automatically');
-        $this->line('     Run manually: ' . $this->tauriCliCommand('tauri icon ' . escapeshellarg($iconPath)));
     }
 
     private function generateTauriConf(array $desktop): void

@@ -34,6 +34,7 @@ class InstallCommand extends Command
         $this->updateBootstrap();
         $this->patchTailwindSources();
         $this->createDirectories();
+        $this->call('nativeblade:icon');
         $this->call('nativeblade:config');
 
         $this->info('');
