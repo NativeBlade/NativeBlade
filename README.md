@@ -1032,7 +1032,34 @@ Everything in `vendor/nativeblade/nativeblade/` — you never touch framework co
 | `php artisan nativeblade:dev --platform=android` | Run on Android device |
 | `php artisan nativeblade:dev --platform=ios` | Run on iOS simulator |
 | `php artisan nativeblade:config` | Regenerate Tauri configs from PHP |
+| `php artisan nativeblade:icon` | Generate all platform icons from a 1024x1024 PNG |
 | `php artisan nativeblade:component {name}` | Create a new custom component |
+
+### Icon Generation
+
+Place a 1024x1024 PNG at `src-tauri/icons/logo.png` and run:
+
+```bash
+php artisan nativeblade:icon
+```
+
+This generates all icons in PHP (GD extension required):
+
+- **Desktop** — 32, 128, 256, 512, icon.ico, icon.icns
+- **Android** — adaptive icons with safe zone padding, round icons, monochrome notification icons, background color XML
+- **iOS** — all required sizes with opaque background, Contents.json
+
+Options:
+
+```bash
+# Custom source icon
+php artisan nativeblade:icon resources/icons/my-logo.png
+
+# Custom background color for adaptive icon
+php artisan nativeblade:icon --bg=#1a1a2e
+```
+
+Icons are generated automatically during `nativeblade:install` and `nativeblade:add android/ios`. Run `nativeblade:icon` manually to regenerate after changing your logo.
 
 ---
 
