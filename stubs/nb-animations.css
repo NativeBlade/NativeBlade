@@ -1,0 +1,217 @@
+/* NativeBlade Custom Animations — extends animate.css */
+
+/* Pulse Glow - pulsating glow effect for active elements */
+@keyframes pulseGlow {
+    0%, 100% { transform: scale(1); opacity: 0.4; }
+    50% { transform: scale(1.3); opacity: 0.7; }
+}
+.animate__pulseGlow {
+    animation-name: pulseGlow;
+    animation-duration: 2s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+}
+
+/* Shimmer - shine effect for progress bars and surfaces */
+@keyframes shimmer {
+    from { transform: translateX(-100%) skewX(-20deg); }
+    to { transform: translateX(200%) skewX(-20deg); }
+}
+.animate__shimmer {
+    animation-name: shimmer;
+    animation-duration: 2s;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+/* Confetti - falling particle effect */
+@keyframes confetti {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+.animate__confetti {
+    animation-name: confetti;
+    animation-duration: 3s;
+    animation-timing-function: ease-in;
+}
+
+/* XP Fill - progress bar fill from left */
+@keyframes xpFill {
+    from { width: 0%; }
+    to { width: 100%; }
+}
+.animate__xpFill {
+    animation-name: xpFill;
+    animation-duration: 1.2s;
+    animation-timing-function: ease-out;
+}
+
+/* Spring Pop - bouncy scale with rotation */
+@keyframes springPop {
+    0% { transform: scale(0.5) rotate(-30deg); opacity: 0; }
+    60% { transform: scale(1.1) rotate(5deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.animate__springPop {
+    animation-name: springPop;
+}
+
+/* Float - gentle floating up and down */
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+.animate__float {
+    animation-name: float;
+    animation-duration: 3s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+}
+
+/* Glow - pulsating box-shadow glow */
+@keyframes glow {
+    0%, 100% { box-shadow: 0 0 5px currentColor; }
+    50% { box-shadow: 0 0 20px currentColor, 0 0 40px currentColor; }
+}
+.animate__glow {
+    animation-name: glow;
+    animation-duration: 2s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+}
+
+/* Scale Tap - quick press feedback */
+@keyframes scaleTap {
+    0% { transform: scale(1); }
+    50% { transform: scale(0.95); }
+    100% { transform: scale(1); }
+}
+.animate__scaleTap {
+    animation-name: scaleTap;
+    animation-duration: 0.2s;
+    animation-timing-function: ease-in-out;
+}
+
+/* Shake Subtle - gentle horizontal shake */
+@keyframes shakeSubtle {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-4px); }
+    40%, 80% { transform: translateX(4px); }
+}
+.animate__shakeSubtle {
+    animation-name: shakeSubtle;
+    animation-duration: 0.4s;
+}
+
+/* Slide Fade In Right - slide + fade combined */
+@keyframes slideFadeInRight {
+    from { opacity: 0; transform: translateX(30px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+.animate__slideFadeInRight {
+    animation-name: slideFadeInRight;
+}
+
+/* Slide Fade In Left - slide + fade combined */
+@keyframes slideFadeInLeft {
+    from { opacity: 0; transform: translateX(-30px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+.animate__slideFadeInLeft {
+    animation-name: slideFadeInLeft;
+}
+
+/* Slide Fade In Up - slide + fade combined */
+@keyframes slideFadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate__slideFadeInUp {
+    animation-name: slideFadeInUp;
+}
+
+/* Slide Fade In Down - slide + fade combined */
+@keyframes slideFadeInDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate__slideFadeInDown {
+    animation-name: slideFadeInDown;
+}
+
+/* Pop In - scale from 0 with overshoot */
+@keyframes popIn {
+    0% { transform: scale(0); opacity: 0; }
+    60% { transform: scale(1.12); }
+    100% { transform: scale(1); opacity: 1; }
+}
+.animate__popIn {
+    animation-name: popIn;
+}
+
+/* Pop Out - scale to 0 */
+@keyframes popOut {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(0); opacity: 0; }
+}
+.animate__popOut {
+    animation-name: popOut;
+}
+
+/* Celebrate - quick scale pulse for success */
+@keyframes celebrate {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+}
+.animate__celebrate {
+    animation-name: celebrate;
+    animation-duration: 0.5s;
+}
+
+/* Wiggle - playful rotation wiggle */
+@keyframes wiggle {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-5deg); }
+    75% { transform: rotate(5deg); }
+}
+.animate__wiggle {
+    animation-name: wiggle;
+    animation-duration: 0.5s;
+}
+
+/* Reveal Up - clip reveal from bottom */
+@keyframes revealUp {
+    from { clip-path: inset(100% 0 0 0); }
+    to { clip-path: inset(0 0 0 0); }
+}
+.animate__revealUp {
+    animation-name: revealUp;
+}
+
+/* Reveal Down - clip reveal from top */
+@keyframes revealDown {
+    from { clip-path: inset(0 0 100% 0); }
+    to { clip-path: inset(0 0 0 0); }
+}
+.animate__revealDown {
+    animation-name: revealDown;
+}
+
+/* Blur In - blur to sharp */
+@keyframes blurIn {
+    from { filter: blur(12px); opacity: 0; }
+    to { filter: blur(0); opacity: 1; }
+}
+.animate__blurIn {
+    animation-name: blurIn;
+}
+
+/* Blur Out - sharp to blur */
+@keyframes blurOut {
+    from { filter: blur(0); opacity: 1; }
+    to { filter: blur(12px); opacity: 0; }
+}
+.animate__blurOut {
+    animation-name: blurOut;
+}

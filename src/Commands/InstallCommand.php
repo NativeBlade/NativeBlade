@@ -114,6 +114,17 @@ class InstallCommand extends Command
         $this->publishStub('app.blade.php.stub', $layoutDir . '/app.blade.php');
         $this->publishStub('auth.blade.php.stub', $layoutDir . '/auth.blade.php');
 
+        $cssDir = resource_path('css');
+        if (!is_dir($cssDir)) mkdir($cssDir, 0755, true);
+        $animateSrc = NativeBladeServiceProvider::packagePath('stubs/animate.min.css');
+        if (file_exists($animateSrc)) {
+            copy($animateSrc, $cssDir . '/animate.min.css');
+        }
+        $nbAnimSrc = NativeBladeServiceProvider::packagePath('stubs/nb-animations.css');
+        if (file_exists($nbAnimSrc)) {
+            copy($nbAnimSrc, $cssDir . '/nb-animations.css');
+        }
+
         $this->line("  <fg=green>✓</> Blade layouts published");
     }
 
@@ -300,6 +311,10 @@ class InstallCommand extends Command
             $content,
             1
         );
+
+        if (!str_contains($content, 'animate.min.css')) {
+            $content = str_replace("@import 'tailwindcss';", "@import 'tailwindcss';\n@import './animate.min.css';\n@import './nb-animations.css';", $content);
+        }
 
         $safelist = file_get_contents(NativeBladeServiceProvider::packagePath('stubs/tailwind-safelist.css'));
         if ($safelist) {

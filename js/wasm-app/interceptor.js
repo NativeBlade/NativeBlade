@@ -1,5 +1,6 @@
 import { code as fetchOverride } from './interceptor/fetch-override.js';
 import { code as linkIntercept } from './interceptor/link-intercept.js';
+import { code as animations } from './interceptor/animations.js';
 import { handlers } from './interceptor/message-handlers.js';
 
 export function extractShellConfig(html) {
@@ -129,6 +130,8 @@ export function inject(html) {
     } else {
         document.addEventListener('DOMContentLoaded', __nbRegisterDirectives);
     }
+
+    ${animations}
 })();
 <\/script>`;
     return html.replace('<head>', '<head><base href="http://localhost/">' + script);

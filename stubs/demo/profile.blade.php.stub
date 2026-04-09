@@ -1,13 +1,4 @@
 <div class="relative">
-<style>
-    @keyframes nb-fade-up { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
-    @keyframes nb-fade-x { from { opacity: 0.7; transform: translateX(-5px) } to { opacity: 1; transform: translateX(0) } }
-    @keyframes nb-spring { 0% { transform: scale(0.8); opacity: 0.5 } 60% { transform: scale(1.05) } 100% { transform: scale(1); opacity: 1 } }
-    @keyframes nb-shimmer { from { transform: translateX(-100%) skewX(-20deg) } to { transform: translateX(200%) skewX(-20deg) } }
-    .nb-fade-up { animation: nb-fade-up 0.4s ease-out both; }
-    .nb-fade-x { animation: nb-fade-x 0.3s ease-out both; }
-    .nb-spring { animation: nb-spring 0.5s ease-out both; }
-</style>
 
 {{-- Shell Modal (pre-rendered, triggered via wire:nb-bridge="showModal") --}}
 <x-nativeblade-modal>
@@ -36,7 +27,7 @@
 <div class="bg-[#111111] border-b border-[#2a2a2a] px-4 pt-10 pb-5">
     <div class="max-w-lg mx-auto">
         <div class="flex items-start gap-4">
-            <div class="nb-spring relative">
+            <div nb-animation="zoomIn" nb-animation-speed="fast" class="relative">
                 <div class="w-20 h-20 rounded-full bg-[#8B0000] border-2 border-[#c0392b] shadow-[0_0_20px_rgba(192,57,43,0.4)] flex items-center justify-center">
                     <span class="text-3xl font-black text-white">{{ strtoupper(substr($userName, 0, 1)) }}</span>
                 </div>
@@ -45,7 +36,7 @@
                 </div>
             </div>
 
-            <div class="nb-fade-up flex-1" style="animation-delay:0.1s">
+            <div nb-animation="fadeInUp" nb-animation-delay="100ms" class="flex-1">
                 <div class="flex items-center justify-between">
                     <h2 class="text-xl font-black">{{ $userName }}</h2>
                     <button wire:nb-bridge="showModal"
@@ -62,14 +53,14 @@
             </div>
         </div>
 
-        <div class="nb-fade-up mt-4" style="animation-delay:0.15s">
+        <div nb-animation="fadeInUp" nb-animation-delay="150ms" class="mt-4">
             <div class="flex justify-between text-xs font-bold mb-1.5">
                 <span class="text-[#f1c40f]">Level {{ intdiv($xp, 200) + 1 }}</span>
                 <span class="text-[#6b7280]">{{ number_format($xp) }} / {{ number_format((intdiv($xp, 200) + 1) * 200) }} XP</span>
             </div>
             <div class="h-3 bg-[#1a1a1a] rounded-full overflow-hidden border border-[#2a2a2a]">
                 <div class="h-full bg-[#f1c40f] rounded-full relative overflow-hidden" style="width: {{ ($xp % 200) / 2 }}%">
-                    <div class="absolute top-0 bottom-0 w-[20%] bg-gradient-to-r from-transparent via-white/40 to-transparent" style="animation: nb-shimmer 2s linear infinite"></div>
+                    <div nb-animation="shimmer" nb-animation-repeat="infinite" class="absolute top-0 bottom-0 w-[20%] bg-gradient-to-r from-transparent via-white/40 to-transparent"></div>
                 </div>
             </div>
         </div>
@@ -80,7 +71,8 @@
 <div class="px-4 py-4">
     <div class="max-w-lg mx-auto grid grid-cols-2 gap-3">
         @foreach($stats as $i => $stat)
-            <div class="nb-fade-up bg-[#111111] border border-[#2a2a2a] rounded-xl p-3 flex flex-col" style="animation-delay: {{ 0.1 + $i * 0.06 }}s">
+            <div nb-animation="fadeInUp" nb-animation-delay="{{ 100 + $i * 60 }}ms"
+                 class="bg-[#111111] border border-[#2a2a2a] rounded-xl p-3 flex flex-col">
                 <span class="text-[#6b7280] text-[10px] uppercase font-bold mb-1">{{ $stat['label'] }}</span>
                 <span class="font-black text-xl" style="color: {{ $stat['color'] }}">{{ $stat['value'] }}</span>
             </div>
@@ -94,8 +86,8 @@
         <p class="text-sm font-black uppercase text-[#9ca3af] tracking-widest mb-3">Achievements</p>
         <div class="space-y-2">
             @foreach($achievements as $i => $a)
-                <div class="nb-fade-x flex items-center gap-3 p-3 rounded-xl border {{ $a['done'] ? 'bg-[#0f1a0f] border-[#2ecc71]/40' : 'bg-[#111111] border-[#2a2a2a] opacity-50' }}"
-                     style="animation-delay: {{ 0.1 + $i * 0.05 }}s">
+                <div nb-animation="fadeInLeft" nb-animation-delay="{{ 100 + $i * 50 }}ms" nb-animation-speed="fast"
+                     class="flex items-center gap-3 p-3 rounded-xl border {{ $a['done'] ? 'bg-[#0f1a0f] border-[#2ecc71]/40' : 'bg-[#111111] border-[#2a2a2a] opacity-50' }}">
                     <div class="w-9 h-9 rounded-lg flex items-center justify-center {{ $a['done'] ? 'bg-[#1a2a1a]' : 'bg-[#1a1a1a]' }}">
                         <x-nativeblade-icon name="{{ $a['icon'] }}" size="20" class="{{ $a['done'] ? 'text-[#2ecc71]' : 'text-[#4b5563]' }}" />
                     </div>

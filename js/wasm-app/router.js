@@ -134,30 +134,24 @@ async function navigateInternal(path, options = {}) {
     appFrame.style.display = 'block';
     await applyConfig(config, path);
 
-    if (pageTransition !== 'none' && appFrame.srcdoc) {
-        const parent = appFrame.parentElement;
-        parent.style.overflow = 'hidden';
-        appFrame.style.opacity = '0';
-        if (pageTransition === 'slide') {
-            appFrame.style.transform = 'translateX(60px)';
-        }
-        await new Promise(r => setTimeout(r, 150));
-        if (version !== navigationVersion) { parent.style.overflow = ''; return; }
-        appFrame.srcdoc = html;
-        if (pageTransition === 'slide') {
-            appFrame.style.transform = 'translateX(-60px)';
-        }
-        appFrame.addEventListener('load', function onLoad() {
-            appFrame.removeEventListener('load', onLoad);
-            requestAnimationFrame(() => {
-                appFrame.style.opacity = '1';
-                appFrame.style.transform = 'translateX(0)';
-                setTimeout(() => { parent.style.overflow = ''; }, 200);
-            });
-        });
-    } else {
-        appFrame.style.opacity = '1';
-        appFrame.style.transform = 'translateX(0)';
-        appFrame.srcdoc = html;
+    const transitionMap = {
+        'fade': 'fadeIn',
+        'slide': 'slideFadeInRight',
+        'slide-left': 'slideFadeInLeft',
+        'slide-up': 'slideFadeInUp',
+        'slide-down': 'slideFadeInDown',
+        'zoom': 'zoomIn',
+        'flip': 'flipInY',
+        'bounce': 'bounceIn',
+        'back': 'backInRight',
+        'blur': 'blurIn',
+        'pop': 'popIn',
+    };
+    const animClass = transitionMap[pageTransition] || (pageTransition !== 'none' ? pageTransition : null);
+
+    if (animClass) {
+        html = html.replace(/<body([^>]*)>/, '<body$1 class="animate__animated animate__' + animClass + ' animate__faster">');
     }
+
+    appFrame.srcdoc = html;
 }

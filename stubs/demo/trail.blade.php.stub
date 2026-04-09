@@ -1,13 +1,5 @@
 <div>
-<style>
-    @keyframes nb-pop { 0% { transform: scale(0); opacity: 0 } 60% { transform: scale(1.12) } 100% { transform: scale(1); opacity: 1 } }
-    @keyframes nb-pulse-glow { 0%,100% { transform: scale(1); opacity: 0.4 } 50% { transform: scale(1.3); opacity: 0.7 } }
-    @keyframes nb-bounce-in { 0% { opacity:0; transform: translateX(-50%) translateY(-8px) } 60% { transform: translateX(-50%) translateY(3px) } 100% { opacity:1; transform: translateX(-50%) translateY(0) } }
-    .nb-pop { animation: nb-pop 0.4s ease-out both; }
-    .nb-pulse-glow { animation: nb-pulse-glow 2s ease-in-out infinite; }
-    .nb-bounce-in { animation: nb-bounce-in 0.5s ease-out both; }
-    ::-webkit-scrollbar { width: 0; background: transparent; }
-</style>
+<style>::-webkit-scrollbar { width: 0; background: transparent; }</style>
 
 {{-- Shell Header with custom slot --}}
 <x-nativeblade-header bg="#111111" border-color="#2a2a2a">
@@ -63,8 +55,9 @@
                 $sz = $active ? 80 : ($l['completed'] ? 64 : 60);
                 $half = $sz / 2;
             @endphp
-            <div class="nb-pop absolute z-10 flex flex-col items-center"
-                 style="left:{{ $cx - $half }}px;top:{{ $cy - $half }}px;width:{{ $sz }}px;height:{{ $sz }}px;animation-delay:{{ $i * 0.1 }}s">
+            <div nb-animation="zoomIn" nb-animation-delay="{{ $i * 100 }}ms" nb-animation-speed="fast"
+                 class="absolute z-10 flex flex-col items-center"
+                 style="left:{{ $cx - $half }}px;top:{{ $cy - $half }}px;width:{{ $sz }}px;height:{{ $sz }}px">
 
                 @if($l['title'])
                     <div class="absolute whitespace-nowrap text-sm font-bold text-center"
@@ -74,12 +67,13 @@
                 @endif
 
                 @if($active)
-                    <div class="nb-bounce-in absolute whitespace-nowrap bg-white text-[#0a0a0a] font-bold text-xs py-1.5 px-3 rounded-lg shadow-lg uppercase z-20"
-                         style="bottom:{{ $sz + 10 }}px;left:50%;animation-delay:{{ $i * 0.1 + 0.3 }}s">
+                    <div nb-animation="bounceIn" nb-animation-delay="{{ $i * 100 + 300 }}ms"
+                         class="absolute whitespace-nowrap bg-white text-[#0a0a0a] font-bold text-xs py-1.5 px-3 rounded-lg shadow-lg uppercase z-20"
+                         style="bottom:{{ $sz + 10 }}px;left:50%;transform:translateX(-50%)">
                         Start
                         <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white"></div>
                     </div>
-                    <div class="nb-pulse-glow absolute inset-0 rounded-full bg-[#c0392b] blur-xl z-0" style="margin:-12px"></div>
+                    <div nb-animation="pulseGlow" class="absolute inset-0 rounded-full bg-[#c0392b] blur-xl z-0" style="margin:-12px"></div>
                 @endif
 
                 @if($l['locked'])

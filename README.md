@@ -544,6 +544,67 @@ The component uses `NativeBlade::isIos()`, `isAndroid()`, `isDesktop()` to apply
 
 ---
 
+## Animations
+
+NativeBlade includes [Animate.css](https://animate.style/) (90+ animations) plus custom NativeBlade animations. Use them declaratively with HTML attributes — no CSS keyframes needed.
+
+### Usage
+
+```blade
+{{-- Basic --}}
+<div nb-animation="fadeInUp">Hello</div>
+
+{{-- With delay --}}
+<div nb-animation="bounceIn" nb-animation-delay="200ms">Bounce!</div>
+
+{{-- With speed --}}
+<div nb-animation="zoomIn" nb-animation-speed="fast">Fast zoom</div>
+
+{{-- Infinite --}}
+<div nb-animation="pulse" nb-animation-repeat="infinite">Loading...</div>
+
+{{-- Custom repeat count --}}
+<div nb-animation="shakeX" nb-animation-repeat="3">Shake 3 times</div>
+```
+
+### Attributes
+
+| Attribute | Values | Description |
+|-----------|--------|-------------|
+| `nb-animation` | Any animation name | The animation to apply |
+| `nb-animation-delay` | `100ms`, `0.5s`, etc. | Delay before animation starts |
+| `nb-animation-speed` | `slower`, `slow`, `fast`, `faster` | Animation speed |
+| `nb-animation-repeat` | `1`, `2`, `3`, `infinite` | Repeat count |
+
+### Available Animations
+
+All [Animate.css](https://animate.style/) animations work out of the box: `fadeIn`, `fadeInUp`, `fadeInDown`, `fadeInLeft`, `fadeInRight`, `bounceIn`, `zoomIn`, `slideInUp`, `slideInRight`, `flipInX`, `jackInTheBox`, `shakeX`, `tada`, `pulse`, `heartBeat`, and [many more](https://animate.style/).
+
+**NativeBlade custom animations:**
+
+| Name | Description |
+|------|-------------|
+| `pulseGlow` | Pulsating glow effect |
+| `shimmer` | Shine effect for progress bars |
+| `confetti` | Falling particle effect |
+| `xpFill` | Progress bar fill |
+| `springPop` | Bouncy scale with rotation |
+| `float` | Gentle floating up and down |
+| `glow` | Pulsating box-shadow glow |
+| `scaleTap` | Quick press feedback |
+| `shakeSubtle` | Gentle horizontal shake |
+| `slideFadeInRight` | Slide + fade combined (right) |
+| `slideFadeInLeft` | Slide + fade combined (left) |
+| `slideFadeInUp` | Slide + fade combined (up) |
+| `slideFadeInDown` | Slide + fade combined (down) |
+| `popIn` / `popOut` | Scale from/to 0 with overshoot |
+| `celebrate` | Quick scale pulse for success |
+| `wiggle` | Playful rotation wiggle |
+| `revealUp` / `revealDown` | Clip-path reveal |
+| `blurIn` / `blurOut` | Blur to sharp |
+
+---
+
 ## Native Actions
 
 Use `wire:nb-bridge` directives in Blade (see [Livewire Directives](#livewire-directives)) or `NativeResponse` from PHP:
