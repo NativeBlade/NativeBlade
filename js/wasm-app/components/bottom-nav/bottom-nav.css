@@ -37,3 +37,15 @@
 #bottom-nav a.active { color: #a855f7; }
 #bottom-nav a svg { width: 20px; height: 20px; }
 #bottom-nav a span { font-size: 10px; }
+#bottom-nav [data-nav], #bottom-nav [data-path] {
+    min-height: 48px;
+    min-width: 48px;
+    cursor: pointer;
+}
+#bottom-nav > div > div {
+    min-height: 48px;
+    min-width: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

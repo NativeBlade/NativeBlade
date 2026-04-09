@@ -37,6 +37,10 @@ export async function init(appFrame) {
     }
 }
 
+export function hapticSelection() {
+    if (hapticsApi) hapticsApi.selectionFeedback();
+}
+
 export function handleNativeAction(action, payload, appFrame) {
     const title = payload.title || 'NativeBlade';
 

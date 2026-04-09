@@ -1,4 +1,5 @@
 import { svg } from '../icons.js';
+import { hapticSelection } from '../../bridge.js';
 
 let el = null;
 let onNavigate = null;
@@ -21,6 +22,7 @@ export function render(data, activePath, appFrame) {
             const link = e.target.closest('[data-path]') || e.target.closest('[data-nav]');
             if (link && onNavigate) {
                 e.preventDefault();
+                hapticSelection();
                 onNavigate(link.dataset.path || link.dataset.nav);
             }
         });

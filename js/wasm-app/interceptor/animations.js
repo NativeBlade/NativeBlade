@@ -44,4 +44,11 @@ export const code = `
             });
         });
     }).observe(document.documentElement, { childList: true, subtree: true });
+
+    document.addEventListener('click', function(e) {
+        var el = e.target.closest('[nb-feedback]');
+        if (el) {
+            window.parent.postMessage({ type: 'nativeblade-native', action: 'selection', payload: {} }, '*');
+        }
+    }, true);
 `;

@@ -68,11 +68,11 @@
 
         {{-- Actions --}}
         <div class="w-full max-w-sm mt-auto flex flex-col gap-4 z-10">
-            <button nb-animation="fadeInUp" nb-animation-delay="500ms" onclick="__nbBridge('navigate', { path: '/', replace: true })"
+            <button nb-feedback nb-animation="fadeInUp" nb-animation-delay="500ms" wire:nb-navigate.replace="/"
                 class="w-full bg-[#c0392b] text-white font-black text-lg py-4 rounded-xl shadow-[0_4px_0_rgba(139,0,0,1)] active:translate-y-[4px] active:shadow-none transition-all uppercase tracking-wider relative overflow-hidden group">
                 Continue
             </button>
-            <button nb-animation="fadeInUp" nb-animation-delay="600ms" onclick="__nbBridge('toast', { message: 'Coming soon!', type: 'info' })"
+            <button nb-feedback nb-animation="fadeInUp" nb-animation-delay="600ms" wire:nb-bridge="toast" wire:nb-payload='{"message":"Coming soon!","type":"info"}'
                 class="w-full bg-transparent border-2 border-[#2a2a2a] text-[#9ca3af] font-bold text-base py-3 rounded-xl hover:text-white hover:border-[#9ca3af] transition-all uppercase tracking-wide flex items-center justify-center gap-2">
                 <x-nativeblade-icon name="share-network" size="20" />
                 Share
@@ -90,7 +90,7 @@
 
         {{-- Header --}}
         <header class="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a] px-4 pb-3 flex items-center justify-between gap-4" style="padding-top:max(var(--nb-safe-top), 30px)">
-            <button onclick="__nbBridge('navigate', { path: '/' })" class="text-[#9ca3af] active:text-white transition-colors">
+            <button wire:nb-navigate="/" nb-feedback class="text-[#9ca3af] active:text-white transition-colors">
                 <x-nativeblade-icon name="x" size="24" />
             </button>
             <div class="flex-1 h-3 bg-[#1a1a1a] rounded-full overflow-hidden border border-[#2a2a2a]">

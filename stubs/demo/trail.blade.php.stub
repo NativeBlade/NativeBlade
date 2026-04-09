@@ -85,7 +85,7 @@
                         <x-nativeblade-icon name="check" size="{{ (int)($sz * 0.48) }}" class="text-white" />
                     </div>
                 @else
-                    <button onclick="__nbBridge('navigate', { path: '/lesson/{{ $l['id'] }}' })"
+                    <button wire:nb-navigate="/lesson/{{ $l['id'] }}" nb-feedback
                         class="w-full h-full rounded-full border-[3px] bg-[#c0392b] border-[#e74c3c] shadow-[0_6px_0_rgba(139,0,0,1),0_0_28px_rgba(231,76,60,0.9)] flex items-center justify-center active:scale-95 active:shadow-[0_2px_0_rgba(139,0,0,1)] active:translate-y-[4px] transition-all relative z-10">
                         <x-nativeblade-icon name="{{ $l['icon'] }}" size="{{ (int)($sz * 0.5) }}" class="text-white" />
                     </button>
