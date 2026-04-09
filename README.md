@@ -7,6 +7,14 @@
 </p>
 
 <p align="center">
+  <a href="https://discord.gg/Vzpach5J2h"><img src="https://img.shields.io/discord/1234567890?color=5865F2&logo=discord&logoColor=white&label=Discord" alt="Discord"></a>
+</p>
+
+<p align="center">
+  <a href="https://discord.gg/Vzpach5J2h">Join our Discord community</a>
+</p>
+
+<p align="center">
   <a href="#quick-start">Quick Start</a> &bull;
   <a href="#how-it-works">How It Works</a> &bull;
   <a href="#configuration">Configuration</a> &bull;
