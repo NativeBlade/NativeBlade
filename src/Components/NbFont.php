@@ -15,12 +15,16 @@ class NbFont extends Component
 
     public function __construct(
         string $name,
-        string $src,
         string $weights = '400',
     ) {
         $this->name = $name;
-        $this->src = rtrim($src, '/');
         $this->parsedWeights = array_map('trim', explode(',', $weights));
+
+        if (is_dir(public_path('fonts/' . $name))) {
+            $this->src = 'fonts/' . $name;
+        } else {
+            $this->src = 'fonts/' . strtolower($name);
+        }
     }
 
     public function fontFaces(): string
