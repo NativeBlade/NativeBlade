@@ -646,12 +646,28 @@ File naming: `FontName-weight.woff2` (also supports `.woff` and `.ttf`).
 
 ```blade
 <head>
-    <x-nativeblade-font name="Inter" weights="400,700,900" />
+    <x-nativeblade-font name="Inter" weights="400,500,700,900" />
+    <x-nativeblade-font name="Playfair" weights="400,700" />
 </head>
-<body style="font-family: 'Inter', sans-serif">
 ```
 
-Fonts are automatically loaded from `public/fonts/inter/`. The component reads each file, converts to base64, and outputs `@font-face` declarations inline.
+**3. Register in Tailwind** (`resources/css/app.css`):
+
+```css
+@theme {
+    --font-sans: 'Inter', sans-serif;
+    --font-display: 'Playfair', serif;
+}
+```
+
+**4. Use with Tailwind classes:**
+
+```blade
+<h1 class="font-display font-bold text-3xl">Elegant Title</h1>
+<p class="font-sans font-medium">Body text with Inter</p>
+```
+
+Fonts are automatically loaded from `public/fonts/{name}/`. The component reads each file, converts to base64, and outputs `@font-face` declarations inline — works fully offline.
 
 ---
 
