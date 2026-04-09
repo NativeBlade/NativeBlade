@@ -7,12 +7,22 @@
 </p>
 
 <p align="center">
-  <a href="#installation">Installation</a> &bull;
+  <a href="#quick-start">Quick Start</a> &bull;
   <a href="#how-it-works">How It Works</a> &bull;
   <a href="#configuration">Configuration</a> &bull;
+  <a href="#icons">Icons</a> &bull;
+  <a href="#assets">Assets</a> &bull;
+  <a href="#livewire-directives">Livewire Directives</a> &bull;
+  <a href="#shell-components">Shell Components</a> &bull;
+  <a href="#animations">Animations</a> &bull;
   <a href="#native-actions">Native Actions</a> &bull;
+  <a href="#state-management">State Management</a> &bull;
+  <a href="#platform-detection">Platform Detection</a> &bull;
   <a href="#custom-components">Custom Components</a> &bull;
-  <a href="#api-reference">API Reference</a>
+  <a href="#navigation">Navigation</a> &bull;
+  <a href="#livewire-integration">Livewire Integration</a> &bull;
+  <a href="#authentication-example">Authentication</a> &bull;
+  <a href="#laravel-compatibility">Compatibility</a>
 </p>
 
 ---
