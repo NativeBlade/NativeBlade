@@ -7,11 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://discord.gg/Vzpach5J2h"><img src="https://img.shields.io/discord/1234567890?color=5865F2&logo=discord&logoColor=white&label=Discord" alt="Discord"></a>
-</p>
-
-<p align="center">
-  <a href="https://discord.gg/Vzpach5J2h">Join our Discord community</a>
+  <a href="https://discord.gg/Vzpach5J2h"><img src="https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
 <p align="center">
