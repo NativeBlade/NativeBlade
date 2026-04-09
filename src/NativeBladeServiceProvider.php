@@ -93,6 +93,7 @@ class NativeBladeServiceProvider extends ServiceProvider
         Blade::component('nativeblade-image', Components\NbImage::class);
         Blade::component('nativeblade-modal', Components\NbModal::class);
         Blade::component('nativeblade-safe', Components\NbSafe::class);
+        Blade::component('nativeblade-skeleton', Components\NbSkeleton::class);
     }
 
 
