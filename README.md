@@ -470,6 +470,8 @@ class Home extends Component
 | `<x-nativeblade-drawer-item>` | Drawer navigation item (icon + label + href) |
 | `<x-nativeblade-modal>` | Shell modal (renders above all shell components) |
 | `<x-nativeblade-safe>` | Safe area wrapper (device notch, home indicator) |
+| `<x-nativeblade-skeleton>` | Skeleton loading placeholder with shimmer |
+| `<x-nativeblade-font>` | Custom font loader (offline, base64 embedded) |
 
 ### Modal
 
@@ -602,6 +604,57 @@ All [Animate.css](https://animate.style/) animations work out of the box: `fadeI
 | `wiggle` | Playful rotation wiggle |
 | `revealUp` / `revealDown` | Clip-path reveal |
 | `blurIn` / `blurOut` | Blur to sharp |
+
+### Skeleton
+
+Loading placeholder with shimmer animation. Define size and shape via `class`:
+
+```blade
+{{-- Text line --}}
+<x-nativeblade-skeleton class="h-4 w-3/4" />
+
+{{-- Avatar --}}
+<x-nativeblade-skeleton class="w-12 h-12 rounded-full" />
+
+{{-- Card --}}
+<x-nativeblade-skeleton class="h-20 w-full rounded-xl" />
+
+{{-- Group of lines --}}
+<div class="space-y-3">
+    <x-nativeblade-skeleton class="h-4 w-full" />
+    <x-nativeblade-skeleton class="h-4 w-5/6" />
+    <x-nativeblade-skeleton class="h-4 w-2/3" />
+</div>
+```
+
+### Custom Fonts
+
+Load custom fonts offline. Fonts are embedded as base64 data URIs — no server or internet required.
+
+**1. Add font files:**
+
+```
+public/fonts/inter/
+├── Inter-400.woff2
+├── Inter-500.woff2
+├── Inter-700.woff2
+└── Inter-900.woff2
+```
+
+File naming: `FontName-weight.woff2` (also supports `.woff` and `.ttf`).
+
+**2. Load in your layout:**
+
+```blade
+{{-- resources/views/components/layouts/app.blade.php --}}
+<head>
+    <x-nativeblade-font name="Inter" src="fonts/inter" weights="400,500,700,900" />
+    @vite(['resources/css/app.css'])
+</head>
+<body style="font-family: 'Inter', sans-serif">
+```
+
+The component reads each font file, converts to base64, and outputs `@font-face` declarations inline. Results are cached in memory per request.
 
 ---
 
