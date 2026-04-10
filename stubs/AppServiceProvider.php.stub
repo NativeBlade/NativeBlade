@@ -8,7 +8,7 @@ use NativeBlade\Config\DesktopConfig;
 use NativeBlade\Config\IosConfig;
 use NativeBlade\Config\Permission;
 use NativeBlade\Config\PrivacyApi;
-use NativeBlade\Facades\NativeBlade;
+use NativeBlade\Facades\NativeBladeConfig;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,7 +19,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        NativeBlade::desktop(function (DesktopConfig $config) {
+        NativeBladeConfig::desktop(function (DesktopConfig $config) {
             $config->title('{{APP_NAME}}')
                 ->identifier('{{IDENTIFIER}}')
                 ->version('1.0.0', 1)
@@ -30,7 +30,7 @@ class AppServiceProvider extends ServiceProvider
                 ->splashBackground('#0a0a0a');
         });
 
-        NativeBlade::android(function (AndroidConfig $config) {
+        NativeBladeConfig::android(function (AndroidConfig $config) {
             $config->identifier('{{IDENTIFIER}}')
                 ->version('1.0.0', 1)
                 ->minSdk(28)
@@ -46,7 +46,7 @@ class AppServiceProvider extends ServiceProvider
                 ]);
         });
 
-        NativeBlade::ios(function (IosConfig $config) {
+        NativeBladeConfig::ios(function (IosConfig $config) {
             $config->identifier('{{IDENTIFIER}}')
                 ->version('1.0.0', 1)
                 ->minIosVersion('15.0')
@@ -66,6 +66,6 @@ class AppServiceProvider extends ServiceProvider
                 ]);
         });
 
-        NativeBlade::transition('slide');
+        NativeBladeConfig::transition('slide');
     }
 }
