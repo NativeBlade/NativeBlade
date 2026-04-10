@@ -2,10 +2,13 @@
 
 namespace NativeBlade;
 
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use League\Flysystem\Filesystem;
 
 class NativeBladeServiceProvider extends ServiceProvider
 {
@@ -20,6 +23,7 @@ class NativeBladeServiceProvider extends ServiceProvider
     {
         $this->patchWasmRequest();
         $this->registerHttpBridge();
+        $this->registerNativeStorage();
         $this->registerViews();
         $this->registerComponents();
         $this->registerViewComposer();
@@ -101,6 +105,7 @@ class NativeBladeServiceProvider extends ServiceProvider
         Blade::component('nativeblade-modal', Components\NbModal::class);
         Blade::component('nativeblade-safe', Components\NbSafe::class);
         Blade::component('nativeblade-skeleton', Components\NbSkeleton::class);
+        Blade::component('nativeblade-animate', Components\NbAnimate::class);
         Blade::component('nativeblade-font', Components\NbFont::class);
     }
 
@@ -136,6 +141,14 @@ class NativeBladeServiceProvider extends ServiceProvider
         $result = 'data:' . $mime . ';base64,' . base64_encode($content);
         self::$assetCache[$file] = $result;
         return $result;
+    }
+
+    private function registerNativeStorage(): void
+    {
+        Storage::extend('nativeblade', function ($app, $config) {
+            $adapter = new \NativeBlade\Storage\NativeFilesystemAdapter($config['purpose'] ?? 'app');
+            return new FilesystemAdapter(new Filesystem($adapter), $adapter, $config);
+        });
     }
 
     private function runMigrations(): void

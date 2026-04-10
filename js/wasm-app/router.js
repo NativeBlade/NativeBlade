@@ -15,6 +15,7 @@ let navigationVersion = 0;
 let pendingMessageId = null;
 let transition = 'none';
 let autoUpdateInitialized = false;
+let defaultBridgeCallback = null;
 
 export function goBack() {
     if (historyStack.length > 0) {
@@ -43,7 +44,7 @@ export function init(frame, splashEl) {
     appFrame = frame;
     splash = splashEl;
 
-    setOnBridgeComplete((result) => {
+    defaultBridgeCallback = (result) => {
         if (pendingMessageId !== null && !result.bridgePending) {
             try {
                 appFrame.contentWindow.postMessage({
@@ -54,7 +55,8 @@ export function init(frame, splashEl) {
             } catch {}
             pendingMessageId = null;
         }
-    });
+    };
+    setOnBridgeComplete(defaultBridgeCallback);
 
     window.addEventListener('message', async (event) => {
         const { type } = event.data || {};
@@ -114,7 +116,15 @@ async function navigateInternal(path, options = {}) {
 
     if (version !== navigationVersion) return;
 
-    if (response.bridgePending) return;
+    if (response.bridgePending) {
+        setOnBridgeComplete((completedResult) => {
+            setOnBridgeComplete(defaultBridgeCallback);
+            if (!completedResult.bridgePending && completedResult.text) {
+                renderPage(completedResult.text, path, options, version);
+            }
+        });
+        return;
+    }
 
     if (response.nativeblade) {
         for (const action of response.nativeblade) {
@@ -123,11 +133,14 @@ async function navigateInternal(path, options = {}) {
         return;
     }
 
-    if (!response.text || response.text.trim() === '') {
-        return;
-    }
+    renderPage(response.text, path, options, version);
+}
 
-    let html = response.text;
+async function renderPage(text, path, options, version) {
+    if (!text || text.trim() === '') return;
+    if (version !== navigationVersion) return;
+
+    let html = text;
     const config = extractShellConfig(html);
     const pageTransition = options.transition || config.transition || transition;
     html = inject(html);

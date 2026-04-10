@@ -1,6 +1,7 @@
 import { getInstance } from './php-runtime.js';
 import { detectPlatform } from './filesystem.js';
 import * as httpBridge from './http-bridge.js';
+import * as fsBridge from './fs-bridge.js';
 
 let pendingBridgeCallback = null;
 
@@ -63,10 +64,16 @@ export async function handleRequest(path, options = {}) {
     if (result.errors) console.warn('[NativeBlade PHP Errors]', result.errors);
 
     if (await httpBridge.hasPendingRequest(php, text)) {
-        fulfillInBackground(php, path, options);
+        fulfillInBackground(php, path, options, 'http');
         return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
     }
     httpBridge.done(php);
+
+    if (await fsBridge.hasPendingRequest(php, text)) {
+        fulfillInBackground(php, path, options, 'fs');
+        return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
+    }
+    fsBridge.done(php);
 
     try {
         const json = JSON.parse(text);
@@ -80,8 +87,9 @@ export async function handleRequest(path, options = {}) {
     return { text, errors: result.errors, httpStatusCode: result.httpStatusCode || 200 };
 }
 
-async function fulfillInBackground(php, originalPath, originalOptions) {
-    const fulfilled = await httpBridge.fulfill(php);
+async function fulfillInBackground(php, originalPath, originalOptions, type = 'http') {
+    const bridge = type === 'fs' ? fsBridge : httpBridge;
+    const fulfilled = await bridge.fulfill(php);
     if (!fulfilled) return;
 
     const result = await handleRequest(originalPath, originalOptions);

@@ -64,6 +64,20 @@ Renders at z-index 9999 above all shell components. Pre-rendered, shown via brid
 
 ## Utility Components
 
+### Animate
+
+Enter/exit animations with Livewire compatibility. See [ANIMATIONS.md](ANIMATIONS.md) for full docs.
+
+```blade
+<x-nativeblade-animate in="shakeX" out="fadeOutUp" dismiss="3s">
+    Error message
+</x-nativeblade-animate>
+
+<x-nativeblade-animate in="fadeInUp" :once="true">
+    Static content (won't re-animate on morph)
+</x-nativeblade-animate>
+```
+
 ### Icons
 
 1,512 [Phosphor Icons](https://phosphoricons.com/) (regular + fill) included.
