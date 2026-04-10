@@ -1,8 +1,8 @@
 <?php
 
-namespace NativeBlade;
+namespace NativeBlade\Config;
 
-class AppConfig
+class DesktopConfig
 {
     private array $config = [];
 
@@ -12,15 +12,16 @@ class AppConfig
         return $this;
     }
 
-    public function version(string $version): static
-    {
-        $this->config['version'] = $version;
-        return $this;
-    }
-
     public function identifier(string $identifier): static
     {
         $this->config['identifier'] = $identifier;
+        return $this;
+    }
+
+    public function version(string $version, int $buildNumber): static
+    {
+        $this->config['version'] = $version;
+        $this->config['buildNumber'] = $buildNumber;
         return $this;
     }
 
@@ -56,57 +57,9 @@ class AppConfig
         return $this;
     }
 
-    public function singleInstance(bool $value = true): static
-    {
-        $this->config['singleInstance'] = $value;
-        return $this;
-    }
-
     public function hideOnClose(bool $value = true): static
     {
         $this->config['hideOnClose'] = $value;
-        return $this;
-    }
-
-    public function orientation(string $mode): static
-    {
-        $this->config['orientation'] = $mode;
-        return $this;
-    }
-
-    public function statusBar(string $style = 'dark', string $color = '#000000'): static
-    {
-        $this->config['statusBar'] = ['style' => $style, 'color' => $color];
-        return $this;
-    }
-
-    public function navigationBar(string $color = '#000000'): static
-    {
-        $this->config['navigationBar'] = ['color' => $color];
-        return $this;
-    }
-
-    public function safeArea(bool $value = true): static
-    {
-        $this->config['safeArea'] = $value;
-        return $this;
-    }
-
-    public function swipeBack(bool $value = true): static
-    {
-        $this->config['swipeBack'] = $value;
-        return $this;
-    }
-
-    public function backButton(bool $value = true): static
-    {
-        $this->config['backButton'] = $value;
-        return $this;
-    }
-
-    public function splash(string $bg = '#0a0a0a'): static
-    {
-        $this->config['splash'] = ['bg' => $bg];
         return $this;
     }
 
@@ -119,6 +72,12 @@ class AppConfig
     public function menu(array $items): static
     {
         $this->config['menu'] = $items;
+        return $this;
+    }
+
+    public function splashBackground(string $color = '#0a0a0a'): static
+    {
+        $this->config['splashBackground'] = $color;
         return $this;
     }
 

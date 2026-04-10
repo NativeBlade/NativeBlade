@@ -3,6 +3,11 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use NativeBlade\Config\AndroidConfig;
+use NativeBlade\Config\DesktopConfig;
+use NativeBlade\Config\IosConfig;
+use NativeBlade\Config\Permission;
+use NativeBlade\Config\PrivacyApi;
 use NativeBlade\Facades\NativeBlade;
 
 class AppServiceProvider extends ServiceProvider
@@ -14,19 +19,51 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        NativeBlade::desktop(function ($config) {
+        NativeBlade::desktop(function (DesktopConfig $config) {
             $config->title('{{APP_NAME}}')
                 ->identifier('{{IDENTIFIER}}')
+                ->version('1.0.0', 1)
                 ->size(1200, 800)
                 ->icon('src-tauri/icons/logo.png')
                 ->minSize(800, 600)
-                ->resizable();
+                ->resizable()
+                ->splashBackground('#0a0a0a');
         });
 
-        NativeBlade::mobile(function ($config) {
-            $config->orientation('portrait')
+        NativeBlade::android(function (AndroidConfig $config) {
+            $config->identifier('{{IDENTIFIER}}')
+                ->version('1.0.0', 1)
+                ->minSdk(28)
+                ->targetSdk(34)
+                ->orientation('portrait')
                 ->statusBar(style: 'dark', color: '#0a0a0a')
-                ->splash(bg: '#0a0a0a');
+                ->navigationBar('#0a0a0a')
+                ->splashBackground('#0a0a0a')
+                ->permissions([
+                    Permission::CAMERA => 'Take photos for your profile',
+                    Permission::LOCATION => 'Show nearby content',
+                    Permission::NOTIFICATIONS => 'Receive updates and reminders',
+                ]);
+        });
+
+        NativeBlade::ios(function (IosConfig $config) {
+            $config->identifier('{{IDENTIFIER}}')
+                ->version('1.0.0', 1)
+                ->minIosVersion('15.0')
+                ->orientation('portrait')
+                ->statusBar(style: 'dark')
+                ->splashBackground('#0a0a0a')
+                ->permissions([
+                    Permission::CAMERA => 'Take photos for your profile',
+                    Permission::LOCATION => 'Show nearby content',
+                    Permission::PHOTOS => 'Select images from your library',
+                ])
+                ->privacyManifest([
+                    PrivacyApi::USER_DEFAULTS => PrivacyApi::USER_DEFAULTS_APP,
+                    PrivacyApi::FILE_TIMESTAMP => PrivacyApi::FILE_TIMESTAMP_THIRD_PARTY,
+                    PrivacyApi::SYSTEM_BOOT_TIME => PrivacyApi::BOOT_TIME_ELAPSED,
+                    PrivacyApi::DISK_SPACE => PrivacyApi::DISK_SPACE_WRITE_CHECK,
+                ]);
         });
 
         NativeBlade::transition('slide');

@@ -3,6 +3,9 @@
 namespace NativeBlade;
 
 use Illuminate\Support\Facades\DB;
+use NativeBlade\Config\DesktopConfig;
+use NativeBlade\Config\AndroidConfig;
+use NativeBlade\Config\IosConfig;
 
 class ShellConfig
 {
@@ -31,30 +34,32 @@ class ShellConfig
         return $config;
     }
 
+    /**
+     * @param callable(DesktopConfig): void $callback
+     */
     public function desktop(callable $callback): void
     {
-        $config = new AppConfig();
+        $config = new DesktopConfig();
         $callback($config);
         static::$appConfigs['desktop'] = $config->toArray();
     }
 
-    public function mobile(callable $callback): void
-    {
-        $config = new AppConfig();
-        $callback($config);
-        static::$appConfigs['mobile'] = $config->toArray();
-    }
-
+    /**
+     * @param callable(AndroidConfig): void $callback
+     */
     public function android(callable $callback): void
     {
-        $config = new AppConfig();
+        $config = new AndroidConfig();
         $callback($config);
         static::$appConfigs['android'] = $config->toArray();
     }
 
+    /**
+     * @param callable(IosConfig): void $callback
+     */
     public function ios(callable $callback): void
     {
-        $config = new AppConfig();
+        $config = new IosConfig();
         $callback($config);
         static::$appConfigs['ios'] = $config->toArray();
     }
@@ -62,6 +67,20 @@ class ShellConfig
     public static function getAppConfigs(): array
     {
         return static::$appConfigs;
+    }
+
+    public static function getVersion(string $platform): array
+    {
+        $config = static::$appConfigs[$platform] ?? [];
+
+        if (!isset($config['version']) || !isset($config['buildNumber'])) {
+            throw new \RuntimeException("Version not configured for '{$platform}'. Add ->version('1.0.0', 1) in your AppServiceProvider.");
+        }
+
+        return [
+            'version' => $config['version'],
+            'buildNumber' => $config['buildNumber'],
+        ];
     }
 
     public function transition(string $type = 'fade'): static

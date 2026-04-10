@@ -3,16 +3,17 @@
 namespace NativeBlade\Facades;
 
 use Illuminate\Support\Facades\Facade;
+use NativeBlade\Config\AndroidConfig;
+use NativeBlade\Config\DesktopConfig;
+use NativeBlade\Config\IosConfig;
 
 /**
  * @method static static bottomNav(array $items)
  * @method static static topBar(array $options)
- * @method static static fab(array $options)
  * @method static array get()
- * @method static void desktop(callable $callback)
- * @method static void mobile(callable $callback)
- * @method static void android(callable $callback)
- * @method static void ios(callable $callback)
+ * @method static void desktop(callable(DesktopConfig): void $callback)
+ * @method static void android(callable(AndroidConfig): void $callback)
+ * @method static void ios(callable(IosConfig): void $callback)
  * @method static string platform()
  * @method static bool isDesktop()
  * @method static bool isMobile()
@@ -33,6 +34,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static void flush(?string $scope = null)
  * @method static array pool(callable $callback)
  * @method static static transition(string $type = 'fade')
+ * @method static array getVersion(string $platform)
  */
 class NativeBlade extends Facade
 {
