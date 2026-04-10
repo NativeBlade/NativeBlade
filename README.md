@@ -112,11 +112,37 @@ php artisan nativeblade:dev --platform=ios
 ```
 
 1. **Boot** — PHP 8.3 WebAssembly loads your Laravel app
-2. **Route** — Each navigation runs through Laravel's router inside WASM
-3. **Render** — Blade/Livewire HTML is rendered in an iframe
-4. **Intercept** — Fetch interceptor routes HTTP requests through WASM
-5. **Bridge** — Native actions flow through `postMessage`
-6. **Persist** — SQLite syncs to IndexedDB automatically
+2. **Migrate** — Pending migrations run automatically (standard Laravel migrations)
+3. **Route** — Each navigation runs through Laravel's router inside WASM
+4. **Render** — Blade/Livewire HTML is rendered in an iframe
+5. **Intercept** — Fetch interceptor routes HTTP requests through WASM
+6. **Bridge** — Native actions flow through `postMessage`
+7. **Persist** — SQLite syncs to IndexedDB automatically
+
+## Database
+
+Migrations run automatically on boot — no `php artisan migrate` needed. Use standard Laravel migrations and Eloquent:
+
+```bash
+php artisan make:model Task -m
+```
+
+```php
+// Migration runs automatically when the app opens
+Schema::create('tasks', function (Blueprint $table) {
+    $table->id();
+    $table->string('title');
+    $table->boolean('done')->default(false);
+    $table->timestamps();
+});
+```
+
+```php
+// Eloquent works as usual
+Task::create(['title' => 'Buy milk']);
+$tasks = Task::where('done', false)->get();
+$task->update(['done' => true]);
+```
 
 ## State Management
 
