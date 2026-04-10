@@ -75,6 +75,12 @@ class DesktopConfig
         return $this;
     }
 
+    public function updateUrl(string $url): static
+    {
+        $this->config['updateUrl'] = $url;
+        return $this;
+    }
+
     public function splashBackground(string $color = '#0a0a0a'): static
     {
         $this->config['splashBackground'] = $color;

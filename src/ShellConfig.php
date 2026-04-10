@@ -31,6 +31,23 @@ class ShellConfig
         if (static::$transition !== 'none') {
             $config['transition'] = static::$transition;
         }
+
+        $platform = $this->platform();
+        $platformKey = match (true) {
+            in_array($platform, ['android']) => 'android',
+            in_array($platform, ['ios']) => 'ios',
+            default => 'desktop',
+        };
+        $platformConfig = static::$appConfigs[$platformKey] ?? [];
+
+        if (isset($platformConfig['updateUrl']) && isset($platformConfig['version'])) {
+            $config['update'] = [
+                'url' => $platformConfig['updateUrl'],
+                'currentVersion' => $platformConfig['version'],
+                'storeUrl' => $platformConfig['storeUrl'] ?? null,
+            ];
+        }
+
         return $config;
     }
 

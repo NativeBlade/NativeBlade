@@ -47,6 +47,14 @@ class DesktopConfigGenerator
         if (isset($desktop['resizable'])) $conf['app']['windows'][0]['resizable'] = $desktop['resizable'];
         if (isset($desktop['fullscreen'])) $conf['app']['windows'][0]['fullscreen'] = $desktop['fullscreen'];
 
+        if (isset($desktop['updateUrl'])) {
+            $conf['plugins']['updater'] = [
+                'endpoints' => [$desktop['updateUrl']],
+                'dialog' => true,
+                'pubkey' => $desktop['updatePubkey'] ?? '',
+            ];
+        }
+
         file_put_contents($confPath, json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $this->cmd->line("  <fg=green>✓</> tauri.conf.json updated");
     }

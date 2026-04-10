@@ -5,6 +5,7 @@ import { handleNativeAction } from './bridge.js';
 import { extractShellConfig, inject } from './interceptor.js';
 import { abort as abortHttpBridge } from '../runtime/http-bridge.js';
 import { setOnBridgeComplete } from '../runtime/request-handler.js';
+import { init as initAutoUpdate } from './auto-update.js';
 
 let appFrame = null;
 let splash = null;
@@ -13,6 +14,7 @@ let historyStack = [];
 let navigationVersion = 0;
 let pendingMessageId = null;
 let transition = 'none';
+let autoUpdateInitialized = false;
 
 export function goBack() {
     if (historyStack.length > 0) {
@@ -133,6 +135,11 @@ async function navigateInternal(path, options = {}) {
     splash.style.display = 'none';
     appFrame.style.display = 'block';
     await applyConfig(config, path);
+
+    if (!autoUpdateInitialized && config.update) {
+        autoUpdateInitialized = true;
+        initAutoUpdate(config.update);
+    }
 
     const transitionMap = {
         'fade': 'fadeIn',

@@ -16,6 +16,7 @@
   <a href="DIRECTIVES.md">Directives</a> &bull;
   <a href="ANIMATIONS.md">Animations</a> &bull;
   <a href="BUILD.md">Build</a> &bull;
+  <a href="UPDATES.md">Auto-Update</a> &bull;
   <a href="PUBLISH.md">Publish</a>
 </p>
 
@@ -202,7 +203,8 @@ $responses = NativeBlade::pool(fn ($pool) => [
 | [DIRECTIVES.md](DIRECTIVES.md) | wire:nb-bridge, wire:nb-navigate, nb-feedback, native actions |
 | [ANIMATIONS.md](ANIMATIONS.md) | nb-animation, Animate.css, custom animations, haptic feedback |
 | [BUILD.md](BUILD.md) | Build command, output, CLI commands, icon generation |
-| [PUBLISH.md](PUBLISH.md) | Publishing to stores (coming soon) |
+| [UPDATES.md](UPDATES.md) | Auto-update for desktop and mobile |
+| [PUBLISH.md](PUBLISH.md) | Publishing to stores |
 
 ## How NativeBlade Differs
 

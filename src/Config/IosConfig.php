@@ -55,6 +55,18 @@ class IosConfig
         return $this;
     }
 
+    public function updateUrl(string $url): static
+    {
+        $this->config['updateUrl'] = $url;
+        return $this;
+    }
+
+    public function storeUrl(string $url): static
+    {
+        $this->config['storeUrl'] = $url;
+        return $this;
+    }
+
     public function permissions(array $permissions): static
     {
         $this->config['permissions'] = $permissions;
