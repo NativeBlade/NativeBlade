@@ -47,7 +47,7 @@ class DevCommand extends Command
             default => $this->error("Unknown platform: {$platform}"),
         };
 
-        return 0;
+        return self::SUCCESS;
     }
 
     private function runDesktop(string $port): void

@@ -56,7 +56,7 @@ class ComponentCommand extends Command
         }
 
         $this->newLine();
-        return 0;
+        return self::SUCCESS;
     }
 
     private function createShellComponent(string $name, string $class): void

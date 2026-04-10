@@ -34,6 +34,7 @@ class NativeBladeServiceProvider extends ServiceProvider
                 Commands\DevCommand::class,
                 Commands\ComponentCommand::class,
                 Commands\IconCommand::class,
+                Commands\BuildCommand::class,
             ]);
         }
     }

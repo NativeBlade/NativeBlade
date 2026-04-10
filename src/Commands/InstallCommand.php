@@ -47,7 +47,7 @@ class InstallCommand extends Command
         $this->info('    4. php artisan nativeblade:dev');
         $this->info('');
 
-        return 0;
+        return self::SUCCESS;
     }
 
     private function installComposerDependencies(): void

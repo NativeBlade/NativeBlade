@@ -24,6 +24,6 @@ class ConfigCommand extends Command
         (new IosConfigGenerator($this))->generate($configs['ios'] ?? []);
 
         $this->info('  Config generated from PHP.');
-        return 0;
+        return self::SUCCESS;
     }
 }
