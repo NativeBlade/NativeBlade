@@ -46,7 +46,7 @@ NativeBlade lets Laravel developers build **desktop** and **mobile** apps using 
 
 ## Requirements
 
-- PHP 8.3+ (with GD extension)
+- PHP 8.3.x (with GD extension)
 - Laravel 11, 12, or 13
 - Livewire 3
 - Node.js 20+
