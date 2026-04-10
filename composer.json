@@ -6,7 +6,10 @@
     "autoload": {
         "psr-4": {
             "NativeBlade\\": "src/"
-        }
+        },
+        "files": [
+            "src/helpers.php"
+        ]
     },
     "extra": {
         "laravel": {

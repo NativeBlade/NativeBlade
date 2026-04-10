@@ -3,9 +3,9 @@ let appFrame = null;
 let currentOptions = {};
 
 const DEFAULTS = {
-    maxWidth: 1200,
-    maxHeight: 1200,
-    quality: 0.7,
+    maxWidth: 800,
+    maxHeight: 800,
+    quality: 0.6,
     compress: true,
 };
 

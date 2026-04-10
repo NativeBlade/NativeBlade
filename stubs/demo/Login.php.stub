@@ -12,7 +12,6 @@ class Login extends Component
     public string $email = '';
     public string $password = '';
     public string $error = '';
-
     public function mount()
     {
         NativeBlade::forget('auth.user');
@@ -24,6 +23,8 @@ class Login extends Component
 
     public function login()
     {
+        $this->error = '';
+
         if ($this->email === 'admin@admin.com' && $this->password === '123456') {
             NativeBlade::setState('auth.user', [
                 'name' => 'Admin',

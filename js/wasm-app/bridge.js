@@ -26,6 +26,11 @@ export async function init(appFrame) {
     } catch {}
 
     if (isTauri) {
+        try {
+            const os = await import('@tauri-apps/plugin-os');
+            const platform = await os.platform();
+            isMobile = platform === 'android' || platform === 'ios';
+        } catch {}
         try { clipboardApi = await import('@tauri-apps/plugin-clipboard-manager'); } catch {}
         try { geolocationApi = await import('@tauri-apps/plugin-geolocation'); } catch {}
         try { hapticsApi = await import('@tauri-apps/plugin-haptics'); } catch {}
@@ -37,8 +42,11 @@ export async function init(appFrame) {
     }
 }
 
+let isMobile = false;
+
 export function hapticSelection() {
-    if (hapticsApi) hapticsApi.selectionFeedback();
+    if (!hapticsApi || !isMobile) return;
+    try { hapticsApi.selectionFeedback().catch(() => {}); } catch {}
 }
 
 export function handleNativeAction(action, payload, appFrame) {
@@ -207,7 +215,7 @@ export function handleNativeAction(action, payload, appFrame) {
             break;
 
         case 'gallery':
-            camera.openGallery();
+            camera.openGallery(payload);
             break;
 
         case 'navigate':

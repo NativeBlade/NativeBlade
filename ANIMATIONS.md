@@ -1,18 +1,65 @@
 # Animations
 
-NativeBlade includes [Animate.css](https://animate.style/) (90+ animations) plus custom NativeBlade animations. Use them declaratively with HTML attributes — no CSS keyframes needed.
+NativeBlade includes [Animate.css](https://animate.style/) (90+ animations) plus custom NativeBlade animations. No CSS keyframes needed.
 
-## Usage
+## Animate Component
+
+The `<x-nativeblade-animate>` component handles enter/exit animations, auto-dismiss, and Livewire morph compatibility:
+
+```blade
+{{-- Enter + exit after 3 seconds --}}
+<x-nativeblade-animate in="shakeX" out="fadeOutUp" dismiss="3s">
+    Error message here
+</x-nativeblade-animate>
+
+{{-- Enter only, re-animates on every Livewire render --}}
+<x-nativeblade-animate in="fadeInUp">
+    Content
+</x-nativeblade-animate>
+
+{{-- Enter only, animates ONCE (no re-animation on morph) --}}
+<x-nativeblade-animate in="fadeInUp" :once="true">
+    Static content
+</x-nativeblade-animate>
+
+{{-- With delay and speed --}}
+<x-nativeblade-animate in="bounceIn" out="zoomOut" dismiss="5s" delay="200ms" speed="fast">
+    Toast notification
+</x-nativeblade-animate>
+
+{{-- Infinite animation --}}
+<x-nativeblade-animate in="pulse" repeat="infinite">
+    Loading...
+</x-nativeblade-animate>
+```
+
+### Props
+
+| Prop | Default | Description |
+|------|---------|-------------|
+| `in` | `fadeIn` | Enter animation name |
+| `out` | — | Exit animation name |
+| `dismiss` | — | Time before exit animation (`2s`, `3s`, `500ms`) |
+| `delay` | — | Delay before enter animation |
+| `speed` | — | `slower`, `slow`, `fast`, `faster` |
+| `repeat` | — | Repeat count or `infinite` |
+| `:once` | `false` | When `true`, animates only once (Livewire morph won't re-trigger) |
+
+### Livewire Behavior
+
+- **Default** (`once=false`): re-animates on every Livewire re-render. Use for error messages, toasts, notifications.
+- **Once** (`once=true`): animates only on first render. Use for page layout elements that shouldn't replay.
+
+## HTML Attributes
+
+For inline use without the component:
 
 ```blade
 <div nb-animation="fadeInUp">Hello</div>
 <div nb-animation="bounceIn" nb-animation-delay="200ms">Bounce!</div>
 <div nb-animation="zoomIn" nb-animation-speed="fast">Fast zoom</div>
 <div nb-animation="pulse" nb-animation-repeat="infinite">Loading...</div>
-<div nb-animation="shakeX" nb-animation-repeat="3">Shake 3 times</div>
 ```
-
-## Attributes
 
 | Attribute | Values | Description |
 |-----------|--------|-------------|
@@ -20,6 +67,10 @@ NativeBlade includes [Animate.css](https://animate.style/) (90+ animations) plus
 | `nb-animation-delay` | `100ms`, `0.5s`, etc. | Delay before animation starts |
 | `nb-animation-speed` | `slower`, `slow`, `fast`, `faster` | Animation speed |
 | `nb-animation-repeat` | `1`, `2`, `3`, `infinite` | Repeat count |
+| `nb-animation-out` | Any animation name | Exit animation |
+| `nb-animation-dismiss` | `2s`, `3s`, etc. | Time before exit |
+
+Elements with `nb-animation` attributes animate once per DOM insertion. Livewire morphs that reuse the same DOM node won't re-trigger the animation.
 
 ## Haptic Feedback
 
@@ -30,11 +81,19 @@ Add `nb-feedback` to any element for haptic selection feedback on tap:
 <button wire:nb-bridge="showModal" nb-feedback>Open</button>
 ```
 
-Does not conflict with `wire:click` or `wire:nb-bridge`. Bottom navigation has haptic feedback built-in.
+Does not conflict with `wire:click` or `wire:nb-bridge`. Bottom navigation has haptic feedback built-in. Only triggers on mobile devices.
 
 ## Animate.css Animations
 
-All [Animate.css](https://animate.style/) animations work: `fadeIn`, `fadeInUp`, `fadeInDown`, `fadeInLeft`, `fadeInRight`, `bounceIn`, `zoomIn`, `slideInUp`, `slideInRight`, `flipInX`, `jackInTheBox`, `shakeX`, `tada`, `pulse`, `heartBeat`, and [many more](https://animate.style/).
+All [Animate.css](https://animate.style/) animations work out of the box:
+
+**Entrances:** `fadeIn`, `fadeInUp`, `fadeInDown`, `fadeInLeft`, `fadeInRight`, `bounceIn`, `bounceInUp`, `zoomIn`, `slideInUp`, `slideInRight`, `flipInX`, `flipInY`, `jackInTheBox`, `backInUp`, `backInRight`, `lightSpeedInRight`, `rotateIn`, `rollIn`
+
+**Exits:** `fadeOut`, `fadeOutUp`, `fadeOutDown`, `fadeOutLeft`, `fadeOutRight`, `bounceOut`, `zoomOut`, `slideOutUp`, `slideOutRight`, `flipOutX`, `backOutRight`, `lightSpeedOutRight`, `rotateOut`, `rollOut`, `hinge`
+
+**Attention:** `shakeX`, `shakeY`, `tada`, `pulse`, `bounce`, `flash`, `swing`, `wobble`, `jello`, `heartBeat`, `rubberBand`, `headShake`, `flip`
+
+Browse all at [animate.style](https://animate.style/).
 
 ## NativeBlade Custom Animations
 

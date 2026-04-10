@@ -18,9 +18,9 @@
         </div>
 
         @if($error)
-            <div nb-animation="shakeX" nb-animation-speed="fast" class="w-full bg-[#e74c3c]/10 border border-[#e74c3c] text-[#e74c3c] px-4 py-3 rounded-xl mb-4 text-sm font-medium">
+            <x-nativeblade-animate in="shakeX" out="fadeOutUp" dismiss="3s" speed="fast" class="w-full bg-[#e74c3c]/10 border border-[#e74c3c] text-[#e74c3c] px-4 py-3 rounded-xl mb-4 text-sm font-medium">
                 {{ $error }}
-            </div>
+            </x-nativeblade-animate>
         @endif
 
         <div nb-animation="fadeInUp" nb-animation-delay="200ms" class="w-full space-y-4 mb-3">
@@ -39,7 +39,7 @@
         </div>
 
         <div nb-animation="fadeInUp" nb-animation-delay="400ms" class="w-full flex flex-col items-center gap-4">
-            <button wire:click="login"
+            <button wire:click="login" nb-feedback
                 class="w-full bg-[#8B0000] hover:bg-[#c0392b] text-white font-bold text-lg py-4 rounded-xl shadow-[0_4px_0_rgba(60,0,0,1)] active:shadow-none active:translate-y-[4px] transition-all uppercase tracking-wide">
                 Sign In
             </button>
