@@ -26,6 +26,12 @@ class NativeBladeServiceProvider extends ServiceProvider
         $this->discoverCustomComponents();
         $this->discoverPackageComponents();
 
+        if (!$this->app->runningInConsole()) {
+            $this->app->booted(function () {
+                $this->runMigrations();
+            });
+        }
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 Commands\InstallCommand::class,
@@ -130,6 +136,19 @@ class NativeBladeServiceProvider extends ServiceProvider
         $result = 'data:' . $mime . ';base64,' . base64_encode($content);
         self::$assetCache[$file] = $result;
         return $result;
+    }
+
+    private function runMigrations(): void
+    {
+        try {
+            $migrator = app('migrator');
+            $migrator->usingConnection('sqlite', function () use ($migrator) {
+                if (!$migrator->repositoryExists()) {
+                    $migrator->getRepository()->createRepository();
+                }
+                $migrator->run(database_path('migrations'));
+            });
+        } catch (\Throwable) {}
     }
 
     private function registerViewComposer(): void
