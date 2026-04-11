@@ -17,10 +17,12 @@ class NativeBladeServiceProvider extends ServiceProvider
         $this->app->singleton('nativeblade', function () {
             return new ShellConfig();
         });
+
     }
 
     public function boot(): void
     {
+        $this->registerNativeDatabase();
         $this->syncClock();
         $this->patchWasmRequest();
         $this->registerHttpBridge();
@@ -167,6 +169,13 @@ class NativeBladeServiceProvider extends ServiceProvider
                 $callback();
             }
             return response()->json(['ok' => true]);
+        });
+    }
+
+    private function registerNativeDatabase(): void
+    {
+        \Illuminate\Database\Connection::resolverFor('nativeblade-db', function ($connection, $database, $prefix, $config) {
+            return new Database\NativeConnection($config);
         });
     }
 
