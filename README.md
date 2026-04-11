@@ -18,6 +18,7 @@
   <a href="LIFECYCLE.md">Lifecycle</a> &bull;
   <a href="FILESYSTEM.md">Filesystem</a> &bull;
   <a href="BUILD.md">Build</a> &bull;
+  <a href="SCHEDULER.md">Scheduler</a> &bull;
   <a href="UPDATES.md">Auto-Update</a> &bull;
   <a href="PUBLISH.md">Publish</a>
 </p>
@@ -260,7 +261,8 @@ $responses = NativeBlade::pool(fn ($pool) => [
 | [COMPONENTS.md](COMPONENTS.md) | Shell components, icons, images, skeleton, fonts, safe area, custom components |
 | [DIRECTIVES.md](DIRECTIVES.md) | wire:nb-bridge, wire:nb-navigate, nb-feedback, native actions |
 | [ANIMATIONS.md](ANIMATIONS.md) | nb-animation, Animate.css, custom animations, haptic feedback |
-| [LIFECYCLE.md](LIFECYCLE.md) | Boot sequence, onBoot hook, scheduler, clock sync, migrations |
+| [LIFECYCLE.md](LIFECYCLE.md) | Boot sequence, onBoot hook, clock sync, migrations |
+| [SCHEDULER.md](SCHEDULER.md) | Task scheduling with Rust native timers |
 | [FILESYSTEM.md](FILESYSTEM.md) | Native filesystem, Storage driver, camera integration |
 | [BUILD.md](BUILD.md) | Build command, output, CLI commands, icon generation |
 | [UPDATES.md](UPDATES.md) | Auto-update for desktop and mobile |
