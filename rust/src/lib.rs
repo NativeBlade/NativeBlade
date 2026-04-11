@@ -24,10 +24,12 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
         .plugin(tauri_plugin_nfc::init());
 
     let builder = builder
+        .manage(commands::scheduler::SchedulerState::new())
         .invoke_handler(tauri::generate_handler![
             commands::bridge::native_action,
             commands::health::check_backend,
             commands::config::get_config,
+            commands::scheduler::register_schedules,
         ])
         .setup(|_app| {
             #[cfg(desktop)]

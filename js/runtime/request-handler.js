@@ -51,6 +51,7 @@ export async function handleRequest(path, options = {}) {
         $_SERVER['CONTENT_LENGTH'] = '${body.length}';
         $_SERVER['APP_BASE_PATH'] = '/app';
         $_SERVER['NATIVEBLADE_PLATFORM'] = '${detectPlatform()}';
+        $_SERVER['NATIVEBLADE_TIMESTAMP'] = '${Math.floor(Date.now() / 1000)}';
         putenv('APP_BASE_PATH=/app');
         ${headerLines}
         ${body ? `$GLOBALS['__wasm_request_body'] = file_get_contents('/tmp/request_body');` : ''}

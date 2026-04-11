@@ -6,6 +6,7 @@ import { extractShellConfig, inject } from './interceptor.js';
 import { abort as abortHttpBridge } from '../runtime/http-bridge.js';
 import { setOnBridgeComplete } from '../runtime/request-handler.js';
 import { init as initAutoUpdate } from './auto-update.js';
+import { init as initScheduler } from './scheduler.js';
 
 let appFrame = null;
 let splash = null;
@@ -152,6 +153,10 @@ async function renderPage(text, path, options, version) {
     if (!autoUpdateInitialized && config.update) {
         autoUpdateInitialized = true;
         initAutoUpdate(config.update);
+    }
+
+    if (config.schedules) {
+        initScheduler(config.schedules);
     }
 
     const transitionMap = {

@@ -30,6 +30,9 @@ tauri-plugin-deep-link = "2"
 tauri-plugin-upload = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+croner = "2"
+chrono = "0.4"
+tokio = { version = "1", features = ["time", "sync"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 dotenvy = "0.15"
 

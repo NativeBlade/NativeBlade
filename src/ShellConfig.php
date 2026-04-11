@@ -48,6 +48,11 @@ class ShellConfig
             ];
         }
 
+        $schedules = Schedule\ScheduleRunner::extractSchedules();
+        if (!empty($schedules)) {
+            $config['schedules'] = $schedules;
+        }
+
         return $config;
     }
 
