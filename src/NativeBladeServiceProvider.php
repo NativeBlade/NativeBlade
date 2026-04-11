@@ -21,6 +21,7 @@ class NativeBladeServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->syncClock();
         $this->patchWasmRequest();
         $this->registerHttpBridge();
         $this->registerNativeStorage();
@@ -29,6 +30,7 @@ class NativeBladeServiceProvider extends ServiceProvider
         $this->registerViewComposer();
         $this->discoverCustomComponents();
         $this->discoverPackageComponents();
+        $this->registerScheduleRoute();
 
         if (!$this->app->runningInConsole()) {
             $this->app->booted(function () {
@@ -141,6 +143,31 @@ class NativeBladeServiceProvider extends ServiceProvider
         $result = 'data:' . $mime . ';base64,' . base64_encode($content);
         self::$assetCache[$file] = $result;
         return $result;
+    }
+
+    private function syncClock(): void
+    {
+        $realTs = $_SERVER['NATIVEBLADE_TIMESTAMP'] ?? null;
+        if ($realTs) {
+            $real = \Carbon\Carbon::createFromTimestamp((int) $realTs);
+            \Carbon\Carbon::setTestNow($real);
+        }
+    }
+
+    private function registerScheduleRoute(): void
+    {
+        \Illuminate\Support\Facades\Route::get('/__nb/schedule/{name}', function (string $name) {
+            $ran = Schedule\ScheduleRunner::runByName($name);
+            return response()->json(['ran' => $ran]);
+        });
+
+        \Illuminate\Support\Facades\Route::get('/__nb/boot', function () {
+            $callback = ShellConfig::getBootCallback();
+            if ($callback) {
+                $callback();
+            }
+            return response()->json(['ok' => true]);
+        });
     }
 
     private function registerNativeStorage(): void

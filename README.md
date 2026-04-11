@@ -15,6 +15,7 @@
   <a href="COMPONENTS.md">Components</a> &bull;
   <a href="DIRECTIVES.md">Directives</a> &bull;
   <a href="ANIMATIONS.md">Animations</a> &bull;
+  <a href="LIFECYCLE.md">Lifecycle</a> &bull;
   <a href="FILESYSTEM.md">Filesystem</a> &bull;
   <a href="BUILD.md">Build</a> &bull;
   <a href="UPDATES.md">Auto-Update</a> &bull;
@@ -113,12 +114,14 @@ php artisan nativeblade:dev --platform=ios
 ```
 
 1. **Boot** — PHP 8.3 WebAssembly loads your Laravel app
-2. **Migrate** — Pending migrations run automatically (standard Laravel migrations)
-3. **Route** — Each navigation runs through Laravel's router inside WASM
-4. **Render** — Blade/Livewire HTML is rendered in an iframe
-5. **Intercept** — Fetch interceptor routes HTTP requests through WASM
-6. **Bridge** — Native actions flow through `postMessage`
-7. **Persist** — SQLite syncs to IndexedDB automatically
+2. **Migrate** — Pending migrations run automatically
+3. **onBoot** — Your startup code runs (license check, data sync, API calls) while splash is visible
+4. **Route** — Each navigation runs through Laravel's router inside WASM
+5. **Render** — Blade/Livewire HTML is rendered in an iframe
+6. **Intercept** — Fetch interceptor routes HTTP requests through WASM
+7. **Bridge** — Native actions flow through `postMessage`
+8. **Schedule** — Rust timers execute recurring tasks via Laravel Schedule
+9. **Persist** — SQLite syncs to IndexedDB automatically
 
 ## Database
 
@@ -144,6 +147,32 @@ Task::create(['title' => 'Buy milk']);
 $tasks = Task::where('done', false)->get();
 $task->update(['done' => true]);
 ```
+
+## onBoot Hook
+
+Run code before the app becomes visible. Splash stays up until complete:
+
+```php
+NativeBladeConfig::onBoot(function () {
+    $license = Http::get('https://api.myapp.com/license/check')->json();
+    NativeBlade::setState('license', $license);
+});
+```
+
+HTTP Bridge, Storage, Eloquent — everything works inside `onBoot`. See [LIFECYCLE.md](LIFECYCLE.md).
+
+## Scheduler
+
+Laravel Schedule powered by Rust native timers. Define in `routes/console.php`:
+
+```php
+use Illuminate\Support\Facades\Schedule;
+
+Schedule::call(fn () => SyncService::run())->everyFiveMinutes()->name('sync');
+Schedule::call(fn () => CacheService::cleanup())->daily()->name('cleanup');
+```
+
+All Laravel frequency methods work. Overdue tasks execute on next app open. See [LIFECYCLE.md](LIFECYCLE.md).
 
 ## State Management
 
@@ -216,10 +245,12 @@ $responses = NativeBlade::pool(fn ($pool) => [
 |-------|-----------|---------------|
 | Routing, Blade, Livewire | `Http` facade | Queues, Mail (SMTP) |
 | Eloquent (SQLite) | External APIs | Redis, Memcached |
-| Middleware, Validation | | WebSockets |
+| Middleware, Validation | Native Filesystem | WebSockets |
 | Collections, Carbon | | MySQL, Postgres |
 | Service Container | | Artisan CLI |
 | Localization | | File Storage (S3) |
+| Task Scheduling (via Rust) | | |
+| Migrations (auto on boot) | | |
 
 ## Documentation
 
@@ -229,6 +260,7 @@ $responses = NativeBlade::pool(fn ($pool) => [
 | [COMPONENTS.md](COMPONENTS.md) | Shell components, icons, images, skeleton, fonts, safe area, custom components |
 | [DIRECTIVES.md](DIRECTIVES.md) | wire:nb-bridge, wire:nb-navigate, nb-feedback, native actions |
 | [ANIMATIONS.md](ANIMATIONS.md) | nb-animation, Animate.css, custom animations, haptic feedback |
+| [LIFECYCLE.md](LIFECYCLE.md) | Boot sequence, onBoot hook, scheduler, clock sync, migrations |
 | [FILESYSTEM.md](FILESYSTEM.md) | Native filesystem, Storage driver, camera integration |
 | [BUILD.md](BUILD.md) | Build command, output, CLI commands, icon generation |
 | [UPDATES.md](UPDATES.md) | Auto-update for desktop and mobile |

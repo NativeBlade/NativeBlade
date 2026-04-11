@@ -12,6 +12,7 @@ class ShellConfig
     private array $config = [];
     private static array $appConfigs = [];
     private static string $transition = 'none';
+    private static $onBootCallback = null;
 
     public function bottomNav(array $items): static
     {
@@ -46,6 +47,11 @@ class ShellConfig
                 'currentVersion' => $platformConfig['version'],
                 'storeUrl' => $platformConfig['storeUrl'] ?? null,
             ];
+        }
+
+        $schedules = Schedule\ScheduleRunner::extractSchedules();
+        if (!empty($schedules)) {
+            $config['schedules'] = $schedules;
         }
 
         return $config;
@@ -98,6 +104,17 @@ class ShellConfig
             'version' => $config['version'],
             'buildNumber' => $config['buildNumber'],
         ];
+    }
+
+    public function onBoot(callable $callback): static
+    {
+        static::$onBootCallback = $callback;
+        return $this;
+    }
+
+    public static function getBootCallback(): ?callable
+    {
+        return static::$onBootCallback;
     }
 
     public function transition(string $type = 'fade'): static

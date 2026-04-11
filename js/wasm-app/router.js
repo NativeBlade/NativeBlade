@@ -6,6 +6,7 @@ import { extractShellConfig, inject } from './interceptor.js';
 import { abort as abortHttpBridge } from '../runtime/http-bridge.js';
 import { setOnBridgeComplete } from '../runtime/request-handler.js';
 import { init as initAutoUpdate } from './auto-update.js';
+import { init as initScheduler } from './scheduler.js';
 
 let appFrame = null;
 let splash = null;
@@ -93,6 +94,26 @@ export function init(frame, splashEl) {
     });
 }
 
+export async function runBoot() {
+    return new Promise(async (resolve) => {
+        const result = await request('/__nb/boot');
+
+        if (!result.bridgePending) {
+            resolve();
+            return;
+        }
+
+        setOnBridgeComplete((completedResult) => {
+            setOnBridgeComplete(defaultBridgeCallback);
+            if (completedResult.bridgePending) {
+                runBoot().then(resolve);
+            } else {
+                resolve();
+            }
+        });
+    });
+}
+
 export async function navigate(path, options = {}) {
     abortHttpBridge();
     pendingMessageId = null;
@@ -152,6 +173,10 @@ async function renderPage(text, path, options, version) {
     if (!autoUpdateInitialized && config.update) {
         autoUpdateInitialized = true;
         initAutoUpdate(config.update);
+    }
+
+    if (config.schedules) {
+        initScheduler(config.schedules);
     }
 
     const transitionMap = {
