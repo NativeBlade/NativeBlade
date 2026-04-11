@@ -17,7 +17,7 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_upload::init());
 
-    #[cfg(mobile)]
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     let builder = builder
         .plugin(tauri_plugin_biometric::init())
         .plugin(tauri_plugin_barcode_scanner::init())
@@ -34,7 +34,7 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
             commands::database::db_query,
         ])
         .setup(|_app| {
-            #[cfg(desktop)]
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
             {
                 let handle = _app.handle();
                 if let Some(menu) = commands::menu::build_menu(handle) {
@@ -45,7 +45,7 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
             Ok(())
         });
 
-    #[cfg(desktop)]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let builder = builder
         .on_menu_event(|app, event| {
             commands::menu::handle_menu_event(app, &event);

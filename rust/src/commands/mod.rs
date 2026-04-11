@@ -3,7 +3,7 @@ pub mod config;
 pub mod database;
 pub mod health;
 pub mod scheduler;
-#[cfg(desktop)]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub mod menu;
-#[cfg(desktop)]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub mod tray;

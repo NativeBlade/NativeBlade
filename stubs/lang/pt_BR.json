@@ -11,5 +11,6 @@
     "boot.migrations": "Atualizando banco de dados...",
     "boot.state": "Restaurando dados...",
     "boot.rendering": "Renderizando...",
+    "boot.loading": "Carregando...",
     "boot.ready": "Pronto!"
 }

@@ -152,7 +152,7 @@ export function handleNativeAction(action, payload, appFrame) {
                     });
                     appFrame?.contentWindow?.postMessage({ type: 'nativeblade-biometric', success: true }, '*');
                 })().catch(err => {
-                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-biometric', success: false, error: err.message }, '*');
+                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-biometric', success: false, error: err.message || String(err) }, '*');
                 });
             }
             break;
