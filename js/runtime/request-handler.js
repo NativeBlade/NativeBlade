@@ -2,6 +2,7 @@ import { getInstance } from './php-runtime.js';
 import { detectPlatform } from './filesystem.js';
 import * as httpBridge from './http-bridge.js';
 import * as fsBridge from './fs-bridge.js';
+import * as dbBridge from './db-bridge.js';
 
 let pendingBridgeCallback = null;
 
@@ -76,6 +77,12 @@ export async function handleRequest(path, options = {}) {
     }
     fsBridge.done(php);
 
+    if (await dbBridge.hasPendingRequest(php, text)) {
+        fulfillInBackground(php, path, options, 'db');
+        return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
+    }
+    dbBridge.done(php);
+
     try {
         const json = JSON.parse(text);
         if (json?.nativeblade && json?.actions) {
@@ -89,7 +96,7 @@ export async function handleRequest(path, options = {}) {
 }
 
 async function fulfillInBackground(php, originalPath, originalOptions, type = 'http') {
-    const bridge = type === 'fs' ? fsBridge : httpBridge;
+    const bridge = type === 'db' ? dbBridge : type === 'fs' ? fsBridge : httpBridge;
     const fulfilled = await bridge.fulfill(php);
     if (!fulfilled) return;
 

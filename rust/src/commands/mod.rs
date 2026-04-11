@@ -1,5 +1,6 @@
 pub mod bridge;
 pub mod config;
+pub mod database;
 pub mod health;
 pub mod scheduler;
 #[cfg(desktop)]

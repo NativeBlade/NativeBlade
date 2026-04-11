@@ -16,6 +16,7 @@
   <a href="DIRECTIVES.md">Directives</a> &bull;
   <a href="ANIMATIONS.md">Animations</a> &bull;
   <a href="LIFECYCLE.md">Lifecycle</a> &bull;
+  <a href="DATABASE.md">Database</a> &bull;
   <a href="FILESYSTEM.md">Filesystem</a> &bull;
   <a href="BUILD.md">Build</a> &bull;
   <a href="SCHEDULER.md">Scheduler</a> &bull;
@@ -261,6 +262,7 @@ $responses = NativeBlade::pool(fn ($pool) => [
 | [COMPONENTS.md](COMPONENTS.md) | Shell components, icons, images, skeleton, fonts, safe area, custom components |
 | [DIRECTIVES.md](DIRECTIVES.md) | wire:nb-bridge, wire:nb-navigate, nb-feedback, native actions |
 | [ANIMATIONS.md](ANIMATIONS.md) | nb-animation, Animate.css, custom animations, haptic feedback |
+| [DATABASE.md](DATABASE.md) | SQLite local, native MySQL/PostgreSQL/MariaDB via Rust bridge |
 | [LIFECYCLE.md](LIFECYCLE.md) | Boot sequence, onBoot hook, clock sync, migrations |
 | [SCHEDULER.md](SCHEDULER.md) | Task scheduling with Rust native timers |
 | [FILESYSTEM.md](FILESYSTEM.md) | Native filesystem, Storage driver, camera integration |

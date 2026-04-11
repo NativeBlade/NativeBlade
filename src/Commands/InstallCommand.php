@@ -33,6 +33,7 @@ class InstallCommand extends Command
         $this->updateAppServiceProvider();
         $this->updateBootstrap();
         $this->patchTailwindSources();
+        $this->patchDatabaseConfig();
         $this->createDirectories();
         $this->call('nativeblade:icon');
         $this->call('nativeblade:config');
@@ -323,6 +324,49 @@ class InstallCommand extends Command
 
         file_put_contents($cssPath, $content);
         $this->line("  <fg=green>✓</> Tailwind sources patched");
+    }
+
+    private function patchDatabaseConfig(): void
+    {
+        $path = config_path('database.php');
+        if (!file_exists($path)) return;
+
+        $content = file_get_contents($path);
+
+        if (str_contains($content, 'nativeblade-db')) {
+            $this->line("  <fg=yellow>→</> database.php already patched, skipped");
+            return;
+        }
+
+        $content = str_replace(
+            "'database' => env('DB_DATABASE', database_path('database.sqlite')),",
+            "'database' => database_path('database.sqlite'),",
+            $content
+        );
+
+        $nativeConnection = <<<'PHP'
+
+        'native' => [
+            'driver' => 'nativeblade-db',
+            'native_driver' => 'mysql',
+            'host' => env('NB_DB_HOST', '127.0.0.1'),
+            'port' => env('NB_DB_PORT', '3306'),
+            'database' => env('NB_DB_DATABASE', 'myapp'),
+            'username' => env('NB_DB_USERNAME', 'root'),
+            'password' => env('NB_DB_PASSWORD', ''),
+            'prefix' => '',
+        ],
+
+PHP;
+
+        $content = str_replace(
+            "'connections' => [\n",
+            "'connections' => [\n" . $nativeConnection,
+            $content
+        );
+
+        file_put_contents($path, $content);
+        $this->line("  <fg=green>✓</> database.php patched (sqlite fixed, native_mysql added)");
     }
 
     private function createDirectories(): void
