@@ -94,6 +94,26 @@ export function init(frame, splashEl) {
     });
 }
 
+export async function runBoot() {
+    return new Promise(async (resolve) => {
+        const result = await request('/__nb/boot');
+
+        if (!result.bridgePending) {
+            resolve();
+            return;
+        }
+
+        setOnBridgeComplete((completedResult) => {
+            setOnBridgeComplete(defaultBridgeCallback);
+            if (completedResult.bridgePending) {
+                runBoot().then(resolve);
+            } else {
+                resolve();
+            }
+        });
+    });
+}
+
 export async function navigate(path, options = {}) {
     abortHttpBridge();
     pendingMessageId = null;

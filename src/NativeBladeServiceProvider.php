@@ -160,6 +160,14 @@ class NativeBladeServiceProvider extends ServiceProvider
             $ran = Schedule\ScheduleRunner::runByName($name);
             return response()->json(['ran' => $ran]);
         });
+
+        \Illuminate\Support\Facades\Route::get('/__nb/boot', function () {
+            $callback = ShellConfig::getBootCallback();
+            if ($callback) {
+                $callback();
+            }
+            return response()->json(['ok' => true]);
+        });
     }
 
     private function registerNativeStorage(): void
