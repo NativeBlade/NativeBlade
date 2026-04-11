@@ -196,7 +196,7 @@ class ShellConfig
     public function setState(string $key, mixed $value, string $scope = 'persistent'): void
     {
         $this->ensureTable();
-        DB::statement(
+        DB::connection('sqlite')->statement(
             'INSERT OR REPLACE INTO nativeblade_state (key, value, scope) VALUES (?, ?, ?)',
             [$key, json_encode($value), $scope]
         );
@@ -205,7 +205,7 @@ class ShellConfig
     public function getState(string $key, mixed $default = null): mixed
     {
         $this->ensureTable();
-        $row = DB::selectOne('SELECT value FROM nativeblade_state WHERE key = ?', [$key]);
+        $row = DB::connection('sqlite')->selectOne('SELECT value FROM nativeblade_state WHERE key = ?', [$key]);
         if (!$row) return $default;
         return json_decode($row->value, true) ?? $default;
     }
@@ -214,8 +214,8 @@ class ShellConfig
     {
         $this->ensureTable();
         $query = $scope
-            ? DB::select('SELECT key, value FROM nativeblade_state WHERE scope = ?', [$scope])
-            : DB::select('SELECT key, value FROM nativeblade_state');
+            ? DB::connection('sqlite')->select('SELECT key, value FROM nativeblade_state WHERE scope = ?', [$scope])
+            : DB::connection('sqlite')->select('SELECT key, value FROM nativeblade_state');
         $state = [];
         foreach ($query as $row) {
             $state[$row->key] = json_decode($row->value, true);
@@ -226,16 +226,16 @@ class ShellConfig
     public function forget(string $key): void
     {
         $this->ensureTable();
-        DB::delete('DELETE FROM nativeblade_state WHERE key = ?', [$key]);
+        DB::connection('sqlite')->delete('DELETE FROM nativeblade_state WHERE key = ?', [$key]);
     }
 
     public function flush(?string $scope = null): void
     {
         $this->ensureTable();
         if ($scope) {
-            DB::delete('DELETE FROM nativeblade_state WHERE scope = ?', [$scope]);
+            DB::connection('sqlite')->delete('DELETE FROM nativeblade_state WHERE scope = ?', [$scope]);
         } else {
-            DB::delete('DELETE FROM nativeblade_state');
+            DB::connection('sqlite')->delete('DELETE FROM nativeblade_state');
         }
     }
 
@@ -249,6 +249,6 @@ class ShellConfig
 
     private function ensureTable(): void
     {
-        DB::statement('CREATE TABLE IF NOT EXISTS nativeblade_state (key TEXT PRIMARY KEY, value TEXT, scope TEXT DEFAULT \'persistent\')');
+        DB::connection('sqlite')->statement('CREATE TABLE IF NOT EXISTS nativeblade_state (key TEXT PRIMARY KEY, value TEXT, scope TEXT DEFAULT \'persistent\')');
     }
 }
