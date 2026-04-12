@@ -50,7 +50,7 @@ NativeBlade lets Laravel developers build **desktop** and **mobile** apps using 
 
 ## Requirements
 
-- PHP 8.3.x (with GD extension)
+- PHP 8.3, 8.4, or 8.5 (with GD extension)
 - Laravel 11, 12, or 13
 - Livewire 3
 - Node.js 20+
@@ -115,7 +115,7 @@ php artisan nativeblade:dev --platform=ios
 └─────────────────────────────────────────────┘
 ```
 
-1. **Boot** — PHP 8.3 WebAssembly loads your Laravel app
+1. **Boot** — PHP WebAssembly loads your Laravel app (8.3, 8.4, or 8.5)
 2. **Migrate** — Pending migrations run automatically
 3. **onBoot** — Your startup code runs (license check, data sync, API calls) while splash is visible
 4. **Route** — Each navigation runs through Laravel's router inside WASM

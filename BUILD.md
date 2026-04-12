@@ -53,6 +53,7 @@ build/
 | `nativeblade:config` | Regenerate Tauri configs from PHP |
 | `nativeblade:build {platform}` | Build for android, ios, or desktop |
 | `nativeblade:icon` | Generate all platform icons from 1024x1024 PNG |
+| `nativeblade:php {version?}` | Set PHP WASM version (8.3, 8.4, 8.5) |
 | `nativeblade:component {name}` | Create a custom component |
 
 ## Icon Generation
