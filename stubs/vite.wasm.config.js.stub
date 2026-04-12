@@ -24,6 +24,7 @@ export default defineConfig({
     resolve: {
         alias: {
             '@nativeblade': nativebladeBase,
+            '@nativeblade-php-loader': path.resolve(__dirname, 'resources/js/php-loader.js'),
             '@components': path.resolve(__dirname, 'nativeblade-components'),
             ...scopedAliases,
         },
@@ -37,7 +38,7 @@ export default defineConfig({
         },
     },
     optimizeDeps: {
-        exclude: ['@php-wasm/web-8-2', '@php-wasm/web-8-3'],
+        exclude: ['@php-wasm/web-8-3', '@php-wasm/web-8-4', '@php-wasm/web-8-5'],
     },
     assetsInclude: ['**/*.so', '**/*.wasm'],
     build: {
