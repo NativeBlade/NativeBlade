@@ -137,6 +137,8 @@ class InstallCommand extends Command
         }
 
         $this->publishStub('wasm-app/index.html', $dir . '/index.html');
+
+        $this->call('nativeblade:php');
         $this->publishStub('wasm-app/nativeblade.js', $dir . '/nativeblade.js');
 
         $this->line("  <fg=green>✓</> resources/js/ published (splash + entry point)");
@@ -172,8 +174,11 @@ class InstallCommand extends Command
 
     private function installNpmDependencies(): void
     {
+        $phpVersion = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
+        $phpWasmPackage = "@php-wasm/web-{$phpVersion}@^3.1.15";
+
         $deps = [
-            '@php-wasm/web@^3.1.15',
+            $phpWasmPackage,
             '@php-wasm/universal@^3.1.15',
             '@tauri-apps/cli@^2',
             '@tauri-apps/api@^2',

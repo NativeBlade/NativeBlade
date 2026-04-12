@@ -1,5 +1,5 @@
 import { PHP, loadPHPRuntime } from '@php-wasm/universal';
-import { getPHPLoaderModule } from '@php-wasm/web-8-3';
+import { getPHPLoaderModule } from '@nativeblade-php-loader';
 
 let php = null;
 
