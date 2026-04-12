@@ -2,8 +2,11 @@
 
 namespace NativeBlade;
 
+use Closure;
 use Illuminate\Http\JsonResponse;
 use Livewire\Livewire;
+use NativeBlade\Dialogs\Dialog;
+use NativeBlade\Notifications\Notification;
 
 /**
  * Fluent builder for native actions.
@@ -29,30 +32,57 @@ class NativeResponse
     // ------------------------------------------------------------------
 
     /**
-     * Show a native alert dialog with a single OK button.
+     * Queue a native alert dialog built via a fluent `Dialog` builder.
      *
-     * Chain `->title()`, `->kind()`, `->confirmLabel()` or `->cancelLabel()`
-     * to customize the dialog. The user's choice (if cancel/confirm buttons
-     * are used) is delivered via the `nb:confirm-result` Livewire event.
+     * The closure receives a fresh `Dialog` instance — configure its title,
+     * message, kind and button labels, and NativeBlade will dispatch it to
+     * the native layer when this response is rendered. Alert dialogs show
+     * a single OK button; use `confirm()` instead if you need a Cancel
+     * button alongside.
      *
-     * @param  string  $message  Body text displayed inside the dialog.
+     * Example:
+     * ```
+     * return NativeBlade::alert(function (Dialog $d) {
+     *     $d->title('Heads up')
+     *       ->message('Your session will expire soon')
+     *       ->kind('warning');
+     * });
+     * ```
+     *
+     * @param  Closure(Dialog): void  $callback  Receives the builder instance.
      */
-    public function alert(string $message): static
+    public function alert(Closure $callback): static
     {
-        return $this->push('alert', ['message' => $message]);
+        $dialog = new Dialog();
+        $callback($dialog);
+        return $this->push('alert', $dialog->toArray());
     }
 
     /**
-     * Show a native confirmation dialog with OK/Cancel buttons.
+     * Queue a native confirmation dialog built via a fluent `Dialog` builder.
      *
-     * The user's choice is delivered via the `nb:confirm-result` Livewire
-     * event with a boolean `$confirmed` parameter.
+     * Same builder as `alert()`, but the dialog shows both OK and Cancel
+     * buttons. The user's choice is delivered via the `nb:confirm-result`
+     * Livewire event with a boolean `$confirmed` parameter.
      *
-     * @param  string  $message  Question or statement shown to the user.
+     * Example:
+     * ```
+     * return NativeBlade::confirm(function (Dialog $d) {
+     *     $d->title('Delete?')
+     *       ->message('This cannot be undone')
+     *       ->kind('warning')
+     *       ->confirmLabel('Delete')
+     *       ->cancelLabel('Keep');
+     * });
+     * ```
+     *
+     * @param  Closure(Dialog): void  $callback  Receives the builder instance.
      */
-    public function confirm(string $message): static
+    public function confirm(Closure $callback): static
     {
-        return $this->push('confirm', ['message' => $message]);
+        $dialog = new Dialog();
+        $callback($dialog);
+        return $this->push('confirm', $dialog->toArray());
     }
 
     // ------------------------------------------------------------------
@@ -60,21 +90,31 @@ class NativeResponse
     // ------------------------------------------------------------------
 
     /**
-     * Send a system notification.
+     * Queue a system notification built via a fluent `Notification` builder.
      *
-     * On first use, NativeBlade automatically requests notification
-     * permission from the user. If the user denies permission, the
-     * notification is silently dropped. Chain `->title()`, `->sound()`,
-     * `->icon()` or `->channel()` to customize.
+     * The closure receives a fresh `Notification` instance — configure its
+     * title, body, sound, icon and channel, and NativeBlade will dispatch
+     * it to the native layer when this response is rendered. On first use,
+     * notification permission is requested automatically; if the user
+     * denies permission, the notification is silently dropped.
      *
-     * @param  string  $body  Main notification text shown to the user.
+     * Example:
+     * ```
+     * return NativeBlade::notification(function (Notification $n) {
+     *     $n->title('Lesson complete!')
+     *       ->body('You earned 50 XP')
+     *       ->sound('default')
+     *       ->channel('lessons');
+     * });
+     * ```
+     *
+     * @param  Closure(Notification): void  $callback  Receives the builder instance.
      */
-    public function notification(string $body): static
+    public function notification(Closure $callback): static
     {
-        return $this->push('notification', [
-            'title' => 'NativeBlade',
-            'body' => $body,
-        ]);
+        $notification = new Notification();
+        $callback($notification);
+        return $this->push('notification', $notification->toArray());
     }
 
     // ------------------------------------------------------------------
@@ -380,55 +420,6 @@ class NativeResponse
     // ------------------------------------------------------------------
 
     /**
-     * Set the title of the most recently queued action.
-     *
-     * Applies to: `alert`, `confirm`, `notification`.
-     *
-     * @param  string  $title  Title text shown above the message/body.
-     */
-    public function title(string $title): static
-    {
-        return $this->modify('title', $title);
-    }
-
-    /**
-     * Set the severity level of an alert or confirm dialog.
-     *
-     * Applies to: `alert`, `confirm`. Affects the icon and color chosen
-     * by the OS when rendering the dialog.
-     *
-     * @param  string  $kind  One of: `'info'`, `'warning'`, `'error'`.
-     */
-    public function kind(string $kind): static
-    {
-        return $this->modify('kind', $kind);
-    }
-
-    /**
-     * Set the label of the confirm/OK button on a dialog.
-     *
-     * Applies to: `alert`, `confirm`.
-     *
-     * @param  string  $label  Button text (e.g. `'Delete'`, `'Yes'`).
-     */
-    public function confirmLabel(string $label): static
-    {
-        return $this->modify('confirmLabel', $label);
-    }
-
-    /**
-     * Set the label of the cancel button on a dialog.
-     *
-     * Applies to: `alert`, `confirm`.
-     *
-     * @param  string  $label  Button text (e.g. `'Keep'`, `'No'`).
-     */
-    public function cancelLabel(string $label): static
-    {
-        return $this->modify('cancelLabel', $label);
-    }
-
-    /**
      * Set the animation used for a navigate action.
      *
      * Applies to: `navigate`.
@@ -452,44 +443,6 @@ class NativeResponse
     public function replace(bool $replace = true): static
     {
         return $this->modify('replace', $replace);
-    }
-
-    /**
-     * Set the sound played with a notification.
-     *
-     * Applies to: `notification`.
-     *
-     * @param  string  $sound  Platform-specific sound name or `'default'`.
-     */
-    public function sound(string $sound): static
-    {
-        return $this->modify('sound', $sound);
-    }
-
-    /**
-     * Set the icon shown with a notification.
-     *
-     * Applies to: `notification`. Android uses a small icon from the
-     * drawable folder; iOS uses an attachment image.
-     *
-     * @param  string  $icon  Resource identifier or absolute path.
-     */
-    public function icon(string $icon): static
-    {
-        return $this->modify('icon', $icon);
-    }
-
-    /**
-     * Set the Android notification channel for a notification.
-     *
-     * Applies to: `notification`. Android 8+ requires notifications to be
-     * posted to a channel. Ignored on iOS.
-     *
-     * @param  string  $channel  Channel identifier (e.g. `'lessons'`).
-     */
-    public function channel(string $channel): static
-    {
-        return $this->modify('channel', $channel);
     }
 
     /**

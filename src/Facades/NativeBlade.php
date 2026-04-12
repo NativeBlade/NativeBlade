@@ -7,9 +7,9 @@ use Illuminate\Support\Facades\Facade;
 /**
  * Native action builders — return a chainable NativeResponse.
  *
- * @method static \NativeBlade\NativeResponse alert(string $message)
- * @method static \NativeBlade\NativeResponse confirm(string $message)
- * @method static \NativeBlade\NativeResponse notification(string $body)
+ * @method static \NativeBlade\NativeResponse alert(\Closure $callback)
+ * @method static \NativeBlade\NativeResponse confirm(\Closure $callback)
+ * @method static \NativeBlade\NativeResponse notification(\Closure $callback)
  * @method static \NativeBlade\NativeResponse clipboardWrite(string $text)
  * @method static \NativeBlade\NativeResponse clipboardRead()
  * @method static \NativeBlade\NativeResponse geolocation()

@@ -45,21 +45,22 @@ Fires on tap without a Livewire round-trip. Best for pure UI actions.
 
 ```php
 use NativeBlade\Facades\NativeBlade;
+use NativeBlade\Notifications\Notification;
 
 public function save()
 {
     // ... business logic
-    return NativeBlade::notification('Your changes are safe.')
-        ->title('Saved!');
+    return NativeBlade::notification(function (Notification $n) {
+        $n->title('Saved!')->body('Your changes are safe.');
+    });
 }
 ```
 
 The facade returns a `NativeResponse` that is Responsable — return it directly from a Livewire action or controller and it dispatches the native actions. Every method is **chainable**, so you can queue multiple actions into a single response:
 
 ```php
-return NativeBlade::alert('Welcome back!')
-    ->title('Hey')
-    ->notification('3 new lessons available')
+return NativeBlade::alert(fn (Dialog $d) => $d->title('Hey')->message('Welcome back!'))
+    ->notification(fn (Notification $n) => $n->title('Heads up')->body('3 new lessons available'))
     ->navigate('/dashboard')
     ->transition('fade');
 ```
@@ -81,13 +82,14 @@ Every action below is available both as a direct call on the facade *and* as a c
 NativeBlade::vibrate(200);
 
 // Chained (appends to an existing response):
-return NativeBlade::notification('Saved!')->vibrate(200);
+return NativeBlade::notification(fn (Notification $n) => $n->title('Saved')->body('Changes persisted'))
+    ->vibrate(200);
 ```
 
 | Category | Methods |
 |---|---|
 | Dialogs | `alert($msg)`, `confirm($msg)` |
-| Notifications | `notification($body)` |
+| Notifications | `notification(Closure $callback)` |
 | Clipboard | `clipboardWrite($text)`, `clipboardRead()` |
 | Geolocation | `geolocation()` |
 | Haptics | `vibrate($ms = 100)`, `impact($style = 'medium')`, `selection()` |
@@ -107,15 +109,13 @@ After any action, chain any of these to customize it:
 
 | Modifier | Applies to |
 |---|---|
-| `title($text)` | alert, confirm, notification |
-| `kind($level)` | alert, confirm — `'info' \| 'warning' \| 'error'` |
-| `confirmLabel($text)` / `cancelLabel($text)` | alert, confirm |
 | `transition($type)` | navigate — `'slide' \| 'fade' \| 'zoom' \| 'flip' \| 'bounce' \| 'blur'` |
 | `replace($bool = true)` | navigate |
-| `sound($name)` / `icon($name)` / `channel($id)` | notification |
 | `reason($text)` / `allowDeviceCredential($bool)` | biometric |
 | `formats($array)` | scan |
 | `maxWidth($n)` / `maxHeight($n)` / `quality($f)` | camera, gallery |
+
+> Dialogs (`alert`, `confirm`) and notifications (`notification`) are configured through dedicated builder closures — see the [Dialogs](#dialogs) and [Notifications](#notifications) sections.
 
 ### Persistent state
 
@@ -172,6 +172,18 @@ public function mount()
 
 Backed by [`tauri-plugin-dialog`](https://v2.tauri.app/plugin/dialog/).
 
+Both `alert` and `confirm` are configured through the same `Dialog` builder passed as a closure. This keeps all dialog-specific options (title, message, kind, button labels) together and out of the generic modifier chain.
+
+The `Dialog` builder supports:
+
+| Method | Description |
+|---|---|
+| `->title($text)` | Title shown above the message |
+| `->message($text)` | Main body text of the dialog |
+| `->kind($level)` | `'info'`, `'warning'` or `'error'` — affects icon/color |
+| `->confirmLabel($text)` | Override the OK / confirm button label |
+| `->cancelLabel($text)` | Override the Cancel button label (confirm only) |
+
 ### alert
 
 Native alert dialog with a single OK button.
@@ -185,9 +197,13 @@ Native alert dialog with a single OK button.
 
 **PHP:**
 ```php
-return NativeBlade::alert('Your session will expire soon')
-    ->title('Heads up')
-    ->kind('warning');
+use NativeBlade\Dialogs\Dialog;
+
+return NativeBlade::alert(function (Dialog $d) {
+    $d->title('Heads up')
+      ->message('Your session will expire soon')
+      ->kind('warning');
+});
 ```
 
 ### confirm
@@ -203,10 +219,15 @@ Native confirmation dialog with OK/Cancel buttons. The user's choice is delivere
 
 **PHP:**
 ```php
-return NativeBlade::confirm('This cannot be undone')
-    ->title('Delete?')
-    ->confirmLabel('Delete')
-    ->cancelLabel('Keep');
+use NativeBlade\Dialogs\Dialog;
+
+return NativeBlade::confirm(function (Dialog $d) {
+    $d->title('Delete?')
+      ->message('This cannot be undone')
+      ->kind('warning')
+      ->confirmLabel('Delete')
+      ->cancelLabel('Keep');
+});
 ```
 
 See [Receiving Results](#receiving-results-in-php) for handling the response.
@@ -217,6 +238,8 @@ See [Receiving Results](#receiving-results-in-php) for handling the response.
 
 Backed by [`tauri-plugin-notification`](https://v2.tauri.app/plugin/notification/). Automatically requests permission on first use.
 
+Notifications are configured through a dedicated `Notification` builder passed as a closure. This keeps all notification-specific options (title, body, sound, icon, channel) together and out of the generic modifier chain.
+
 **Blade:**
 ```blade
 <button wire:nb-bridge="notification" wire:nb-payload='{"title":"Lesson complete!","body":"You earned 50 XP"}'>
@@ -226,16 +249,31 @@ Backed by [`tauri-plugin-notification`](https://v2.tauri.app/plugin/notification
 
 **PHP:**
 ```php
+use NativeBlade\Notifications\Notification;
+
 public function completeLesson()
 {
     $this->user->addXp(50);
 
-    return NativeBlade::notification('You earned 50 XP')
-        ->title('Lesson complete!')
-        ->sound('default')
-        ->channel('lessons');
+    return NativeBlade::notification(function (Notification $n) {
+        $n->title('Lesson complete!')
+          ->body('You earned 50 XP')
+          ->sound('default')
+          ->icon('lesson_icon')
+          ->channel('lessons');
+    })->vibrate(150)->navigate('/profile');
 }
 ```
+
+The `Notification` builder supports:
+
+| Method | Description |
+|---|---|
+| `->title($text)` | Title shown above the body (all platforms) |
+| `->body($text)` | Main notification text |
+| `->sound($name)` | Sound played on delivery — `'default'` or a platform-specific identifier |
+| `->icon($name)` | Small icon — Android drawable resource or iOS attachment |
+| `->channel($id)` | Android notification channel (ignored on iOS) |
 
 Combine with the [Scheduler](./SCHEDULER.md) for local reminders:
 
@@ -265,7 +303,7 @@ Backed by [`tauri-plugin-clipboard-manager`](https://v2.tauri.app/plugin/clipboa
 **PHP:**
 ```php
 return NativeBlade::clipboardWrite($this->shareUrl)
-    ->notification('Link copied!');
+    ->notification(fn (Notification $n) => $n->title('Copied')->body('Link copied to clipboard!'));
 ```
 
 ### Read
@@ -346,7 +384,7 @@ NativeBlade::impact('heavy'); // 'light' | 'medium' | 'heavy'
 NativeBlade::selection();
 
 // Or chained with other actions:
-return NativeBlade::notification('Saved!')
+return NativeBlade::notification(fn (Notification $n) => $n->title('Saved')->body('Profile updated'))
     ->vibrate(150);
 ```
 
