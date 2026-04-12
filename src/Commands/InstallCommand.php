@@ -174,8 +174,8 @@ class InstallCommand extends Command
 
     private function installNpmDependencies(): void
     {
-        $phpVersion = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
-        $phpWasmPackage = "@php-wasm/web-{$phpVersion}@^3.1.15";
+        $phpPkg = PHP_MAJOR_VERSION . '-' . PHP_MINOR_VERSION;
+        $phpWasmPackage = "@php-wasm/web-{$phpPkg}@^3.1.15";
 
         $deps = [
             $phpWasmPackage,

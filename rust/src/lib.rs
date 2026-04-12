@@ -1,5 +1,7 @@
 pub mod commands;
 
+use tauri::Manager;
+
 pub fn build() -> tauri::Builder<tauri::Wry> {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())

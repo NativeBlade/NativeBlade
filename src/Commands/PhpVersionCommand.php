@@ -18,12 +18,14 @@ class PhpVersionCommand extends Command
             return self::FAILURE;
         }
 
+        $pkg = str_replace('.', '-', $version);
+
         $loaderPath = resource_path('js/php-loader.js');
-        file_put_contents($loaderPath, "export { getPHPLoaderModule } from '@php-wasm/web-{$version}';\n");
+        file_put_contents($loaderPath, "export { getPHPLoaderModule } from '@php-wasm/web-{$pkg}';\n");
 
         $this->line("  <fg=green>✓</> PHP WASM version set to {$version}");
         $this->line('');
-        $this->line("  Run: npm install @php-wasm/web-{$version}@^3.1.15");
+        $this->line("  Run: npm install @php-wasm/web-{$pkg}@^3.1.15");
         $this->line("  Then: npm run build");
 
         return self::SUCCESS;
