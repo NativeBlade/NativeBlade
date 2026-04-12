@@ -78,7 +78,7 @@ export function inject(html) {
     window.addEventListener('__nativeblade', function(e) {
         var actions = (e.detail && e.detail.actions) || [];
         actions.forEach(function(a) {
-            __nbBridge(a.action.replace('so:', ''), a.data);
+            __nbBridge(a.action, a.data);
         });
     });
 

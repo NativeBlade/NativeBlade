@@ -14,6 +14,7 @@
   <a href="CONFIGURATION.md">Configuration</a> &bull;
   <a href="COMPONENTS.md">Components</a> &bull;
   <a href="DIRECTIVES.md">Directives</a> &bull;
+  <a href="PLUGINS.md">Plugins</a> &bull;
   <a href="ANIMATIONS.md">Animations</a> &bull;
   <a href="LIFECYCLE.md">Lifecycle</a> &bull;
   <a href="DATABASE.md">Database</a> &bull;
@@ -261,6 +262,7 @@ $responses = NativeBlade::pool(fn ($pool) => [
 | [CONFIGURATION.md](CONFIGURATION.md) | Desktop, Android, iOS configs, permissions, privacy manifest, transitions |
 | [COMPONENTS.md](COMPONENTS.md) | Shell components, icons, images, skeleton, fonts, safe area, custom components |
 | [DIRECTIVES.md](DIRECTIVES.md) | wire:nb-bridge, wire:nb-navigate, nb-feedback, native actions |
+| [PLUGINS.md](PLUGINS.md) | Built-in Tauri 2 plugin bridges (dialogs, notifications, clipboard, geolocation, haptics, biometric, barcode, NFC, opener, OS info) |
 | [ANIMATIONS.md](ANIMATIONS.md) | nb-animation, Animate.css, custom animations, haptic feedback |
 | [DATABASE.md](DATABASE.md) | SQLite local, native MySQL/PostgreSQL/MariaDB via Rust bridge |
 | [LIFECYCLE.md](LIFECYCLE.md) | Boot sequence, onBoot hook, clock sync, migrations |

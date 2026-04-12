@@ -29,7 +29,6 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
         .manage(commands::scheduler::SchedulerState::new())
         .manage(commands::database::DatabaseState::new())
         .invoke_handler(tauri::generate_handler![
-            commands::bridge::native_action,
             commands::health::check_backend,
             commands::config::get_config,
             commands::scheduler::register_schedules,

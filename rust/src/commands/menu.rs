@@ -1,4 +1,3 @@
-use super::bridge;
 use serde::Deserialize;
 use tauri::menu::{Menu, MenuItemBuilder, SubmenuBuilder};
 use tauri::{AppHandle, Emitter, Manager, Wry};
@@ -74,11 +73,12 @@ fn build_submenu(
 pub fn handle_menu_event(app: &AppHandle<Wry>, event: &tauri::menu::MenuEvent) {
     let action = event.id().as_ref();
 
-    if action.starts_with('/') {
+    if action == "exit" || action == "quit" {
+        app.exit(0);
+    } else if action.starts_with('/') {
         let _ = app.emit("nativeblade-menu", action);
     } else {
-        let so_action = format!("so:{}", action);
-        bridge::native_action(app.clone(), so_action, String::new());
+        let _ = app.emit("nativeblade-menu", action);
     }
 }
 

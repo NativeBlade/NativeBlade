@@ -173,24 +173,23 @@ class ShellConfig
         return $this->platform() === 'web';
     }
 
-    public function alert(string $message): NativeResponse
-    {
-        return (new NativeResponse())->alert($message);
-    }
-
-    public function notification(string $body): NativeResponse
-    {
-        return (new NativeResponse())->notification($body);
-    }
-
-    public function navigate(string $path, bool $replace = false): NativeResponse
-    {
-        return (new NativeResponse())->navigate($path, $replace);
-    }
-
     public function response(): NativeResponse
     {
         return new NativeResponse();
+    }
+
+    /**
+     * Delegate unknown method calls to a fresh NativeResponse so that every
+     * action available on NativeResponse is also available as a shortcut on
+     * the NativeBlade facade (e.g. NativeBlade::alert(), NativeBlade::vibrate()).
+     */
+    public function __call(string $method, array $args): mixed
+    {
+        $response = new NativeResponse();
+        if (method_exists($response, $method)) {
+            return $response->{$method}(...$args);
+        }
+        throw new \BadMethodCallException("Method {$method} does not exist on NativeBlade.");
     }
 
     public function setState(string $key, mixed $value, string $scope = 'persistent'): void

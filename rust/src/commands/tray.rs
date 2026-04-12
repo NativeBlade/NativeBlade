@@ -1,4 +1,3 @@
-use super::bridge;
 use super::menu::resolve_config_path;
 use serde::Deserialize;
 use tauri::image::Image;
@@ -103,12 +102,14 @@ fn handle_tray_action(app: &AppHandle<Wry>, action: &str) {
                 let _ = window.set_focus();
             }
         }
+        "exit" | "quit" => {
+            app.exit(0);
+        }
         a if a.starts_with('/') => {
             let _ = app.emit("nativeblade-menu", a);
         }
         a => {
-            let so_action = format!("so:{}", a);
-            bridge::native_action(app.clone(), so_action, String::new());
+            let _ = app.emit("nativeblade-menu", a);
         }
     }
 }
