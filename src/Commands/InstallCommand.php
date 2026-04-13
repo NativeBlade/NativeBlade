@@ -34,6 +34,7 @@ class InstallCommand extends Command
         $this->updateBootstrap();
         $this->patchTailwindSources();
         $this->patchDatabaseConfig();
+        $this->patchFilesystemsConfig();
         $this->createDirectories();
         $this->call('nativeblade:icon');
         $this->call('nativeblade:config');
@@ -372,6 +373,45 @@ PHP;
 
         file_put_contents($path, $content);
         $this->line("  <fg=green>✓</> database.php patched (sqlite fixed, native_mysql added)");
+    }
+
+    private function patchFilesystemsConfig(): void
+    {
+        $path = config_path('filesystems.php');
+        if (!file_exists($path)) {
+            $this->line("  <fg=yellow>→</> config/filesystems.php not found, skipped");
+            return;
+        }
+
+        $content = file_get_contents($path);
+
+        if (str_contains($content, "'driver' => 'nativeblade'")) {
+            $this->line("  <fg=yellow>→</> filesystems.php already patched, skipped");
+            return;
+        }
+
+        $nativeDisk = <<<'PHP'
+
+        'native' => [
+            'driver' => 'nativeblade',
+        ],
+
+PHP;
+
+        $patched = preg_replace(
+            "/('disks'\s*=>\s*\[\s*\n)/",
+            "$1" . $nativeDisk,
+            $content,
+            1
+        );
+
+        if ($patched === null || $patched === $content) {
+            $this->line("  <fg=yellow>→</> Could not auto-patch filesystems.php — add the 'native' disk manually");
+            return;
+        }
+
+        file_put_contents($path, $patched);
+        $this->line("  <fg=green>✓</> filesystems.php patched (native disk added)");
     }
 
     private function createDirectories(): void

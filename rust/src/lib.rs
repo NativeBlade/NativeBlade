@@ -1,5 +1,6 @@
 pub mod commands;
 
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use tauri::Manager;
 
 pub fn build() -> tauri::Builder<tauri::Wry> {

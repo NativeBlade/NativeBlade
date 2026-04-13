@@ -35,6 +35,7 @@ export function init(frame) {
                 mime: result.mime || file.type,
                 size: result.size || file.size,
                 originalSize: file.size,
+                id: currentOptions.id || null,
             }, '*');
 
             input.value = '';

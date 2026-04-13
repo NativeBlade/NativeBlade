@@ -45,7 +45,7 @@ Fires on tap without a Livewire round-trip. Best for pure UI actions.
 
 ```php
 use NativeBlade\Facades\NativeBlade;
-use NativeBlade\Notifications\Notification;
+use NativeBlade\Plugins\Notification;
 
 public function save()
 {
@@ -88,20 +88,22 @@ return NativeBlade::notification(fn (Notification $n) => $n->title('Saved')->bod
 
 | Category | Methods |
 |---|---|
-| Dialogs | `alert($msg)`, `confirm($msg)` |
-| Notifications | `notification(Closure $callback)` |
-| Clipboard | `clipboardWrite($text)`, `clipboardRead()` |
-| Geolocation | `geolocation()` |
+| Dialogs | `alert(Closure)`, `confirm(Closure)` |
+| Notifications | `notification(Closure)` |
+| Clipboard | `clipboardWrite($text)`, `clipboardRead(?Closure)` |
+| Geolocation | `geolocation(?Closure)` |
 | Haptics | `vibrate($ms = 100)`, `impact($style = 'medium')`, `selection()` |
-| Biometric | `biometric($reason = 'Authenticate')` |
-| Barcode | `scan($formats = [])` |
-| NFC | `nfcRead()` |
+| Biometric | `biometric(Closure)` |
+| Barcode | `scan(?Closure)` |
+| NFC | `nfcRead(?Closure)` |
 | Opener | `openUrl($url)`, `openFile($path)` |
 | OS | `osInfo()` |
-| Camera | `camera($options = [])`, `gallery($options = [])` |
+| Camera | `camera(?Closure)`, `gallery(?Closure)` |
 | Navigation | `navigate($path, $replace = false)` |
 | Modal | `showModal()`, `hideModal()` |
 | Process | `exit()` |
+
+All closure-based builders live in `NativeBlade\Plugins\*` (`Dialog`, `Notification`, `Camera`, `Biometric`, `Scan`, `Geolocation`, `Clipboard`, `Nfc`). Builders marked with `?Closure` (nullable) let you omit the closure when you don't need to configure anything — useful for the simple `NativeBlade::geolocation()` / `NativeBlade::scan()` case.
 
 ### Modifiers (attach to the last action)
 
@@ -111,11 +113,8 @@ After any action, chain any of these to customize it:
 |---|---|
 | `transition($type)` | navigate — `'slide' \| 'fade' \| 'zoom' \| 'flip' \| 'bounce' \| 'blur'` |
 | `replace($bool = true)` | navigate |
-| `reason($text)` / `allowDeviceCredential($bool)` | biometric |
-| `formats($array)` | scan |
-| `maxWidth($n)` / `maxHeight($n)` / `quality($f)` | camera, gallery |
 
-> Dialogs (`alert`, `confirm`) and notifications (`notification`) are configured through dedicated builder closures — see the [Dialogs](#dialogs) and [Notifications](#notifications) sections.
+> All other per-action options live inside their dedicated `Plugins\*` builder closures — `Dialog`, `Notification`, `Camera`, `Biometric`, `Scan`, `Geolocation`, `Clipboard`, `Nfc`. The `NativeResponse` itself only keeps modifiers that affect the action queue (`transition`, `replace`).
 
 ### Persistent state
 
@@ -183,6 +182,7 @@ The `Dialog` builder supports:
 | `->kind($level)` | `'info'`, `'warning'` or `'error'` — affects icon/color |
 | `->confirmLabel($text)` | Override the OK / confirm button label |
 | `->cancelLabel($text)` | Override the Cancel button label (confirm only) |
+| `->id($identifier)` | Tag the dialog so its result can be routed (see below) |
 
 ### alert
 
@@ -197,7 +197,7 @@ Native alert dialog with a single OK button.
 
 **PHP:**
 ```php
-use NativeBlade\Dialogs\Dialog;
+use NativeBlade\Plugins\Dialog;
 
 return NativeBlade::alert(function (Dialog $d) {
     $d->title('Heads up')
@@ -219,7 +219,7 @@ Native confirmation dialog with OK/Cancel buttons. The user's choice is delivere
 
 **PHP:**
 ```php
-use NativeBlade\Dialogs\Dialog;
+use NativeBlade\Plugins\Dialog;
 
 return NativeBlade::confirm(function (Dialog $d) {
     $d->title('Delete?')
@@ -230,7 +230,52 @@ return NativeBlade::confirm(function (Dialog $d) {
 });
 ```
 
-See [Receiving Results](#receiving-results-in-php) for handling the response.
+### Handling multiple confirms in the same component
+
+When a component has more than one confirm dialog (e.g. a delete button **and** a sign out button), tag each one with `->id()` and route the result in a single listener. The id is echoed back in the `nb:confirm-result` event:
+
+```php
+use Livewire\Attributes\On;
+use NativeBlade\Facades\NativeBlade;
+use NativeBlade\Plugins\Dialog;
+
+public function deleteExport()
+{
+    return NativeBlade::confirm(function (Dialog $d) {
+        $d->id('delete')
+          ->title('Delete export?')
+          ->message('This will permanently remove stats.json.')
+          ->kind('warning')
+          ->confirmLabel('Delete');
+    })->toResponse();
+}
+
+public function signOut()
+{
+    return NativeBlade::confirm(function (Dialog $d) {
+        $d->id('signout')
+          ->title('Sign out?')
+          ->message('Your progress is saved.')
+          ->confirmLabel('Sign out');
+    })->toResponse();
+}
+
+#[On('nb:confirm-result')]
+public function onConfirm($confirmed, $id = null)
+{
+    if (!$confirmed) return;
+
+    return match ($id) {
+        'delete'  => $this->performDelete(),
+        'signout' => $this->performSignOut(),
+        default   => null,
+    };
+}
+```
+
+Without `->id()`, the event still fires but `$id` arrives as `null` — fine when a component only has a single confirm dialog.
+
+See [Receiving Results](#receiving-results-in-php) for more on handling dialog responses.
 
 ---
 
@@ -249,7 +294,7 @@ Notifications are configured through a dedicated `Notification` builder passed a
 
 **PHP:**
 ```php
-use NativeBlade\Notifications\Notification;
+use NativeBlade\Plugins\Notification;
 
 public function completeLesson()
 {
@@ -308,22 +353,44 @@ return NativeBlade::clipboardWrite($this->shareUrl)
 
 ### Read
 
-**Blade:**
+**Blade (simple):**
 ```blade
 <button wire:nb-bridge="clipboard_read">Paste from clipboard</button>
 ```
 
+**Blade (with id):**
+```blade
+<button wire:nb-bridge="clipboard_read" wire:nb-payload='{"id":"password_field"}'>
+    Paste password
+</button>
+<button wire:nb-bridge="clipboard_read" wire:nb-payload='{"id":"notes_field"}'>
+    Paste notes
+</button>
+```
+
 **PHP:**
 ```php
+use NativeBlade\Plugins\Clipboard;
+
 public function paste()
 {
+    // Simple case — no id needed:
     return NativeBlade::clipboardRead();
 }
 
-#[On('nb:clipboard')]
-public function onPaste($text)
+public function pastePassword()
 {
-    $this->content = $text;
+    return NativeBlade::clipboardRead(fn (Clipboard $c) => $c->id('password_field'));
+}
+
+#[On('nb:clipboard')]
+public function onPaste($text, $id = null)
+{
+    match ($id) {
+        'password_field' => $this->password = $text,
+        'notes_field'    => $this->notes = $text,
+        default          => $this->content = $text,
+    };
 }
 ```
 
@@ -333,24 +400,46 @@ public function onPaste($text)
 
 Backed by [`tauri-plugin-geolocation`](https://v2.tauri.app/plugin/geolocation/). Automatically requests permission on first use.
 
-**Blade:**
+**Blade (simple):**
 ```blade
 <button wire:nb-bridge="geolocation">Find nearby</button>
 ```
 
+**Blade (with id):**
+```blade
+<button wire:nb-bridge="geolocation" wire:nb-payload='{"id":"nearby_users"}'>
+    Nearby users
+</button>
+<button wire:nb-bridge="geolocation" wire:nb-payload='{"id":"delivery_address"}'>
+    Use current address
+</button>
+```
+
 **PHP:**
 ```php
+use NativeBlade\Plugins\Geolocation;
+
 public function findNearby()
 {
-    return NativeBlade::geolocation();
+    return NativeBlade::geolocation(fn (Geolocation $g) => $g->id('nearby_users'));
+}
+
+public function useCurrentAddress()
+{
+    return NativeBlade::geolocation(fn (Geolocation $g) => $g->id('delivery_address'));
 }
 
 #[On('nb:geolocation')]
-public function onLocation($position)
+public function onLocation($position, $id = null)
 {
-    $this->lat = $position['coords']['latitude'];
-    $this->lng = $position['coords']['longitude'];
-    $this->places = Place::near($this->lat, $this->lng)->get();
+    $lat = $position['coords']['latitude'];
+    $lng = $position['coords']['longitude'];
+
+    match ($id) {
+        'nearby_users'     => $this->loadNearbyUsers($lat, $lng),
+        'delivery_address' => $this->setDeliveryAddress($lat, $lng),
+        default            => null,
+    };
 }
 ```
 
@@ -396,28 +485,46 @@ Backed by [`tauri-plugin-biometric`](https://v2.tauri.app/plugin/biometric/). Mo
 
 **Blade:**
 ```blade
-<button wire:nb-bridge="biometric" wire:nb-payload='{"reason":"Confirm your identity"}'>
-    Unlock
+<button wire:nb-bridge="biometric"
+        wire:nb-payload='{"reason":"Confirm your purchase","id":"checkout"}'>
+    Confirm purchase
 </button>
 ```
 
 **PHP:**
 ```php
-public function requestUnlock()
+use NativeBlade\Plugins\Biometric;
+
+public function checkout()
 {
-    return NativeBlade::biometric('Confirm your identity')
-        ->allowDeviceCredential();
+    return NativeBlade::biometric(function (Biometric $b) {
+        $b->id('checkout')
+          ->reason('Confirm your purchase')
+          ->allowDeviceCredential();
+    });
+}
+
+public function editEmail()
+{
+    return NativeBlade::biometric(function (Biometric $b) {
+        $b->id('edit_email')
+          ->reason('Authenticate to change your email');
+    });
 }
 
 #[On('nb:biometric')]
-public function onBiometric($success, $error = null)
+public function onBiometric($success, $error = null, $id = null)
 {
-    if ($success) {
-        Auth::login($this->pendingUser);
-        $this->redirect('/');
-    } else {
+    if (!$success) {
         $this->addError('biometric', $error);
+        return;
     }
+
+    match ($id) {
+        'checkout'   => $this->completePayment(),
+        'edit_email' => $this->unlockEmailEdit(),
+        default      => null,
+    };
 }
 ```
 
@@ -429,23 +536,42 @@ Backed by [`tauri-plugin-barcode-scanner`](https://v2.tauri.app/plugin/barcode-s
 
 **Blade:**
 ```blade
-<button wire:nb-bridge="scan" wire:nb-payload='{"formats":["QR_CODE","EAN_13"]}'>
-    Scan code
+<button wire:nb-bridge="scan"
+        wire:nb-payload='{"formats":["QR_CODE","EAN_13"],"id":"product_lookup"}'>
+    Scan product
 </button>
 ```
 
 **PHP:**
 ```php
-public function startScan()
+use NativeBlade\Plugins\Scan;
+
+public function scanProduct()
 {
-    return NativeBlade::scan(['QR_CODE', 'EAN_13', 'CODE_128']);
+    return NativeBlade::scan(function (Scan $s) {
+        $s->id('product_lookup')
+          ->formats(['QR_CODE', 'EAN_13', 'CODE_128']);
+    });
+}
+
+public function scanTicket()
+{
+    return NativeBlade::scan(function (Scan $s) {
+        $s->id('event_ticket')
+          ->formats(['QR_CODE']);
+    });
 }
 
 #[On('nb:scan')]
-public function onScan($result)
+public function onScan($result, $id = null)
 {
-    $this->code = $result['content'];
-    $this->lookupProduct();
+    $code = $result['content'];
+
+    match ($id) {
+        'product_lookup' => $this->lookupProduct($code),
+        'event_ticket'   => $this->validateTicket($code),
+        default          => null,
+    };
 }
 ```
 
@@ -457,21 +583,33 @@ Backed by [`tauri-plugin-nfc`](https://v2.tauri.app/plugin/nfc/). Mobile only.
 
 **Blade:**
 ```blade
-<button wire:nb-bridge="nfc_read">Tap NFC tag</button>
+<button wire:nb-bridge="nfc_read" wire:nb-payload='{"id":"identify_product"}'>
+    Tap product tag
+</button>
 ```
 
 **PHP:**
 ```php
-public function readTag()
+use NativeBlade\Plugins\Nfc;
+
+public function readProductTag()
 {
-    return NativeBlade::nfcRead();
+    return NativeBlade::nfcRead(fn (Nfc $n) => $n->id('identify_product'));
+}
+
+public function readTicketTag()
+{
+    return NativeBlade::nfcRead(fn (Nfc $n) => $n->id('scan_ticket'));
 }
 
 #[On('nb:nfc')]
-public function onNfcTag($tag)
+public function onNfcTag($tag, $id = null)
 {
-    $this->tagId = $tag['id'];
-    $this->payload = $tag['records'][0]['payload'] ?? null;
+    match ($id) {
+        'identify_product' => $this->loadProduct($tag['id']),
+        'scan_ticket'      => $this->validateTicket($tag['id']),
+        default            => null,
+    };
 }
 ```
 
@@ -528,40 +666,67 @@ public function onOsInfo($info)
 
 ## Camera & Gallery
 
-Custom bridge that opens the device camera or photo library and returns a base64-encoded image.
+Opens the device camera or photo library and returns a base64-encoded image. Both `camera()` and `gallery()` share the same `Camera` builder and deliver their result via the same `nb:camera-result` event — use `->id()` to distinguish between multiple capture targets in the same component.
 
-**Blade:**
+**Blade (profile + document capture in the same page):**
 ```blade
-<button wire:nb-bridge="camera" wire:nb-payload='{"maxWidth":800,"maxHeight":800,"quality":0.8}'>
-    Take photo
+<button wire:nb-bridge="camera"
+        wire:nb-payload='{"maxWidth":400,"maxHeight":400,"quality":0.5,"id":"avatar"}'>
+    Take profile photo
 </button>
 
-<button wire:nb-bridge="gallery" wire:nb-payload='{"maxWidth":800,"maxHeight":800,"quality":0.8}'>
+<button wire:nb-bridge="gallery"
+        wire:nb-payload='{"maxWidth":400,"maxHeight":400,"quality":0.5,"id":"avatar"}'>
     Choose from gallery
+</button>
+
+<button wire:nb-bridge="camera"
+        wire:nb-payload='{"maxWidth":1600,"maxHeight":1600,"quality":0.9,"id":"document"}'>
+    Scan document
 </button>
 ```
 
 **PHP:**
 ```php
-public function takePhoto()
+use NativeBlade\Plugins\Camera;
+
+public function takeAvatar()
 {
-    return NativeBlade::camera([
-        'maxWidth' => 400,
-        'maxHeight' => 400,
-        'quality' => 0.5,
-    ]);
+    return NativeBlade::camera(function (Camera $c) {
+        $c->id('avatar')
+          ->maxWidth(400)
+          ->maxHeight(400)
+          ->quality(0.5);
+    });
+}
+
+public function scanDocument()
+{
+    return NativeBlade::camera(function (Camera $c) {
+        $c->id('document')
+          ->maxWidth(1600)
+          ->maxHeight(1600)
+          ->quality(0.9);
+    });
 }
 
 #[On('nb:camera-result')]
-public function onPhoto($data)
+public function onPhoto($data = null, $name = null, $mime = null, $size = null, $id = null)
 {
+    if (!$data) return;
+
     $base64 = preg_replace('/^data:image\/\w+;base64,/', '', $data);
-    Storage::disk('native')->put(native_path('avatar.jpg'), base64_decode($base64));
-    $this->avatarSrc = $data;
+    $bytes  = base64_decode($base64);
+
+    match ($id) {
+        'avatar'   => $this->saveAvatar($data, $bytes),
+        'document' => $this->saveDocument($bytes),
+        default    => null,
+    };
 }
 ```
 
-Both `camera()` and `gallery()` deliver their result via the same `nb:camera-result` event.
+> Buttons wired to the same logical target (e.g. both "Take photo" and "Choose from gallery" feeding the avatar) should use the **same id**. The listener only cares about the target, not how the user got the image.
 
 ---
 
@@ -648,32 +813,34 @@ use Livewire\Attributes\On;
 class MyComponent extends Component
 {
     #[On('nb:confirm-result')]
-    public function onConfirm($confirmed) { /* ... */ }
+    public function onConfirm($confirmed, $id = null) { /* ... */ }
 
     #[On('nb:clipboard')]
-    public function onPaste($text) { /* ... */ }
+    public function onPaste($text, $id = null) { /* ... */ }
 
     #[On('nb:geolocation')]
-    public function onLocation($position) { /* ... */ }
+    public function onLocation($position, $id = null) { /* ... */ }
 
     #[On('nb:biometric')]
-    public function onBiometric($success, $error = null) { /* ... */ }
+    public function onBiometric($success, $error = null, $id = null) { /* ... */ }
 
     #[On('nb:scan')]
-    public function onScan($result) { /* ... */ }
+    public function onScan($result, $id = null) { /* ... */ }
 
     #[On('nb:nfc')]
-    public function onNfcTag($tag) { /* ... */ }
+    public function onNfcTag($tag, $id = null) { /* ... */ }
 
     #[On('nb:os-info')]
     public function onOsInfo($info) { /* ... */ }
 
     #[On('nb:camera-result')]
-    public function onPhoto($data) { /* ... */ }
+    public function onPhoto($data = null, $name = null, $mime = null, $size = null, $id = null) { /* ... */ }
 }
 ```
 
 Event names are always `nb:<name>`. They are automatically dispatched from the JS bridge via `Livewire.dispatch()` inside the iframe.
+
+**Every result-bearing bridge supports an optional `$id` argument as the last listener parameter.** When a component has multiple calls to the same bridge (e.g. two cameras, three confirms, several geolocations), set `->id('unique_tag')` inside the builder closure — or add `"id":"unique_tag"` to the Blade `wire:nb-payload` JSON — and the same tag comes back on the listener. Use `match ($id) { ... }` to route the response. When you only have one call per component, skip the id and the argument arrives as `null`.
 
 ---
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace NativeBlade\Dialogs;
+namespace NativeBlade\Plugins;
 
 /**
  * Fluent builder for a native dialog (alert or confirm).
@@ -16,45 +16,15 @@ namespace NativeBlade\Dialogs;
  */
 class Dialog
 {
-    /**
-     * Title shown above the dialog body (all platforms).
-     */
     private string $title = 'NativeBlade';
-
-    /**
-     * Main text displayed inside the dialog.
-     */
     private string $message = '';
-
-    /**
-     * Severity level — affects the icon and color chosen by the OS.
-     *
-     * One of `'info'`, `'warning'`, `'error'`. Null lets the OS pick
-     * the default appearance.
-     */
     private ?string $kind = null;
-
-    /**
-     * Label of the OK / confirm button.
-     *
-     * Null uses the OS-default label (usually "OK" or "Yes"). Only
-     * shown on confirm dialogs by default, but alert dialogs also
-     * respect this override.
-     */
     private ?string $confirmLabel = null;
-
-    /**
-     * Label of the Cancel button.
-     *
-     * Only meaningful for confirm dialogs. Null uses the OS-default
-     * label (usually "Cancel" or "No").
-     */
     private ?string $cancelLabel = null;
+    private ?string $id = null;
 
     /**
-     * Set the dialog title.
-     *
-     * @param  string  $title  Title text shown above the message.
+     * Set the dialog title shown above the message.
      */
     public function title(string $title): static
     {
@@ -63,9 +33,7 @@ class Dialog
     }
 
     /**
-     * Set the dialog body text.
-     *
-     * @param  string  $message  Main text shown to the user.
+     * Set the dialog body text shown to the user.
      */
     public function message(string $message): static
     {
@@ -74,9 +42,8 @@ class Dialog
     }
 
     /**
-     * Set the severity of the dialog.
-     *
-     * Affects the icon and color chosen by the OS when rendering.
+     * Set the severity of the dialog — affects the icon and color chosen
+     * by the OS when rendering.
      *
      * @param  string  $kind  One of `'info'`, `'warning'`, `'error'`.
      */
@@ -88,8 +55,6 @@ class Dialog
 
     /**
      * Override the label of the OK / confirm button.
-     *
-     * @param  string  $label  Button text (e.g. `'Delete'`, `'Yes'`).
      */
     public function confirmLabel(string $label): static
     {
@@ -98,11 +63,7 @@ class Dialog
     }
 
     /**
-     * Override the label of the Cancel button.
-     *
-     * Only meaningful on confirm dialogs.
-     *
-     * @param  string  $label  Button text (e.g. `'Keep'`, `'No'`).
+     * Override the label of the Cancel button (confirm dialogs only).
      */
     public function cancelLabel(string $label): static
     {
@@ -111,8 +72,20 @@ class Dialog
     }
 
     /**
-     * Convert the builder to the payload shape expected by the JS bridge.
+     * Tag the dialog with an identifier echoed back in the result event.
      *
+     * Use this when a component has multiple confirm dialogs — the id
+     * arrives as a second argument on the `nb:confirm-result` listener
+     * so you can route the response without tracking state between the
+     * request and the reply.
+     */
+    public function id(string $id): static
+    {
+        $this->id = $id;
+        return $this;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(): array
@@ -125,6 +98,7 @@ class Dialog
         if ($this->kind !== null)         $payload['kind'] = $this->kind;
         if ($this->confirmLabel !== null) $payload['confirmLabel'] = $this->confirmLabel;
         if ($this->cancelLabel !== null)  $payload['cancelLabel'] = $this->cancelLabel;
+        if ($this->id !== null)           $payload['id'] = $this->id;
 
         return $payload;
     }

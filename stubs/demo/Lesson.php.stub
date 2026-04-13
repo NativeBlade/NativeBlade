@@ -5,6 +5,7 @@ namespace App\Livewire;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use NativeBlade\Facades\NativeBlade;
+use NativeBlade\Plugins\Notification;
 
 #[Layout('components.layouts.app')]
 class Lesson extends Component
@@ -103,7 +104,10 @@ class Lesson extends Component
 
         if ($this->selected === $this->correct) {
             $this->score++;
+            return NativeBlade::impact('medium')->toResponse();
         }
+
+        return NativeBlade::vibrate(300)->toResponse();
     }
 
     public function next()
@@ -112,9 +116,12 @@ class Lesson extends Component
             $this->finished = true;
 
             $xp = NativeBlade::getState('trail.xp', 0);
-            NativeBlade::setState('trail.xp', $xp + ($this->score * 10));
+            $earnedXp = $this->score * 10;
+            NativeBlade::setState('trail.xp', $xp + $earnedXp);
 
-            if ($this->score === $this->totalQuestions) {
+            $isPerfect = $this->score === $this->totalQuestions;
+
+            if ($isPerfect) {
                 $completed = NativeBlade::getState('trail.completed', []);
                 if (!in_array($this->lessonId, $completed)) {
                     $completed[] = $this->lessonId;
@@ -123,13 +130,25 @@ class Lesson extends Component
                 $streak = NativeBlade::getState('trail.streak', 0);
                 NativeBlade::setState('trail.streak', $streak + 1);
             }
-            return;
+
+            return NativeBlade::notification(function (Notification $n) use ($earnedXp, $isPerfect) {
+                $n->title($isPerfect ? 'Perfect score!' : 'Lesson complete!')
+                  ->body($isPerfect
+                      ? "You earned {$earnedXp} XP and extended your streak!"
+                      : "You earned {$earnedXp} XP. Keep going!")
+                  ->sound('default')
+                  ->channel('lessons');
+            })
+            ->impact('heavy')
+            ->toResponse();
         }
 
         $this->currentQuestion++;
         $this->selected = null;
         $this->correct = null;
         $this->answered = false;
+
+        return NativeBlade::selection()->toResponse();
     }
 
     public function render()

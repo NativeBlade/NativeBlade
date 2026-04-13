@@ -65,11 +65,11 @@ export function handleNativeAction(action, payload, appFrame) {
             if (isTauri) {
                 dialogApi.confirm(payload.message, { title, kind: payload.kind || 'warning' })
                     .then(confirmed => {
-                        appFrame?.contentWindow?.postMessage({ type: 'nativeblade-confirm-result', confirmed }, '*');
+                        appFrame?.contentWindow?.postMessage({ type: 'nativeblade-confirm-result', confirmed, id: payload.id || null }, '*');
                     });
             } else {
                 const confirmed = confirm(payload.message);
-                appFrame?.contentWindow?.postMessage({ type: 'nativeblade-confirm-result', confirmed }, '*');
+                appFrame?.contentWindow?.postMessage({ type: 'nativeblade-confirm-result', confirmed, id: payload.id || null }, '*');
             }
             break;
 
@@ -102,7 +102,7 @@ export function handleNativeAction(action, payload, appFrame) {
         case 'clipboard_read':
             if (clipboardApi) {
                 clipboardApi.readText().then(text => {
-                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-clipboard', text }, '*');
+                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-clipboard', text, id: payload.id || null }, '*');
                 });
             }
             break;
@@ -116,7 +116,7 @@ export function handleNativeAction(action, payload, appFrame) {
                     }
                     if (state.location !== 'granted') return;
                     const pos = await geolocationApi.getCurrentPosition();
-                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-geolocation', position: pos }, '*');
+                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-geolocation', position: pos, id: payload.id || null }, '*');
                 })().catch(() => {});
             }
             break;
@@ -144,15 +144,15 @@ export function handleNativeAction(action, payload, appFrame) {
                 (async () => {
                     const status = await biometricApi.checkStatus();
                     if (!status.isAvailable) {
-                        appFrame?.contentWindow?.postMessage({ type: 'nativeblade-biometric', success: false, error: 'Biometric not available' }, '*');
+                        appFrame?.contentWindow?.postMessage({ type: 'nativeblade-biometric', success: false, error: 'Biometric not available', id: payload.id || null }, '*');
                         return;
                     }
                     await biometricApi.authenticate(payload.reason || 'Authenticate', {
                         allowDeviceCredential: payload.allowDeviceCredential ?? true,
                     });
-                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-biometric', success: true }, '*');
+                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-biometric', success: true, id: payload.id || null }, '*');
                 })().catch(err => {
-                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-biometric', success: false, error: err.message || String(err) }, '*');
+                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-biometric', success: false, error: err.message || String(err), id: payload.id || null }, '*');
                 });
             }
             break;
@@ -166,7 +166,7 @@ export function handleNativeAction(action, payload, appFrame) {
                     }
                     if (state !== 'granted') return;
                     const result = await barcodeApi.scan({ formats: payload.formats || [] });
-                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-scan', result }, '*');
+                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-scan', result, id: payload.id || null }, '*');
                 })().catch(() => {});
             }
             break;
@@ -177,7 +177,7 @@ export function handleNativeAction(action, payload, appFrame) {
                     const available = await nfcApi.isAvailable();
                     if (!available) return;
                     const tag = await nfcApi.scan({ type: 'ndef' });
-                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-nfc', tag }, '*');
+                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-nfc', tag, id: payload.id || null }, '*');
                 })().catch(() => {});
             }
             break;

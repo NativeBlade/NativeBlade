@@ -7,6 +7,8 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use NativeBlade\Facades\NativeBlade;
+use NativeBlade\Plugins\Dialog;
+use NativeBlade\Plugins\Notification;
 use NativeBlade\Storage\StoragePath;
 
 #[Layout('components.layouts.app')]
@@ -57,14 +59,18 @@ class Profile extends Component
     }
 
     #[On('nb:camera-result')]
-    public function onPhoto($data = null, $name = null, $mime = null, $size = null)
+    public function onPhoto($data = null, $name = null, $mime = null, $size = null, $id = null)
     {
         if (!$data) return;
+
+        if ($id !== 'avatar') return;
 
         $base64 = preg_replace('/^data:image\/\w+;base64,/', '', $data);
         Storage::disk('native')->put(native_path('avatar.jpg'), base64_decode($base64));
 
         $this->avatarSrc = $data;
+
+        return NativeBlade::impact('light')->toResponse();
     }
 
     public function exportStats()
@@ -80,13 +86,79 @@ class Profile extends Component
 
         Storage::disk('native')->put(native_path('stats.json', StoragePath::EXPORT), $data);
 
-        $this->exportMessage = "Exported to Documents!";
+        $this->exportMessage = 'Exported to Documents!';
+
+        return NativeBlade::notification(function (Notification $n) {
+            $n->title('Stats exported')
+              ->body('Your progress has been saved to Documents.')
+              ->sound('default');
+        })
+        ->impact('medium')
+        ->toResponse();
     }
 
     public function deleteExport()
     {
+        return NativeBlade::confirm(function (Dialog $d) {
+            $d->id('delete')
+              ->title('Delete export?')
+              ->message('This will permanently remove stats.json from your Documents folder.')
+              ->kind('warning')
+              ->confirmLabel('Delete')
+              ->cancelLabel('Keep');
+        })->toResponse();
+    }
+
+    public function signOut()
+    {
+        return NativeBlade::confirm(function (Dialog $d) {
+            $d->id('signout')
+              ->title('Sign out?')
+              ->message('Your progress is saved. You can sign back in anytime.')
+              ->confirmLabel('Sign out')
+              ->cancelLabel('Stay');
+        })->toResponse();
+    }
+
+    #[On('nb:confirm-result')]
+    public function onConfirm($confirmed, $id = null)
+    {
+        if (!$confirmed) {
+            return NativeBlade::impact('light')->toResponse();
+        }
+
+        return match ($id) {
+            'delete'  => $this->performDelete(),
+            'signout' => $this->performSignOut(),
+            default   => null,
+        };
+    }
+
+    private function performDelete()
+    {
         Storage::disk('native')->delete(native_path('stats.json', StoragePath::EXPORT));
-        $this->exportMessage = "File deleted!";
+        $this->exportMessage = 'File deleted!';
+
+        return NativeBlade::notification(function (Notification $n) {
+            $n->title('Export removed')
+              ->body('stats.json has been deleted.')
+              ->sound('default');
+        })
+        ->vibrate(120)
+        ->toResponse();
+    }
+
+    private function performSignOut()
+    {
+        NativeBlade::forget('auth.user');
+        NativeBlade::forget('auth.logged_at');
+        NativeBlade::forget('trail.xp');
+        NativeBlade::forget('trail.streak');
+        NativeBlade::forget('trail.completed');
+
+        return NativeBlade::impact('medium')
+            ->navigate('/login', replace: true)
+            ->toResponse();
     }
 
     public function render()

@@ -89,11 +89,13 @@ php artisan nativeblade:dev
 
 ```bash
 php artisan nativeblade:add android
-php artisan nativeblade:dev --platform=android
+php artisan nativeblade:dev --platform=android --host=192.168.0.10
 
 php artisan nativeblade:add ios
-php artisan nativeblade:dev --platform=ios
+php artisan nativeblade:dev --platform=ios --host=192.168.0.10
 ```
+
+> **Mobile requires `--host=<your-local-ip>`** so the device/emulator can reach the Vite dev server running on your machine. Replace `192.168.0.10` with your computer's LAN IP (find it with `ipconfig` on Windows or `ifconfig` / `ip addr` on macOS/Linux). `localhost` won't work because the phone can't reach your machine through it.
 
 ## How It Works
 

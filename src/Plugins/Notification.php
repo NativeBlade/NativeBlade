@@ -1,6 +1,6 @@
 <?php
 
-namespace NativeBlade\Notifications;
+namespace NativeBlade\Plugins;
 
 /**
  * Fluent builder for a single system notification.
@@ -9,34 +9,16 @@ namespace NativeBlade\Notifications;
  * `NativeBlade::notification()` and converted to an action payload when
  * the enclosing NativeResponse is rendered.
  *
+ * Notifications do not return a value to PHP — they are fire-and-forget
+ * and therefore do not support `id()`.
+ *
  * @see \NativeBlade\NativeResponse::notification()
  */
 class Notification
 {
-    /**
-     * Title shown above the notification body on all platforms.
-     */
     private string $title = 'NativeBlade';
-
-    /**
-     * Main notification text displayed to the user.
-     */
     private string $body = '';
-
-    /**
-     * Sound played when the notification is delivered.
-     *
-     * Use `'default'` for the system default tone, or a platform-specific
-     * sound identifier registered with your app.
-     */
     private ?string $sound = null;
-
-    /**
-     * Small icon shown next to the notification.
-     *
-     * Android reads this from the app's drawable resources; iOS uses it
-     * as an attachment image. Ignored on desktop.
-     */
     private ?string $icon = null;
 
     /**
@@ -49,9 +31,7 @@ class Notification
     private ?string $channel = 'default';
 
     /**
-     * Set the notification title.
-     *
-     * @param  string  $title  Title text shown above the body.
+     * Set the notification title shown above the body.
      */
     public function title(string $title): static
     {
@@ -60,9 +40,7 @@ class Notification
     }
 
     /**
-     * Set the notification body text.
-     *
-     * @param  string  $body  Main text shown to the user.
+     * Set the main notification text shown to the user.
      */
     public function body(string $body): static
     {
@@ -86,8 +64,6 @@ class Notification
      *
      * On Android this is a drawable resource name; on iOS it's an
      * attachment image path. Ignored on desktop.
-     *
-     * @param  string  $icon  Resource identifier or absolute path.
      */
     public function icon(string $icon): static
     {
@@ -100,8 +76,6 @@ class Notification
      *
      * Android 8+ requires notifications to be posted to a channel.
      * Ignored on iOS and desktop.
-     *
-     * @param  string  $channel  Channel identifier (e.g. `'lessons'`).
      */
     public function channel(string $channel): static
     {
@@ -110,8 +84,6 @@ class Notification
     }
 
     /**
-     * Convert the builder to the payload shape expected by the JS bridge.
-     *
      * @return array<string, mixed>
      */
     public function toArray(): array

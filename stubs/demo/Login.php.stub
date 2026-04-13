@@ -5,6 +5,7 @@ namespace App\Livewire;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use NativeBlade\Facades\NativeBlade;
+use NativeBlade\Plugins\Notification;
 
 #[Layout('components.layouts.auth')]
 class Login extends Component
@@ -32,10 +33,20 @@ class Login extends Component
             ]);
             NativeBlade::setState('auth.logged_at', now()->timestamp);
 
-            return NativeBlade::navigate('/', replace: true)->toResponse();
+            return NativeBlade::notification(function (Notification $n) {
+                $n->title('Welcome back!')
+                  ->body('Ready for today\'s lesson?')
+                  ->sound('default')
+                  ->channel('lessons');
+            })
+            ->impact('light')
+            ->navigate('/', replace: true)
+            ->toResponse();
         }
 
         $this->error = 'Invalid credentials';
+
+        return NativeBlade::impact('heavy')->toResponse();
     }
 
     public function render()

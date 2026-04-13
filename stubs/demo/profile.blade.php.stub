@@ -1,28 +1,5 @@
 <div class="relative">
 
-{{-- Shell Modal (pre-rendered, triggered via wire:nb-bridge="showModal") --}}
-<x-nativeblade-modal>
-    <div style="padding:24px;border-top:1px solid #2a2a2a">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <h3 style="font-size:18px;font-weight:900;color:#fff;margin:0">Sign out?</h3>
-            <button data-dismiss style="background:none;border:none;color:#6b7280;cursor:pointer;padding:4px">
-                <svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg>
-            </button>
-        </div>
-        <p style="color:#9ca3af;font-size:14px;margin:0 0 24px">Your progress is saved. You can sign back in anytime.</p>
-        <div style="display:flex;flex-direction:column;gap:12px">
-            <button data-nav="/login" data-replace
-                style="width:100%;padding:12px;border-radius:12px;font-weight:700;font-size:18px;background:#8B0000;color:#fff;border:none;cursor:pointer;text-transform:uppercase;letter-spacing:1px;box-shadow:0 4px 0 rgba(60,0,0,1)">
-                Sign Out
-            </button>
-            <button data-dismiss
-                style="width:100%;padding:12px;border-radius:12px;font-weight:700;color:#9ca3af;background:none;border:1px solid #2a2a2a;cursor:pointer">
-                Cancel
-            </button>
-        </div>
-    </div>
-</x-nativeblade-modal>
-
 {{-- Header --}}
 <div class="bg-[#111111] border-b border-[#2a2a2a] px-4 pt-10 pb-5">
     <div class="max-w-lg mx-auto">
@@ -46,7 +23,7 @@
             <div nb-animation="fadeInUp" nb-animation-delay="100ms" class="flex-1">
                 <div class="flex items-center justify-between">
                     <h2 class="text-xl font-black">{{ $userName }}</h2>
-                    <button wire:nb-bridge="showModal"
+                    <button wire:click="signOut" nb-feedback
                         class="flex items-center gap-1.5 text-[#6b7280] hover:text-[#e74c3c] transition-colors bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5">
                         <x-nativeblade-icon name="sign-out" size="16" />
                         <span class="text-xs font-bold uppercase tracking-wide">Logout</span>
@@ -115,12 +92,12 @@
 
     {{-- Avatar Actions --}}
     <div class="mt-4 max-w-lg mx-auto flex gap-3">
-        <button wire:nb-bridge="camera" wire:nb-payload='{"maxWidth":400,"maxHeight":400,"quality":0.5}' nb-feedback
+        <button wire:nb-bridge="camera" wire:nb-payload='{"maxWidth":400,"maxHeight":400,"quality":0.5,"id":"avatar"}' nb-feedback
             class="flex-1 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wide bg-[#1a1a1a] border border-[#2a2a2a] text-[#9ca3af] hover:text-white transition-colors flex items-center justify-center gap-2">
             <x-nativeblade-icon name="camera" size="16" />
             Take Photo
         </button>
-        <button wire:nb-bridge="gallery" wire:nb-payload='{"maxWidth":400,"maxHeight":400,"quality":0.5}' nb-feedback
+        <button wire:nb-bridge="gallery" wire:nb-payload='{"maxWidth":400,"maxHeight":400,"quality":0.5,"id":"avatar"}' nb-feedback
             class="flex-1 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wide bg-[#1a1a1a] border border-[#2a2a2a] text-[#9ca3af] hover:text-white transition-colors flex items-center justify-center gap-2">
             <x-nativeblade-icon name="images" size="16" />
             Gallery
