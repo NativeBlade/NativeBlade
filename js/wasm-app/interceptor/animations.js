@@ -1,14 +1,37 @@
 export const code = `
-    var __nbAnimatedSet = new WeakSet();
+    var __nbAnimatedElements = new WeakSet();
+    var __nbDismissTimers = new WeakMap();
+
+    function __nbClearAnimation(el) {
+        var timer = __nbDismissTimers.get(el);
+        if (timer) {
+            clearTimeout(timer);
+            __nbDismissTimers.delete(el);
+        }
+
+        __nbAnimatedElements.delete(el);
+        el._x_transitioning = false;
+
+        var name = el.getAttribute('nb-animation');
+        if (name) el.classList.remove('animate__animated', 'animate__' + name);
+
+        var outName = el.getAttribute('nb-animation-out');
+        if (outName) el.classList.remove('animate__' + outName);
+
+        el.style.display = '';
+        void el.offsetWidth;
+    }
 
     function __nbInitAnimations() {
         document.querySelectorAll('[nb-animation]').forEach(function(el) {
-            if (__nbAnimatedSet.has(el)) return;
+            if (__nbAnimatedElements.has(el)) return;
 
             var name = el.getAttribute('nb-animation');
             if (!name) return;
 
-            __nbAnimatedSet.add(el);
+            if (el.style.display === 'none') el.style.display = '';
+
+            __nbAnimatedElements.add(el);
 
             var delay = el.getAttribute('nb-animation-delay');
             var repeat = el.getAttribute('nb-animation-repeat');
@@ -16,6 +39,7 @@ export const code = `
             var outName = el.getAttribute('nb-animation-out');
             var dismiss = el.getAttribute('nb-animation-dismiss');
 
+            el._x_transitioning = true;
             el.classList.add('animate__animated', 'animate__' + name);
 
             if (delay) el.style.animationDelay = delay;
@@ -31,18 +55,35 @@ export const code = `
             else if (speed === 'fast') el.classList.add('animate__fast');
             else if (speed === 'faster') el.classList.add('animate__faster');
 
+            el.addEventListener('animationend', function inHandler() {
+                el._x_transitioning = false;
+            }, { once: true });
+
             if (outName && dismiss) {
                 var ms = parseFloat(dismiss) * (dismiss.includes('ms') ? 1 : 1000);
-                setTimeout(function() {
+                var timer = setTimeout(function() {
+                    __nbDismissTimers.delete(el);
+                    el._x_transitioning = true;
                     el.classList.remove('animate__' + name);
-                    el.classList.add('animate__' + outName);
-                    el.addEventListener('animationend', function handler() {
-                        el.removeEventListener('animationend', handler);
+                    el.classList.add('animate__animated', 'animate__' + outName);
+                    el.addEventListener('animationend', function outHandler() {
+                        el.removeEventListener('animationend', outHandler);
                         el.style.display = 'none';
-                    });
+                        el._x_transitioning = false;
+                        __nbAnimatedElements.delete(el);
+                    }, { once: true });
                 }, ms);
+                __nbDismissTimers.set(el, timer);
             }
         });
+    }
+
+    function __nbRegisterLivewireHook() {
+        if (!window.Livewire || !window.Livewire.hook) return false;
+        window.Livewire.hook('morphed', function() {
+            __nbInitAnimations();
+        });
+        return true;
     }
 
     if (document.readyState === 'loading') {
@@ -51,22 +92,40 @@ export const code = `
         __nbInitAnimations();
     }
 
+    if (!__nbRegisterLivewireHook()) {
+        document.addEventListener('livewire:init', __nbRegisterLivewireHook);
+    }
+
     new MutationObserver(function(mutations) {
-        var hasNew = false;
+        var needsInit = false;
+        var toReanimate = new Set();
+
         mutations.forEach(function(m) {
-            m.addedNodes.forEach(function(node) {
-                if (node.nodeType !== 1) return;
-                if (node.hasAttribute && node.hasAttribute('nb-animation') && !__nbAnimatedSet.has(node)) {
-                    hasNew = true;
-                } else if (node.querySelectorAll) {
-                    node.querySelectorAll('[nb-animation]').forEach(function(child) {
-                        if (!__nbAnimatedSet.has(child)) hasNew = true;
-                    });
+            if (m.type === 'characterData') {
+                var node = m.target;
+                while (node && node.nodeType !== 1) node = node.parentNode;
+                while (node && node.nodeType === 1) {
+                    if (node.hasAttribute('nb-animation') && node.hasAttribute('nb-animation-dismiss')) {
+                        toReanimate.add(node);
+                        break;
+                    }
+                    node = node.parentElement;
                 }
-            });
+            } else if (m.type === 'childList') {
+                m.addedNodes.forEach(function(node) {
+                    if (node.nodeType !== 1) return;
+                    if (node.hasAttribute && node.hasAttribute('nb-animation')) {
+                        needsInit = true;
+                    } else if (node.querySelectorAll) {
+                        if (node.querySelectorAll('[nb-animation]').length > 0) needsInit = true;
+                    }
+                });
+            }
         });
-        if (hasNew) __nbInitAnimations();
-    }).observe(document.documentElement, { childList: true, subtree: true });
+
+        toReanimate.forEach(__nbClearAnimation);
+        if (toReanimate.size > 0 || needsInit) __nbInitAnimations();
+    }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
 
     document.addEventListener('click', function(e) {
         var el = e.target.closest('[nb-feedback]');

@@ -136,8 +136,7 @@ class Lesson extends Component
                   ->body($isPerfect
                       ? "You earned {$earnedXp} XP and extended your streak!"
                       : "You earned {$earnedXp} XP. Keep going!")
-                  ->sound('default')
-                  ->channel('lessons');
+                  ->sound('default');
             })
             ->impact('heavy')
             ->toResponse();

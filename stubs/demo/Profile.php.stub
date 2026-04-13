@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Component;
+use NativeBlade\Attributes\Flash;
 use NativeBlade\Facades\NativeBlade;
 use NativeBlade\Plugins\Dialog;
 use NativeBlade\Plugins\Notification;
@@ -22,8 +23,10 @@ class Profile extends Component
     public int $accuracy = 87;
     public array $achievements = [];
     public array $stats = [];
-    public string $exportMessage = '';
     public string $avatarSrc = '';
+
+    #[Flash]
+    public string $exportMessage = '';
 
     public function mount()
     {

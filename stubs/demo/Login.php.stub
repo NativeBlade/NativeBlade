@@ -36,8 +36,7 @@ class Login extends Component
             return NativeBlade::notification(function (Notification $n) {
                 $n->title('Welcome back!')
                   ->body('Ready for today\'s lesson?')
-                  ->sound('default')
-                  ->channel('lessons');
+                  ->sound('default');
             })
             ->impact('light')
             ->navigate('/', replace: true)

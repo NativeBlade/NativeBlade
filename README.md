@@ -13,7 +13,7 @@
 <p align="center">
   <a href="CONFIGURATION.md">Configuration</a> &bull;
   <a href="COMPONENTS.md">Components</a> &bull;
-  <a href="DIRECTIVES.md">Directives</a> &bull;
+  <a href="DIRECTIVES.md">Directives &amp; Attributes</a> &bull;
   <a href="PLUGINS.md">Plugins</a> &bull;
   <a href="ANIMATIONS.md">Animations</a> &bull;
   <a href="LIFECYCLE.md">Lifecycle</a> &bull;

@@ -104,3 +104,115 @@ Add `nb-feedback` to any element:
 ```
 
 See [ANIMATIONS.md](ANIMATIONS.md#haptic-feedback) for details.
+
+---
+
+## PHP Attributes
+
+NativeBlade adds a small set of PHP attributes that plug into the Livewire 3 lifecycle. They live in `NativeBlade\Attributes\*` and are used the same way as Livewire's own attributes (`#[Computed]`, `#[Locked]`, `#[Url]`, etc).
+
+### `#[Flash]`
+
+Marks a Livewire property as a **flash value** — one that lives for exactly one request cycle and is automatically reset to its declared default at the start of every subsequent request.
+
+Use this for one-shot messages (e.g. "Exported to Documents!", "File deleted!") that should appear after an action and disappear on the next interaction, without the dev having to manually clear the property in every other method of the component.
+
+**Problem it solves:**
+
+```php
+// Without #[Flash] — cleanup boilerplate in every action
+public string $exportMessage = '';
+
+public function exportStats()
+{
+    $this->exportMessage = 'Exported!';
+    // ...
+}
+
+public function deleteExport()
+{
+    $this->exportMessage = '';  // ← cleanup
+    // ...
+}
+
+public function signOut()
+{
+    $this->exportMessage = '';  // ← cleanup
+    // ...
+}
+
+public function onPhoto()
+{
+    $this->exportMessage = '';  // ← cleanup
+    // ...
+}
+```
+
+**With `#[Flash]`:**
+
+```php
+use NativeBlade\Attributes\Flash;
+
+#[Flash]
+public string $exportMessage = '';
+
+public function exportStats()
+{
+    $this->exportMessage = 'Exported!';
+    // ...
+}
+
+public function deleteExport()
+{
+    // zero cleanup — #[Flash] handles it
+}
+
+public function signOut()
+{
+    // zero cleanup
+}
+
+public function onPhoto()
+{
+    // zero cleanup
+}
+```
+
+The reset value is inferred from the property's declared default:
+
+```php
+#[Flash]
+public string $message = '';        // resets to ''
+
+#[Flash]
+public array $pendingErrors = [];    // resets to []
+
+#[Flash]
+public ?int $count = null;           // resets to null
+
+#[Flash]
+public bool $justSaved = false;      // resets to false
+```
+
+Properties without a declared default are reset to `null`.
+
+**How it works:**
+
+`#[Flash]` hooks into Livewire 3's `hydrate()` lifecycle, which runs when an incoming request re-hydrates the component from its previous snapshot — **before** the incoming action executes. The property is reset to its default, then the action runs. If the action sets a new flash value, it appears in the immediate re-render. On the next interaction, the cycle repeats and the value is cleared again.
+
+Flash does **not** run on the first mount, so the initial default declared on the property is preserved unchanged.
+
+**Typical pairing with `<x-nativeblade-animate>`:**
+
+```blade
+@if($exportMessage)
+    <x-nativeblade-animate in="fadeInUp" out="fadeOutUp" dismiss="2.5s"
+         class="mt-3 p-3 bg-green-500/10 rounded-xl">
+        <p class="text-green-500 text-sm font-bold text-center">
+            {{ $exportMessage }}
+        </p>
+    </x-nativeblade-animate>
+@endif
+```
+
+The banner animates in on the action that sets the flash, dismisses itself visually after 2.5s, and automatically stops appearing once the user triggers any other action.

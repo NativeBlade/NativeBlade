@@ -49,6 +49,23 @@ export function hapticSelection() {
     try { hapticsApi.selectionFeedback().catch(() => {}); } catch {}
 }
 
+const __nbCreatedChannels = new Set();
+
+async function __nbEnsureChannel(channelId) {
+    if (!channelId || !notificationApi || __nbCreatedChannels.has(channelId)) return;
+    __nbCreatedChannels.add(channelId);
+    try {
+        await notificationApi.createChannel({
+            id: channelId,
+            name: channelId,
+            importance: 3,
+            visibility: 0,
+            lights: true,
+            vibration: true,
+        });
+    } catch {}
+}
+
 export function handleNativeAction(action, payload, appFrame) {
     const title = payload.title || 'NativeBlade';
 
@@ -85,7 +102,10 @@ export function handleNativeAction(action, payload, appFrame) {
                     const opts = { title, body: payload.body || '' };
                     if (payload.sound) opts.sound = payload.sound;
                     if (payload.icon) opts.icon = payload.icon;
-                    if (payload.channel) opts.channelId = payload.channel;
+                    if (payload.channel) {
+                        opts.channelId = payload.channel;
+                        await __nbEnsureChannel(payload.channel);
+                    }
                     notificationApi.sendNotification(opts);
                 })();
             } else {

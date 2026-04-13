@@ -318,7 +318,9 @@ The `Notification` builder supports:
 | `->body($text)` | Main notification text |
 | `->sound($name)` | Sound played on delivery — `'default'` or a platform-specific identifier |
 | `->icon($name)` | Small icon — Android drawable resource or iOS attachment |
-| `->channel($id)` | Android notification channel (ignored on iOS) |
+| `->channel($id)` | Android notification channel — auto-created on first use (ignored on iOS/desktop) |
+
+> NativeBlade automatically creates the Android notification channel the first time you use one, so `->channel('lessons')` Just Works without registering the channel explicitly. The auto-created channel uses the default importance, lights and vibration settings.
 
 Combine with the [Scheduler](./SCHEDULER.md) for local reminders:
 
