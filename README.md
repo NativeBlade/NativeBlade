@@ -190,6 +190,30 @@ NativeBlade::forget('auth.user');
 NativeBlade::flush();
 ```
 
+## Log
+
+Write log entries from any PHP context (Livewire actions, schedules, routes, `mount()`) and see them in the Tauri devtools console in real time. Works even when PHP crashes mid-execution — the logs written before the crash are preserved.
+
+```php
+use NativeBlade\Facades\NativeBlade;
+
+NativeBlade::log('App started');
+NativeBlade::log('Retrying', ['attempt' => 3], 'warn');
+NativeBlade::log('Payment failed', ['error' => $e->getMessage()], 'error');
+NativeBlade::log('Query ran', ['ms' => 12], 'debug');
+```
+
+Each level maps to a `console.*` method and a color in the `[NB:<level>]` prefix:
+
+| Level | Console method | Prefix color |
+|---|---|---|
+| `info` (default) | `console.log` | blue |
+| `warn` | `console.warn` | orange |
+| `error` | `console.error` | red |
+| `debug` | `console.debug` | purple |
+
+The context array is rendered as an expandable object in the browser devtools.
+
 ## Platform Detection
 
 ```php

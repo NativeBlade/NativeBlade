@@ -63,7 +63,7 @@ export async function handleRequest(path, options = {}) {
     const result = await php.run({ code });
     let text = result.text || '';
 
-    if (result.errors) console.warn('[NativeBlade PHP Errors]', result.errors);
+    if (result.errors) processStderr(result.errors);
 
     if (await httpBridge.hasPendingRequest(php, text)) {
         fulfillInBackground(php, path, options, 'http');
@@ -93,6 +93,23 @@ export async function handleRequest(path, options = {}) {
     if (!isJson) text = inlineAssets(text, php);
 
     return { text, errors: result.errors, httpStatusCode: result.httpStatusCode || 200 };
+}
+
+function processStderr(raw) {
+    const logPattern = /__NB_LOG__([\s\S]+?)__NB_LOG_END__/g;
+    let match;
+    while ((match = logPattern.exec(raw)) !== null) {
+        try {
+            const entry = JSON.parse(match[1]);
+            window.parent.postMessage({
+                type: 'nativeblade-native',
+                action: 'log',
+                payload: entry,
+            }, '*');
+        } catch {}
+    }
+    const rest = raw.replace(logPattern, '').trim();
+    if (rest) console.warn('[NativeBlade PHP Errors]', rest);
 }
 
 async function fulfillInBackground(php, originalPath, originalOptions, type = 'http') {

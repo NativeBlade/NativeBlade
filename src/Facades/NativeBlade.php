@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \NativeBlade\NativeResponse hideModal()
  * @method static \NativeBlade\NativeResponse exit()
  * @method static \NativeBlade\NativeResponse response()
+ * @method static void log(string $message, array $context = [], string $level = 'info')
  *
  * State management.
  *
