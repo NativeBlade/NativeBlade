@@ -3,13 +3,28 @@ import { request } from '../runtime/wasm-server.js';
 const TOKEN_ROUTE = '/_nativeblade/push-token';
 const PUSH_ROUTE = '/_nativeblade/push';
 
+let appFrameRef = null;
+let handleAction = null;
+
+function dispatchReturnedActions(result) {
+    if (!result?.nativeblade || !handleAction) return;
+    for (const item of result.nativeblade) {
+        try {
+            handleAction(item.action, item.data || {}, appFrameRef);
+        } catch (e) {
+            console.warn('[NativeBlade Push] failed to dispatch action:', e);
+        }
+    }
+}
+
 async function postToPhp(route, payload) {
     try {
-        await request(route, {
+        const result = await request(route, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
         });
+        dispatchReturnedActions(result);
     } catch (e) {
         console.warn('[NativeBlade Push] failed to deliver to PHP:', e);
     }
@@ -27,7 +42,10 @@ function normalizePayload(raw) {
     return raw;
 }
 
-export async function init() {
+export async function init(appFrame, handleNativeAction) {
+    appFrameRef = appFrame;
+    handleAction = handleNativeAction;
+
     if (!window.__TAURI_INTERNALS__) return;
 
     let listen, invoke;

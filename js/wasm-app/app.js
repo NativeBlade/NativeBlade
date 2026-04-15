@@ -28,7 +28,7 @@ async function main() {
         initRouter(appFrame, splash);
         initShell(appFrame, navigate);
         await initBridge(appFrame);
-        await initPush();
+        await initPush(appFrame, handleNativeAction);
         initHotReload(navigate, getCurrentPath);
         startAutoSync();
 

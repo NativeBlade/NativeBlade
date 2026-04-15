@@ -5,6 +5,7 @@ import android.app.Activity
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import android.webkit.WebView
 import app.tauri.annotation.Command
 import app.tauri.annotation.Permission
@@ -13,6 +14,7 @@ import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
+import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 
 /**
@@ -34,37 +36,48 @@ import com.google.firebase.messaging.FirebaseMessaging
 class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
 
     companion object {
+        private const val TAG = "NativeBladePush"
+
         @Volatile
         var instance: NativeBladePushPlugin? = null
     }
+
+    @Volatile
+    private var active: Boolean = false
 
     override fun load(webView: WebView) {
         super.load(webView)
         instance = this
 
-        // If the token was delivered before the plugin was instantiated,
-        // emit it immediately so the JS listener can pick it up.
+        if (FirebaseApp.getApps(activity.applicationContext).isEmpty()) {
+            Log.d(TAG, "Firebase not initialized — push plugin inert")
+            return
+        }
+
+        active = true
+
         PendingPushes.latestToken?.let { emitToken(it) }
 
-        // Kick off an FCM token request. If it's already registered,
-        // the callback fires synchronously; otherwise we'll get it via
-        // onNewToken later.
-        FirebaseMessaging.getInstance().token
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    val token = task.result
-                    if (token != null) {
-                        PendingPushes.setToken(token)
-                        emitToken(token)
-                    }
+        try {
+            FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                val token = task.result
+                if (task.isSuccessful && token != null) {
+                    PendingPushes.setToken(token)
+                    emitToken(token)
+                } else if (!task.isSuccessful) {
+                    Log.w(TAG, "FCM token fetch failed", task.exception)
                 }
             }
+        } catch (e: Throwable) {
+            Log.w(TAG, "FCM token request crashed — plugin staying inert", e)
+            active = false
+        }
     }
 
     @Command
     fun getToken(invoke: Invoke) {
         val result = JSObject()
-        result.put("token", PendingPushes.latestToken)
+        result.put("token", if (active) PendingPushes.latestToken else null)
         invoke.resolve(result)
     }
 
@@ -97,20 +110,13 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
         invoke.resolve(JSObject().apply { put("pending", arr) })
     }
 
-    /**
-     * Called by [NativeBladeFirebaseService] when a push arrives while
-     * the plugin is alive. Emits a Tauri event that the JS layer listens
-     * for to trigger the developer's `onReceive` callback.
-     */
     fun emitPush(payload: Map<String, Any?>) {
+        if (!active) return
         trigger("nativeblade-push", mapToJsObject(payload))
     }
 
-    /**
-     * Called by [NativeBladeFirebaseService] when the device token
-     * arrives or is refreshed.
-     */
     fun emitToken(token: String) {
+        if (!active) return
         val data = JSObject()
         data.put("token", token)
         trigger("nativeblade-push-token", data)

@@ -32,6 +32,8 @@ class NativeBladePushPlugin: Plugin {
 
     static weak var instance: NativeBladePushPlugin?
 
+    private var active: Bool = false
+
     override init() {
         super.init()
         NativeBladePushPlugin.instance = self
@@ -40,35 +42,46 @@ class NativeBladePushPlugin: Plugin {
     override func load(webview: WKWebView) {
         super.load(webview: webview)
 
-        // Install swizzle on the current UIApplication delegate so the
-        // `didRegisterForRemoteNotificationsWithDeviceToken` callback
-        // routes through us.
+        guard hasAPSEntitlement() else {
+            NSLog("nativeblade-push: aps-environment entitlement missing — plugin inert")
+            return
+        }
+
+        active = true
+
         AppDelegateSwizzler.installIfNeeded()
 
-        // Become the UN delegate so willPresent/didReceive callbacks
-        // land here. Stash the previous delegate so we can chain.
         let center = UNUserNotificationCenter.current()
         AppDelegateSwizzler.previousUNDelegate = center.delegate
         center.delegate = AppDelegateSwizzler.shared
 
-        // If a token or push arrived before the plugin loaded, emit them
-        // immediately. Live pushes that arrive after this point flow via
-        // the swizzled delegate and don't hit the queue.
         if let token = PendingPushes.latestToken {
             emitToken(token)
         }
 
-        // Kick off the APNS registration. iOS will call back into the
-        // (now-swizzled) AppDelegate with the token.
         DispatchQueue.main.async {
             UIApplication.shared.registerForRemoteNotifications()
         }
     }
 
+    private func hasAPSEntitlement() -> Bool {
+        guard let path = Bundle.main.path(forResource: "embedded", ofType: "mobileprovision") else {
+            return true
+        }
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else {
+            return true
+        }
+        if let str = String(data: data, encoding: .ascii) {
+            return str.contains("aps-environment")
+        }
+        return true
+    }
+
     // MARK: - Commands
 
     @objc public func getToken(_ invoke: Invoke) {
-        invoke.resolve(["token": PendingPushes.latestToken ?? NSNull()])
+        let token = active ? (PendingPushes.latestToken ?? NSNull()) : NSNull()
+        invoke.resolve(["token": token])
     }
 
     @objc public func requestPermission(_ invoke: Invoke) {
@@ -89,6 +102,7 @@ class NativeBladePushPlugin: Plugin {
     // MARK: - Emitters (called by the swizzled delegate)
 
     func emitPush(_ payload: [String: Any]) {
+        guard active else { return }
         do {
             let data = try JSONSerialization.data(withJSONObject: payload, options: [])
             trigger("nativeblade-push", data: String(data: data, encoding: .utf8) ?? "{}")
@@ -98,6 +112,7 @@ class NativeBladePushPlugin: Plugin {
     }
 
     func emitToken(_ token: String) {
+        guard active else { return }
         trigger("nativeblade-push-token", data: ["token": token])
     }
 }
