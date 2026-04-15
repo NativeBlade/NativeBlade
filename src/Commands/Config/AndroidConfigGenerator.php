@@ -276,20 +276,35 @@ XML;
 
         $root = file_get_contents($rootGradle);
 
-        if (str_contains($root, 'com.google.gms:google-services')) return;
+        if (str_contains($root, 'com.google.gms:google-services') || str_contains($root, 'com.google.gms.google-services')) {
+            return;
+        }
 
         if (preg_match('/plugins\s*\{/', $root)) {
             $root = preg_replace(
                 '/(plugins\s*\{)/',
-                "$1\n    id(\"com.google.gms.google-services\") version \"4.4.2\" apply false",
+                "$1\n    id(\"com.google.gms.google-services\") version \"4.4.4\" apply false",
                 $root,
                 1
             );
             file_put_contents($rootGradle, $root);
             $this->cmd->line("  <fg=green>✓</> google-services plugin declared in root build.gradle.kts");
-        } else {
-            $this->cmd->line("  <fg=yellow>→</> could not auto-patch root build.gradle.kts — add `id(\"com.google.gms.google-services\") version \"4.4.2\" apply false` to the plugins block manually");
+            return;
         }
+
+        if (preg_match('/buildscript\s*\{.*?dependencies\s*\{/s', $root)) {
+            $root = preg_replace(
+                '/(buildscript\s*\{.*?dependencies\s*\{)(\s*\n)/s',
+                "$1$2        classpath(\"com.google.gms:google-services:4.4.4\")\n",
+                $root,
+                1
+            );
+            file_put_contents($rootGradle, $root);
+            $this->cmd->line("  <fg=green>✓</> google-services classpath added to root build.gradle.kts");
+            return;
+        }
+
+        $this->cmd->line("  <fg=yellow>→</> could not auto-patch root build.gradle.kts — add `classpath(\"com.google.gms:google-services:4.4.4\")` to the buildscript.dependencies block manually");
     }
 
     private function generateSplash(array $config): void
