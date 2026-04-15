@@ -71,7 +71,7 @@ class NativeBladePushPlugin: Plugin {
         invoke.resolve(["token": PendingPushes.latestToken ?? NSNull()])
     }
 
-    @objc public override func requestPermissions(_ invoke: Invoke) {
+    @objc public func requestPermission(_ invoke: Invoke) {
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
             if let error = error {
