@@ -147,7 +147,7 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
         val obj = JSObject()
         for ((key, value) in map) {
             when (value) {
-                null -> obj.put(key, JSObject.NULL)
+                null -> obj.put(key, org.json.JSONObject.NULL)
                 is Map<*, *> -> {
                     @Suppress("UNCHECKED_CAST")
                     obj.put(key, mapToJsObject(value as Map<String, Any?>))
