@@ -32,6 +32,7 @@ class AndroidConfigGenerator
         $this->generatePermissions($config);
         $this->generateSdk($config);
         $this->generateSplash($config);
+        $this->generatePushNotification($config);
     }
 
     private function generateTheme(array $config): void
@@ -221,6 +222,73 @@ XML;
         if ($changed) {
             file_put_contents($gradlePath, $gradle);
             $this->cmd->line("  <fg=green>✓</> Android SDK: min=" . ($config['minSdk'] ?? '?') . " target=" . ($config['targetSdk'] ?? '?'));
+        }
+    }
+
+    private function generatePushNotification(array $config): void
+    {
+        $push = $config['notification'] ?? null;
+        if (!$push || !isset($push['fcmConfig'])) return;
+
+        $source = $push['fcmConfig'];
+        if (!file_exists($source)) {
+            $this->cmd->line("  <fg=yellow>→</> google-services.json not found at {$source}");
+            return;
+        }
+
+        $destDir = base_path('src-tauri/gen/android/app');
+        if (!is_dir($destDir)) {
+            $this->cmd->line("  <fg=yellow>→</> src-tauri/gen/android/app missing — run 'nativeblade:add android' first");
+            return;
+        }
+
+        copy($source, $destDir . '/google-services.json');
+        $this->cmd->line("  <fg=green>✓</> google-services.json copied to Android project");
+
+        $this->ensureGoogleServicesPlugin();
+    }
+
+    private function ensureGoogleServicesPlugin(): void
+    {
+        $appGradle = base_path('src-tauri/gen/android/app/build.gradle.kts');
+        if (!file_exists($appGradle)) return;
+
+        $content = file_get_contents($appGradle);
+        $changed = false;
+
+        if (!str_contains($content, 'com.google.gms.google-services')) {
+            $content = preg_replace(
+                '/(plugins\s*\{[^}]*?)(\n\})/s',
+                "$1\n    id(\"com.google.gms.google-services\")$2",
+                $content,
+                1
+            );
+            $changed = true;
+        }
+
+        if ($changed) {
+            file_put_contents($appGradle, $content);
+            $this->cmd->line("  <fg=green>✓</> google-services Gradle plugin enabled");
+        }
+
+        $rootGradle = base_path('src-tauri/gen/android/build.gradle.kts');
+        if (!file_exists($rootGradle)) return;
+
+        $root = file_get_contents($rootGradle);
+
+        if (str_contains($root, 'com.google.gms:google-services')) return;
+
+        if (preg_match('/plugins\s*\{/', $root)) {
+            $root = preg_replace(
+                '/(plugins\s*\{)/',
+                "$1\n    id(\"com.google.gms.google-services\") version \"4.4.2\" apply false",
+                $root,
+                1
+            );
+            file_put_contents($rootGradle, $root);
+            $this->cmd->line("  <fg=green>✓</> google-services plugin declared in root build.gradle.kts");
+        } else {
+            $this->cmd->line("  <fg=yellow>→</> could not auto-patch root build.gradle.kts — add `id(\"com.google.gms.google-services\") version \"4.4.2\" apply false` to the plugins block manually");
         }
     }
 
