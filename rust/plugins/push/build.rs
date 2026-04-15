@@ -5,9 +5,10 @@ const COMMANDS: &[&str] = &[
 ];
 
 fn main() {
-    // Phase 1 scaffolding — android/ios paths will be wired in Phase 2/3
-    // once the Kotlin/Swift sources exist in this crate.
-    let result = tauri_plugin::Builder::new(COMMANDS).try_build();
+    let result = tauri_plugin::Builder::new(COMMANDS)
+        .android_path("android")
+        .ios_path("ios")
+        .try_build();
 
     if !(cfg!(docsrs) && std::env::var("TARGET").unwrap_or_default().contains("android")) {
         if let Err(e) = result {
