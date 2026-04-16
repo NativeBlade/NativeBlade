@@ -176,7 +176,7 @@ class InstallCommand extends Command
     private function installNpmDependencies(): void
     {
         $phpVersion = PHP_MAJOR_VERSION . '-' . PHP_MINOR_VERSION;
-        $stubPath = __DIR__ . '/../../../stubs/package.json.stub';
+        $stubPath = $this->stubPath('package.json.stub');
         $targetPath = base_path('package.json');
 
         if (file_exists($stubPath)) {
