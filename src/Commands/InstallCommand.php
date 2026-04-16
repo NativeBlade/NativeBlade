@@ -191,12 +191,14 @@ class InstallCommand extends Command
                 $existing['dependencies'] = array_merge($existing['dependencies'] ?? [], $incoming['dependencies'] ?? []);
                 $existing['devDependencies'] = array_merge($existing['devDependencies'] ?? [], $incoming['devDependencies'] ?? []);
 
-                file_put_contents($targetPath, json_encode($existing, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+                file_put_contents($targetPath, json_encode($existing, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
             } else {
                 file_put_contents($targetPath, $stub);
             }
 
             $this->line("  <fg=green>✓</> package.json updated");
+        } else {
+            $this->line("  <fg=red>✗</> package.json.stub not found at: {$stubPath}");
         }
 
         $this->line('  Installing npm dependencies...');
