@@ -1,3 +1,6 @@
+[workspace]
+members = ["plugins/push"]
+
 [package]
 name = "nativeblade-tauri"
 version = "0.1.0"
@@ -41,3 +44,4 @@ dotenvy = "0.15"
 tauri-plugin-biometric = "2"
 tauri-plugin-barcode-scanner = "2"
 tauri-plugin-nfc = "2"
+tauri-plugin-nativeblade-push = { path = "plugins/push" }

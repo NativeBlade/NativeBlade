@@ -9,6 +9,7 @@ import { init as initBridge, handleNativeAction } from './bridge.js';
 import { init as initRouter, navigate, getCurrentPath, goBack, runBoot } from './router.js';
 import { init as initHotReload } from './hot-reload.js';
 import { init as initStore, restoreToWasm, startAutoSync } from './state-store.js';
+import { init as initPush } from './push.js';
 import './nb.js';
 
 const splash = document.getElementById('splash');
@@ -27,6 +28,7 @@ async function main() {
         initRouter(appFrame, splash);
         initShell(appFrame, navigate);
         await initBridge(appFrame);
+        await initPush(appFrame, handleNativeAction);
         initHotReload(navigate, getCurrentPath);
         startAutoSync();
 

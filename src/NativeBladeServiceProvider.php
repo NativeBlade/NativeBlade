@@ -33,6 +33,7 @@ class NativeBladeServiceProvider extends ServiceProvider
         $this->discoverCustomComponents();
         $this->discoverPackageComponents();
         $this->registerScheduleRoute();
+        $this->registerPushRoutes();
 
         if (!$this->app->runningInConsole()) {
             $this->app->booted(function () {
@@ -171,6 +172,55 @@ class NativeBladeServiceProvider extends ServiceProvider
             }
             return response()->json(['ok' => true]);
         });
+    }
+
+    private function registerPushRoutes(): void
+    {
+        \Illuminate\Support\Facades\Route::post('/_nativeblade/push', function () {
+            $raw = $this->readJsonBody();
+            $payload = Plugins\PushPayload::fromArray($raw);
+
+            $result = Plugins\PushRegistry::handleReceive($payload);
+
+            if ($result instanceof NativeResponse) {
+                return $result->toResponse() ?? response()->json(['ok' => true]);
+            }
+
+            return response()->json(['ok' => true]);
+        });
+
+        \Illuminate\Support\Facades\Route::post('/_nativeblade/push-token', function () {
+            $raw = $this->readJsonBody();
+            $token = (string) ($raw['token'] ?? '');
+
+            if ($token === '') {
+                return response()->json(['ok' => false, 'error' => 'missing token'], 422);
+            }
+
+            $result = Plugins\PushRegistry::handleTokenRefresh($token);
+
+            if ($result instanceof NativeResponse) {
+                return $result->toResponse() ?? response()->json(['ok' => true]);
+            }
+
+            return response()->json(['ok' => true]);
+        });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function readJsonBody(): array
+    {
+        $body = $GLOBALS['__wasm_request_body'] ?? '';
+        if ($body === '') {
+            $body = @file_get_contents('php://input') ?: '';
+        }
+        if ($body === '') {
+            return [];
+        }
+        $decoded = json_decode($body, true);
+        return is_array($decoded) ? $decoded : [];
     }
 
     private function registerNativeDatabase(): void

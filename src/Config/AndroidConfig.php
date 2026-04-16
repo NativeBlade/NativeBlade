@@ -2,6 +2,9 @@
 
 namespace NativeBlade\Config;
 
+use Closure;
+use NativeBlade\Config\Push\AndroidPushNotificationConfig;
+
 class AndroidConfig
 {
     private array $config = [];
@@ -76,6 +79,28 @@ class AndroidConfig
     public function permissions(array $permissions): static
     {
         $this->config['permissions'] = $permissions;
+        return $this;
+    }
+
+    /**
+     * Configure Android push notifications (FCM) via a fluent builder.
+     *
+     * ```
+     * $config->notification(function (AndroidPushNotificationConfig $push) {
+     *     $push
+     *         ->fcmConfig(base_path('google-services.json'))
+     *         ->channel('lessons', 'Lessons', importance: 'high')
+     *         ->onReceive(fn ($payload) => ...);
+     * });
+     * ```
+     *
+     * @param  Closure(AndroidPushNotificationConfig): void  $callback
+     */
+    public function notification(Closure $callback): static
+    {
+        $push = new AndroidPushNotificationConfig();
+        $callback($push);
+        $this->config['notification'] = $push->toArray();
         return $this;
     }
 

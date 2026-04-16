@@ -15,6 +15,7 @@
   <a href="COMPONENTS.md">Components</a> &bull;
   <a href="DIRECTIVES.md">Directives &amp; Attributes</a> &bull;
   <a href="PLUGINS.md">Plugins</a> &bull;
+  <a href="PUSH.md">Push</a> &bull;
   <a href="ANIMATIONS.md">Animations</a> &bull;
   <a href="LIFECYCLE.md">Lifecycle</a> &bull;
   <a href="DATABASE.md">Database</a> &bull;
@@ -42,6 +43,7 @@ NativeBlade lets Laravel developers build **desktop** and **mobile** apps using 
 - **Native APIs** — Dialogs, notifications, camera, geolocation, haptics, biometric, NFC, barcode
 - **Desktop** — Windows, macOS, Linux with native menus and system tray
 - **Mobile** — Android & iOS with status bar, safe area, orientation control
+- **Push Notifications** — Server-pushed notifications via FCM (Android) and APNS (iOS) that wake the app even when closed
 - **Animations** — 90+ [Animate.css](https://animate.style/) animations + custom NativeBlade animations via `nb-animation` attribute
 - **Offline-First** — SQLite persisted to IndexedDB, works without a server
 - **Hot Reload** — Vite HMR for instant feedback during development
@@ -289,6 +291,7 @@ $responses = NativeBlade::pool(fn ($pool) => [
 | [COMPONENTS.md](COMPONENTS.md) | Shell components, icons, images, skeleton, fonts, safe area, custom components |
 | [DIRECTIVES.md](DIRECTIVES.md) | wire:nb-bridge, wire:nb-navigate, nb-feedback, native actions |
 | [PLUGINS.md](PLUGINS.md) | Built-in Tauri 2 plugin bridges (dialogs, notifications, clipboard, geolocation, haptics, biometric, barcode, NFC, opener, OS info) |
+| [PUSH.md](PUSH.md) | Server push notifications via FCM (Android) and APNS (iOS) |
 | [ANIMATIONS.md](ANIMATIONS.md) | nb-animation, Animate.css, custom animations, haptic feedback |
 | [DATABASE.md](DATABASE.md) | SQLite local, native MySQL/PostgreSQL/MariaDB via Rust bridge |
 | [LIFECYCLE.md](LIFECYCLE.md) | Boot sequence, onBoot hook, clock sync, migrations |

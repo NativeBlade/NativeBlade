@@ -19,6 +19,8 @@
 
         "biometric:default",
 
-        "nfc:default"
+        "nfc:default",
+
+        "nativeblade-push:default"
     ]
 }

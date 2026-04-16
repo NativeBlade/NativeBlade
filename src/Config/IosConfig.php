@@ -2,6 +2,9 @@
 
 namespace NativeBlade\Config;
 
+use Closure;
+use NativeBlade\Config\Push\IosPushNotificationConfig;
+
 class IosConfig
 {
     private array $config = [];
@@ -70,6 +73,29 @@ class IosConfig
     public function permissions(array $permissions): static
     {
         $this->config['permissions'] = $permissions;
+        return $this;
+    }
+
+    /**
+     * Configure iOS push notifications (APNS) via a fluent builder.
+     *
+     * ```
+     * $config->notification(function (IosPushNotificationConfig $push) {
+     *     $push
+     *         ->environment('production')
+     *         ->badge(true)
+     *         ->sound('default')
+     *         ->onReceive(fn ($payload) => ...);
+     * });
+     * ```
+     *
+     * @param  Closure(IosPushNotificationConfig): void  $callback
+     */
+    public function notification(Closure $callback): static
+    {
+        $push = new IosPushNotificationConfig();
+        $callback($push);
+        $this->config['notification'] = $push->toArray();
         return $this;
     }
 
