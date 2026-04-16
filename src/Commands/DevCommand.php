@@ -60,27 +60,33 @@ class DevCommand extends Command
     private function runBuiltDesktop(): void
     {
         $this->info('Starting Tauri desktop dev (built assets, no HMR)...');
-        $this->exec('npx tauri dev', [
-            'TAURI_CONFIG' => json_encode(['build' => ['devUrl' => '', 'beforeDevCommand' => '']]),
-        ]);
+        $this->exec('npx tauri dev --config ' . $this->builtConfigArg());
     }
 
     private function runBuiltAndroid(): void
     {
         $this->info('Starting Tauri Android dev (built assets, no HMR)...');
-        $configJson = json_encode(['build' => ['devUrl' => '', 'beforeDevCommand' => '']]);
-        $escaped = PHP_OS_FAMILY === 'Windows'
-            ? '"' . str_replace('"', '\\"', $configJson) . '"'
-            : escapeshellarg($configJson);
-        $this->exec("npx tauri android dev --config {$escaped}", $this->androidEnv());
+        $this->exec("npx tauri android dev --config " . $this->builtConfigArg(), $this->androidEnv());
     }
 
     private function runBuiltIos(): void
     {
         $this->info('Starting Tauri iOS dev (built assets, no HMR)...');
-        $this->exec('npx tauri ios dev --config ' . escapeshellarg(json_encode([
-            'build' => ['devUrl' => '', 'beforeDevCommand' => ''],
-        ])));
+        $this->exec('npx tauri ios dev --config ' . $this->builtConfigArg());
+    }
+
+    private function builtConfigArg(): string
+    {
+        $configJson = json_encode([
+            'build' => [
+                'devUrl' => null,
+                'beforeDevCommand' => null,
+                'frontendDist' => '../dist-wasm',
+            ],
+        ]);
+        return PHP_OS_FAMILY === 'Windows'
+            ? '"' . str_replace('"', '\\"', $configJson) . '"'
+            : escapeshellarg($configJson);
     }
 
     private function runDesktop(string $port): void

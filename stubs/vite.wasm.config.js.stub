@@ -44,5 +44,14 @@ export default defineConfig({
     build: {
         outDir: path.resolve(__dirname, 'dist-wasm'),
         emptyOutDir: true,
+        chunkSizeWarningLimit: 5000,
+        rolldownOptions: {
+            onwarn(warning, warn) {
+                if (warning.code === 'EVAL') return;
+                if (warning.plugin === 'rolldown:vite-resolve') return;
+                if (warning.message?.includes('externalized for browser compatibility')) return;
+                warn(warning);
+            },
+        },
     },
 });
