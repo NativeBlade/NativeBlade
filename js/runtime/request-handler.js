@@ -26,37 +26,53 @@ export async function handleRequest(path, options = {}) {
     const headers = options.headers || {};
     const contentType = headers['Content-Type'] || headers['content-type'] || '';
     const isJson = contentType.includes('application/json');
-    const escapedBody = body.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
-    const headerLines = Object.entries(headers).map(([k, v]) => {
+    // Build an $_SERVER bootstrap array on disk (as JSON) and load it from PHP.
+    // Interpolating user-controlled strings straight into PHP source is unsafe —
+    // a stray quote/backslash in a URL, header or body would either crash the
+    // parser or, in a hostile environment, allow code injection. Passing through
+    // JSON + json_decode keeps the PHP source static and handles any bytes.
+    const serverVars = {
+        DOCUMENT_ROOT: '/app/public',
+        SCRIPT_FILENAME: '/app/public/index.php',
+        SCRIPT_NAME: '/index.php',
+        PHP_SELF: '/index.php',
+        REQUEST_URI: String(path),
+        REQUEST_METHOD: method,
+        SERVER_NAME: 'localhost',
+        SERVER_PORT: '80',
+        HTTP_HOST: 'localhost',
+        HTTP_ACCEPT: 'text/html',
+        CONTENT_TYPE: String(contentType),
+        CONTENT_LENGTH: String(body.length),
+        APP_BASE_PATH: '/app',
+        NATIVEBLADE_PLATFORM: detectPlatform(),
+        NATIVEBLADE_TIMESTAMP: String(Math.floor(Date.now() / 1000)),
+    };
+    for (const [k, v] of Object.entries(headers)) {
         const key = 'HTTP_' + k.toUpperCase().replace(/-/g, '_');
-        const val = String(v).replace(/'/g, "\\'");
-        return `$_SERVER['${key}'] = '${val}';`;
-    }).join('\n        ');
+        serverVars[key] = String(v);
+    }
 
+    php.writeFile('/tmp/__nb_server.json', JSON.stringify(serverVars));
     if (body) php.writeFile('/tmp/request_body', body);
+
+    const hasBody = body ? '1' : '0';
+    const parsePost = (!isJson && body) ? '1' : '0';
 
     const code = `<?php
         chdir('/app/public');
-        $_SERVER['DOCUMENT_ROOT'] = '/app/public';
-        $_SERVER['SCRIPT_FILENAME'] = '/app/public/index.php';
-        $_SERVER['SCRIPT_NAME'] = '/index.php';
-        $_SERVER['PHP_SELF'] = '/index.php';
-        $_SERVER['REQUEST_URI'] = '${path}';
-        $_SERVER['REQUEST_METHOD'] = '${method}';
-        $_SERVER['SERVER_NAME'] = 'localhost';
-        $_SERVER['SERVER_PORT'] = '80';
-        $_SERVER['HTTP_HOST'] = 'localhost';
-        $_SERVER['HTTP_ACCEPT'] = 'text/html';
-        $_SERVER['CONTENT_TYPE'] = '${contentType}';
-        $_SERVER['CONTENT_LENGTH'] = '${body.length}';
-        $_SERVER['APP_BASE_PATH'] = '/app';
-        $_SERVER['NATIVEBLADE_PLATFORM'] = '${detectPlatform()}';
-        $_SERVER['NATIVEBLADE_TIMESTAMP'] = '${Math.floor(Date.now() / 1000)}';
+        $__nb_server = json_decode(file_get_contents('/tmp/__nb_server.json'), true) ?: [];
+        foreach ($__nb_server as $__nb_k => $__nb_v) { $_SERVER[$__nb_k] = $__nb_v; }
+        unset($__nb_server, $__nb_k, $__nb_v);
         putenv('APP_BASE_PATH=/app');
-        ${headerLines}
-        ${body ? `$GLOBALS['__wasm_request_body'] = file_get_contents('/tmp/request_body');` : ''}
-        ${!isJson && body ? `$_POST = []; parse_str('${escapedBody}', $_POST);` : ''}
+        if (${hasBody}) {
+            $GLOBALS['__wasm_request_body'] = file_get_contents('/tmp/request_body');
+            if (${parsePost}) {
+                $_POST = [];
+                parse_str($GLOBALS['__wasm_request_body'], $_POST);
+            }
+        }
         require '/app/public/index.php';
     `;
 

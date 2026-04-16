@@ -1,7 +1,9 @@
 const PENDING_PATH = '/tmp/__nb_fs_pending.json';
 const CACHE_DIR = '/tmp/__nb_fs_cache';
+const MAX_RETRIES = 20;
 
 let fsApi = null;
+let retryCount = 0;
 
 async function loadFsApi() {
     if (fsApi) return fsApi;
@@ -26,6 +28,12 @@ export async function hasPendingRequest(php, output) {
 }
 
 export async function fulfill(php) {
+    if (retryCount >= MAX_RETRIES) {
+        cleanup(php);
+        return false;
+    }
+    retryCount++;
+
     const fs = await loadFsApi();
     if (!fs) {
         cleanup(php);
@@ -141,10 +149,12 @@ export async function fulfill(php) {
 }
 
 export function done(php) {
+    retryCount = 0;
     clearCache(php);
 }
 
 function cleanup(php) {
+    retryCount = 0;
     try { php.unlink(PENDING_PATH); } catch {}
     clearCache(php);
 }

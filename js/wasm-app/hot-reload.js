@@ -2,17 +2,62 @@ import { getInstance } from '../runtime/wasm-server.js';
 
 let navigateFn = null;
 let getPathFn = null;
+let lastVersion = 0;
+let pendingChanges = new Map();
+let flushTimer = null;
+const FLUSH_DELAY_MS = 100;
+const FETCH_TIMEOUT_MS = 5000;
 
 export function init(navigate, getCurrentPath) {
     navigateFn = navigate;
     getPathFn = getCurrentPath;
-    setupHMR();
-    setupPolling();
+
+    const serverUrl = resolveServerUrl();
+    const hasWs = typeof import.meta.hot !== 'undefined' && import.meta.hot !== null;
+
+    if (hasWs) {
+        setupHMR();
+    }
+    if (serverUrl) {
+        setupPolling(serverUrl, hasWs);
+    }
 }
 
-async function applyChange(wasmPath, content) {
+function resolveServerUrl() {
+    const meta = document.querySelector('meta[name="nativeblade-vite-url"]');
+    const fromMeta = meta?.getAttribute('content');
+    if (fromMeta) return fromMeta;
+
+    const scripts = document.querySelectorAll('script[src*="vite/client"]');
+    for (const s of scripts) {
+        try { return new URL(s.src).origin; } catch {}
+    }
+
+    if (location.protocol.startsWith('http') && location.port) {
+        return location.origin;
+    }
+
+    return '';
+}
+
+function scheduleChange(wasmPath, content, version) {
+    if (version && version <= lastVersion) return;
+    pendingChanges.set(wasmPath, content);
+    if (version) lastVersion = Math.max(lastVersion, version);
+
+    if (flushTimer) clearTimeout(flushTimer);
+    flushTimer = setTimeout(flushPending, FLUSH_DELAY_MS);
+}
+
+async function flushPending() {
+    flushTimer = null;
+    if (pendingChanges.size === 0) return;
+
     const php = getInstance();
     if (!php) return;
+
+    const entries = [...pendingChanges.entries()];
+    pendingChanges.clear();
 
     try {
         const files = php.listFiles('/app/storage/framework/views');
@@ -23,46 +68,77 @@ async function applyChange(wasmPath, content) {
         }
     } catch {}
 
-    try {
-        php.mkdirTree(wasmPath.substring(0, wasmPath.lastIndexOf('/')));
-        php.writeFile(wasmPath, content);
-    } catch {}
+    for (const [wasmPath, content] of entries) {
+        try {
+            const parent = wasmPath.substring(0, wasmPath.lastIndexOf('/'));
+            if (parent) php.mkdirTree(parent);
+            php.writeFile(wasmPath, content);
+        } catch {}
+    }
 
     if (navigateFn && getPathFn) {
-        await navigateFn(getPathFn());
+        try { await navigateFn(getPathFn()); } catch {}
     }
 }
 
 function setupHMR() {
-    if (!import.meta.hot) return;
-    import.meta.hot.on('php-file-changed', async (data) => {
-        await applyChange(data.wasmPath, data.content);
+    import.meta.hot.on('php-file-changed', (data) => {
+        scheduleChange(data.wasmPath, data.content, data.version || 0);
     });
 }
 
-function setupPolling() {
-    let version = 0;
-    const scripts = document.querySelectorAll('script[src*="vite/client"]');
-    let serverUrl = '';
-    scripts.forEach(s => { try { serverUrl = new URL(s.src).origin; } catch {} });
-    if (!serverUrl && location.port) serverUrl = location.origin;
-    if (!serverUrl) return;
-
+function setupPolling(serverUrl, hasWs) {
     const nativeFetch = window.fetch.bind(window);
+    let backoffMs = 1000;
+    const backoffCeil = 30000;
+    let baselined = false;
+
+    async function fetchJson(url) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+        try {
+            const res = await nativeFetch(url, { signal: ctrl.signal });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return await res.json();
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    async function baseline() {
+        try {
+            const data = await fetchJson(`${serverUrl}/__php_version`);
+            if (typeof data.version === 'number') {
+                lastVersion = Math.max(lastVersion, data.version);
+            }
+            baselined = true;
+            backoffMs = 1000;
+        } catch {
+            backoffMs = Math.min(backoffMs * 2, backoffCeil);
+            setTimeout(baseline, backoffMs);
+        }
+    }
 
     async function check() {
         try {
-            const res = await nativeFetch(`${serverUrl}/__php_changes?since=${version}`);
-            const data = await res.json();
-            if (data.changes?.length) {
+            const data = await fetchJson(`${serverUrl}/__php_changes?since=${lastVersion}`);
+            if (Array.isArray(data.changes)) {
                 for (const change of data.changes) {
-                    await applyChange(change.wasmPath, change.content);
+                    scheduleChange(change.wasmPath, change.content, change.version || 0);
                 }
             }
-            version = data.version;
-        } catch {}
-        setTimeout(check, 1000);
+            if (typeof data.version === 'number') {
+                lastVersion = Math.max(lastVersion, data.version);
+            }
+            backoffMs = 1000;
+        } catch {
+            backoffMs = Math.min(backoffMs * 2, backoffCeil);
+        }
+        setTimeout(check, hasWs ? backoffMs * 3 : backoffMs);
     }
 
-    setTimeout(check, 3000);
+    (async () => {
+        await baseline();
+        if (baselined) setTimeout(check, hasWs ? 3000 : 1000);
+    })();
 }

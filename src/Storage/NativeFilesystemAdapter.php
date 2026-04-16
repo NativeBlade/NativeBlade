@@ -12,6 +12,8 @@ class NativeFilesystemAdapter implements FilesystemAdapter
     private const PENDING_FILE = '/tmp/__nb_fs_pending.json';
     private const CACHE_DIR = '/tmp/__nb_fs_cache';
 
+    private static int $opIndex = 0;
+
     public function fileExists(string $path): bool
     {
         return (bool) $this->bridge('exists', ...self::parse($path));
@@ -142,7 +144,8 @@ class NativeFilesystemAdapter implements FilesystemAdapter
 
     private function bridge(string $op, string $path, string $baseDir = 'app', string $extra = ''): mixed
     {
-        $key = md5($op . $baseDir . $path);
+        $key = md5($op . '|' . $baseDir . '|' . $path . '|' . $extra . '|' . self::$opIndex);
+        self::$opIndex++;
         $cachePath = self::CACHE_DIR . '/' . $key . '.json';
 
         if (file_exists($cachePath)) {

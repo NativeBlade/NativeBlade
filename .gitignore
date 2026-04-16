@@ -11,5 +11,22 @@ npm-debug.log*
 dist-wasm/
 target/
 
+# Rust / Tauri build artifacts
+rust/target/
+src-tauri/target/
+src-tauri/gen/
+**/.tauri/
+
+# Android / iOS generated build output accidentally committed in push plugin
+rust/plugins/push/android/.tauri/
+rust/plugins/push/android/build/
+rust/plugins/push/android/.gradle/
+rust/plugins/push/ios/build/
+
+# Packaged artifacts
+build/android/
+build/ios/
+build/desktop/
+
 .DS_Store
 Thumbs.db
