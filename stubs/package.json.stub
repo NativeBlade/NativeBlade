@@ -1,0 +1,40 @@
+{
+    "$schema": "https://www.schemastore.org/package.json",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "vite build",
+        "dev": "vite",
+        "tauri": "tauri"
+    },
+    "devDependencies": {
+        "@tailwindcss/vite": "^4.0.0",
+        "axios": ">=1.11.0 <=1.14.0",
+        "concurrently": "^9.0.1",
+        "laravel-vite-plugin": "^3.0.0",
+        "tailwindcss": "^4.0.0",
+        "vite": "^8.0.0"
+    },
+    "dependencies": {
+        "@php-wasm/universal": "^3.1.15",
+        "@php-wasm/web-{{PHP_VERSION}}": "^3.1.15",
+        "@tauri-apps/api": "^2.10.1",
+        "@tauri-apps/cli": "^2.10.1",
+        "@tauri-apps/plugin-barcode-scanner": "^2.4.4",
+        "@tauri-apps/plugin-biometric": "^2.3.2",
+        "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
+        "@tauri-apps/plugin-deep-link": "^2.4.8",
+        "@tauri-apps/plugin-dialog": "^2.7.0",
+        "@tauri-apps/plugin-fs": "^2.5.0",
+        "@tauri-apps/plugin-geolocation": "^2.3.2",
+        "@tauri-apps/plugin-haptics": "^2.3.2",
+        "@tauri-apps/plugin-http": "^2.5.8",
+        "@tauri-apps/plugin-nfc": "^2.3.5",
+        "@tauri-apps/plugin-notification": "^2.3.3",
+        "@tauri-apps/plugin-opener": "^2.5.3",
+        "@tauri-apps/plugin-os": "^2.3.2",
+        "@tauri-apps/plugin-process": "^2.3.1",
+        "@tauri-apps/plugin-store": "^2.4.2",
+        "@tauri-apps/plugin-upload": "^2.4.0"
+    }
+}

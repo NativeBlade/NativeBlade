@@ -175,52 +175,38 @@ class InstallCommand extends Command
 
     private function installNpmDependencies(): void
     {
-        $phpPkg = PHP_MAJOR_VERSION . '-' . PHP_MINOR_VERSION;
-        $phpWasmPackage = "@php-wasm/web-{$phpPkg}@^3.1.15";
+        $phpVersion = PHP_MAJOR_VERSION . '-' . PHP_MINOR_VERSION;
+        $stubPath = __DIR__ . '/../../../stubs/package.json.stub';
+        $targetPath = base_path('package.json');
 
-        $deps = [
-            $phpWasmPackage,
-            '@php-wasm/universal@^3.1.15',
-            '@tauri-apps/cli@^2',
-            '@tauri-apps/api@^2',
-            '@tauri-apps/plugin-dialog@^2',
-            '@tauri-apps/plugin-notification@^2',
-            '@tauri-apps/plugin-process@^2',
-            '@tauri-apps/plugin-store@^2',
-            '@tauri-apps/plugin-clipboard-manager@^2',
-            '@tauri-apps/plugin-fs@^2',
-            '@tauri-apps/plugin-geolocation@^2',
-            '@tauri-apps/plugin-haptics@^2',
-            '@tauri-apps/plugin-biometric@^2',
-            '@tauri-apps/plugin-barcode-scanner@^2',
-            '@tauri-apps/plugin-nfc@^2',
-            '@tauri-apps/plugin-opener@^2',
-            '@tauri-apps/plugin-os@^2',
-            '@tauri-apps/plugin-http@^2',
-            '@tauri-apps/plugin-deep-link@^2',
-            '@tauri-apps/plugin-upload@^2',
-        ];
+        if (file_exists($stubPath)) {
+            $stub = file_get_contents($stubPath);
+            $stub = str_replace('{{PHP_VERSION}}', $phpVersion, $stub);
+
+            if (file_exists($targetPath)) {
+                $existing = json_decode(file_get_contents($targetPath), true) ?? [];
+                $incoming = json_decode($stub, true) ?? [];
+
+                $existing['scripts'] = array_merge($existing['scripts'] ?? [], $incoming['scripts'] ?? []);
+                $existing['dependencies'] = array_merge($existing['dependencies'] ?? [], $incoming['dependencies'] ?? []);
+                $existing['devDependencies'] = array_merge($existing['devDependencies'] ?? [], $incoming['devDependencies'] ?? []);
+
+                file_put_contents($targetPath, json_encode($existing, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            } else {
+                file_put_contents($targetPath, $stub);
+            }
+
+            $this->line("  <fg=green>✓</> package.json updated");
+        }
 
         $this->line('  Installing npm dependencies...');
-        $cmd = 'cd ' . escapeshellarg(base_path()) . ' && npm install ' . implode(' ', $deps) . ' 2>&1';
+        $cmd = 'cd ' . escapeshellarg(base_path()) . ' && npm install 2>&1';
         exec($cmd, $output, $code);
 
         if ($code === 0) {
             $this->line("  <fg=green>✓</> npm dependencies installed");
         } else {
-            $this->line("  <fg=yellow>→</> npm install failed, run manually:");
-            $this->line("     npm install " . implode(' ', $deps));
-        }
-
-        // Add "tauri" script to package.json (required by Tauri Android/iOS Gradle build)
-        $packageJsonPath = base_path('package.json');
-        if (file_exists($packageJsonPath)) {
-            $packageJson = json_decode(file_get_contents($packageJsonPath), true);
-            if (!isset($packageJson['scripts']['tauri'])) {
-                $packageJson['scripts']['tauri'] = 'tauri';
-                file_put_contents($packageJsonPath, json_encode($packageJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-                $this->line("  <fg=green>✓</> Added 'tauri' script to package.json");
-            }
+            $this->line("  <fg=yellow>→</> npm install failed, run manually: npm install");
         }
     }
 

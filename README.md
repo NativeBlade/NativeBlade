@@ -58,7 +58,6 @@ NativeBlade lets Laravel developers build **desktop** and **mobile** apps using 
 - Livewire 3
 - Node.js 20+
 - Rust — [install here](https://www.rust-lang.org/tools/install)
-- Tauri CLI — `cargo install tauri-cli`
 
 ## Quick Start
 
