@@ -80,8 +80,11 @@ class NativeBladePushPlugin: Plugin {
     // MARK: - Commands
 
     @objc public func getToken(_ invoke: Invoke) {
-        let token = active ? (PendingPushes.latestToken ?? NSNull()) : NSNull()
-        invoke.resolve(["token": token])
+        if active, let token = PendingPushes.latestToken {
+            invoke.resolve(["token": token])
+        } else {
+            invoke.resolve(["token": NSNull()])
+        }
     }
 
     @objc public func requestPermission(_ invoke: Invoke) {
@@ -105,7 +108,7 @@ class NativeBladePushPlugin: Plugin {
         guard active else { return }
         do {
             let data = try JSONSerialization.data(withJSONObject: payload, options: [])
-            trigger("nativeblade-push", data: String(data: data, encoding: .utf8) ?? "{}")
+            try trigger("nativeblade-push", data: String(data: data, encoding: .utf8) ?? "{}")
         } catch {
             NSLog("nativeblade-push: failed to serialize payload: \(error)")
         }
