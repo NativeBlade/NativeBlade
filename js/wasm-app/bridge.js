@@ -14,6 +14,7 @@ let barcodeApi = null;
 let nfcApi = null;
 let openerApi = null;
 let osApi = null;
+let uploadApi = null;
 
 export async function init(appFrame) {
     appFrameRef = appFrame;
@@ -39,6 +40,7 @@ export async function init(appFrame) {
         try { nfcApi = await import('@tauri-apps/plugin-nfc'); } catch {}
         try { openerApi = await import('@tauri-apps/plugin-opener'); } catch {}
         try { osApi = await import('@tauri-apps/plugin-os'); } catch {}
+        try { uploadApi = await import('@tauri-apps/plugin-upload'); } catch {}
     }
 }
 
@@ -64,6 +66,20 @@ async function __nbEnsureChannel(channelId) {
             vibration: true,
         });
     } catch {}
+}
+
+async function resolveFileDest(pathApi, relativePath, purpose) {
+    const purposeMap = {
+        app: () => pathApi.appDataDir(),
+        export: () => pathApi.documentDir(),
+        downloads: () => pathApi.downloadDir(),
+        cache: () => pathApi.appCacheDir(),
+        temp: () => pathApi.tempDir(),
+    };
+    const baseDir = await (purposeMap[purpose] || purposeMap.app)();
+    const sep = await pathApi.sep();
+    const base = baseDir.endsWith(sep) ? baseDir : baseDir + sep;
+    return base + relativePath.replace(/\//g, sep);
 }
 
 export function handleNativeAction(action, payload, appFrame) {
@@ -236,6 +252,112 @@ export function handleNativeAction(action, payload, appFrame) {
 
         case 'gallery':
             camera.openGallery(payload);
+            break;
+
+        case 'file_picker':
+            if (dialogApi?.open) {
+                const opts = {};
+                if (payload.title) opts.title = payload.title;
+                if (payload.defaultPath) opts.defaultPath = payload.defaultPath;
+                if (payload.multiple) opts.multiple = true;
+                if (payload.directory) opts.directory = true;
+                if (payload.filters) opts.filters = payload.filters;
+                dialogApi.open(opts).then(result => {
+                    const paths = result == null ? [] : Array.isArray(result) ? result : [result];
+                    appFrame?.contentWindow?.postMessage({
+                        type: 'nativeblade-file-result',
+                        paths,
+                        id: payload.id || null,
+                    }, '*');
+                }).catch(() => {
+                    appFrame?.contentWindow?.postMessage({
+                        type: 'nativeblade-file-result',
+                        paths: [],
+                        id: payload.id || null,
+                    }, '*');
+                });
+            }
+            break;
+
+        case 'file_save':
+            if (dialogApi?.save) {
+                const opts = {};
+                if (payload.title) opts.title = payload.title;
+                if (payload.defaultPath) opts.defaultPath = payload.defaultPath;
+                if (payload.defaultName) opts.defaultPath = payload.defaultName;
+                if (payload.filters) opts.filters = payload.filters;
+                dialogApi.save(opts).then(path => {
+                    appFrame?.contentWindow?.postMessage({
+                        type: 'nativeblade-file-save-result',
+                        path: path || null,
+                        id: payload.id || null,
+                    }, '*');
+                }).catch(() => {
+                    appFrame?.contentWindow?.postMessage({
+                        type: 'nativeblade-file-save-result',
+                        path: null,
+                        id: payload.id || null,
+                    }, '*');
+                });
+            }
+            break;
+
+        case 'copy_file':
+        case 'move_file': {
+            const op = action === 'copy_file' ? 'copy' : 'move';
+            Promise.all([
+                import('@tauri-apps/api/core'),
+                import('@tauri-apps/api/path'),
+            ]).then(async ([{ invoke: inv }, pathApi]) => {
+                try {
+                    const dest = await resolveFileDest(pathApi, payload.to, payload.purpose);
+                    const cmd = op === 'copy' ? 'nb_copy_file' : 'nb_move_file';
+                    await inv(cmd, { from: payload.from, to: dest });
+                    appFrame?.contentWindow?.postMessage({
+                        type: 'nativeblade-file-op-result',
+                        success: true,
+                        operation: op,
+                        from: payload.from,
+                        to: dest,
+                    }, '*');
+                } catch (e) {
+                    console.warn(`[NB] ${op}File failed:`, e);
+                    appFrame?.contentWindow?.postMessage({
+                        type: 'nativeblade-file-op-result',
+                        success: false,
+                        operation: op,
+                        error: e?.message || `${op} failed`,
+                    }, '*');
+                }
+            }).catch(() => {});
+            break;
+        }
+
+        case 'upload':
+            if (uploadApi && payload.path && payload.url) {
+                const headers = payload.headers || {};
+                uploadApi.upload(payload.url, payload.path, (progress) => {
+                    appFrame?.contentWindow?.postMessage({
+                        type: 'nativeblade-upload-progress',
+                        id: payload.id || null,
+                        progress: progress.progress,
+                        total: progress.total,
+                    }, '*');
+                }, headers).then(() => {
+                    appFrame?.contentWindow?.postMessage({
+                        type: 'nativeblade-upload-complete',
+                        id: payload.id || null,
+                        success: true,
+                    }, '*');
+                }).catch(e => {
+                    appFrame?.contentWindow?.postMessage({
+                        type: 'nativeblade-upload-complete',
+                        id: payload.id || null,
+                        success: false,
+                        error: e?.message || 'Upload failed',
+                    }, '*');
+                });
+            }
             break;
 
         case 'navigate':

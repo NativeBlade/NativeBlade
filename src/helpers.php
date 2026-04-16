@@ -8,3 +8,10 @@ if (!function_exists('native_path')) {
         return '__nb:' . $purpose->value . ':' . ltrim($path, '/');
     }
 }
+
+if (!function_exists('native_basename')) {
+    function native_basename(string $path): string
+    {
+        return basename(str_replace('\\', '/', $path));
+    }
+}

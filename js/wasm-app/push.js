@@ -83,7 +83,6 @@ export async function init(appFrame, handleNativeAction) {
         console.warn('[NB Push] drain_pending failed:', e);
     }
 
-    // Poll get_token because FCM may deliver after load()
     for (let i = 0; i < 10; i++) {
         try {
             const tokenResult = await invoke('plugin:nativeblade-push|get_token');

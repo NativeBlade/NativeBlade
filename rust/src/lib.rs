@@ -35,6 +35,8 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
             commands::config::get_config,
             commands::scheduler::register_schedules,
             commands::database::db_query,
+            commands::fileops::nb_copy_file,
+            commands::fileops::nb_move_file,
         ])
         .setup(|_app| {
             #[cfg(not(any(target_os = "android", target_os = "ios")))]

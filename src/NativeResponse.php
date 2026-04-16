@@ -9,10 +9,12 @@ use NativeBlade\Plugins\Biometric;
 use NativeBlade\Plugins\Camera;
 use NativeBlade\Plugins\Clipboard;
 use NativeBlade\Plugins\Dialog;
+use NativeBlade\Plugins\FilePicker;
 use NativeBlade\Plugins\Geolocation;
 use NativeBlade\Plugins\Nfc;
 use NativeBlade\Plugins\Notification;
 use NativeBlade\Plugins\Scan;
+use NativeBlade\Plugins\Upload;
 
 /**
  * Fluent builder for native actions.
@@ -300,6 +302,55 @@ class NativeResponse
         $camera = new Camera();
         if ($callback) $callback($camera);
         return $this->push('gallery', $camera->toArray());
+    }
+
+    // ------------------------------------------------------------------
+    // File picker
+    // ------------------------------------------------------------------
+
+    public function filePicker(?Closure $callback = null): static
+    {
+        $picker = new FilePicker();
+        if ($callback) $callback($picker);
+        return $this->push('file_picker', $picker->toArray());
+    }
+
+    public function fileSave(string $defaultName, ?Closure $callback = null): static
+    {
+        $picker = new FilePicker();
+        $picker->id($defaultName);
+        if ($callback) $callback($picker);
+        $data = $picker->toArray();
+        $data['defaultName'] = $defaultName;
+        return $this->push('file_save', $data);
+    }
+
+    // ------------------------------------------------------------------
+    // File operations
+    // ------------------------------------------------------------------
+
+    public function copyFile(string $from, string $to, string $purpose = 'app'): static
+    {
+        return $this->push('copy_file', ['from' => $from, 'to' => $to, 'purpose' => $purpose]);
+    }
+
+    public function moveFile(string $from, string $to, string $purpose = 'app'): static
+    {
+        return $this->push('move_file', ['from' => $from, 'to' => $to, 'purpose' => $purpose]);
+    }
+
+    // ------------------------------------------------------------------
+    // Upload
+    // ------------------------------------------------------------------
+
+    public function upload(string $path, string $url, ?Closure $callback = null): static
+    {
+        $upload = new Upload();
+        $upload->url($url);
+        if ($callback) $callback($upload);
+        $data = $upload->toArray();
+        $data['path'] = $path;
+        return $this->push('upload', $data);
     }
 
     // ------------------------------------------------------------------
