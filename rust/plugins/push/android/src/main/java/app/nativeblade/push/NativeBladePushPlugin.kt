@@ -50,7 +50,7 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
         instance = this
 
         if (FirebaseApp.getApps(activity.applicationContext).isEmpty()) {
-            Log.d(TAG, "Firebase not initialized — push plugin inert")
+            Log.w(TAG, "Firebase not initialized — push plugin inert")
             return
         }
 

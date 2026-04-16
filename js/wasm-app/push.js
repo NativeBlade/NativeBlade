@@ -26,7 +26,7 @@ async function postToPhp(route, payload) {
         });
         dispatchReturnedActions(result);
     } catch (e) {
-        console.warn('[NativeBlade Push] failed to deliver to PHP:', e);
+        console.warn('[NB Push] failed to deliver to PHP:', e);
     }
 }
 
@@ -52,7 +52,8 @@ export async function init(appFrame, handleNativeAction) {
     try {
         ({ listen } = await import('@tauri-apps/api/event'));
         ({ invoke } = await import('@tauri-apps/api/core'));
-    } catch {
+    } catch (e) {
+        console.warn('[NB Push] tauri api import failed:', e);
         return;
     }
 
@@ -67,22 +68,34 @@ export async function init(appFrame, handleNativeAction) {
             const payload = normalizePayload(event.payload);
             if (payload) postToPhp(PUSH_ROUTE, payload);
         });
-    } catch {
+    } catch (e) {
+        console.warn('[NB Push] listen() failed:', e);
         return;
     }
 
-    // Cold start drain: events that arrived before the listeners attached.
     try {
         const result = await invoke('plugin:nativeblade-push|drain_pending');
         const pending = result?.pending || [];
         for (const payload of pending) {
             await postToPhp(PUSH_ROUTE, payload);
         }
-    } catch {}
+    } catch (e) {
+        console.warn('[NB Push] drain_pending failed:', e);
+    }
 
-    try {
-        const tokenResult = await invoke('plugin:nativeblade-push|get_token');
-        const token = tokenResult?.token;
-        if (token) postToPhp(TOKEN_ROUTE, { token });
-    } catch {}
+    // Poll get_token because FCM may deliver after load()
+    for (let i = 0; i < 10; i++) {
+        try {
+            const tokenResult = await invoke('plugin:nativeblade-push|get_token');
+            const token = tokenResult?.token;
+            if (token) {
+                postToPhp(TOKEN_ROUTE, { token });
+                break;
+            }
+        } catch (e) {
+            console.warn('[NB Push] get_token failed:', e);
+            break;
+        }
+        await new Promise(r => setTimeout(r, 500));
+    }
 }
