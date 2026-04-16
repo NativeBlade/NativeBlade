@@ -1,8 +1,16 @@
 # Push Notifications
 
+<p align="center">
+  <img src="native_push.gif" alt="Push Notifications Demo" width="300" />
+</p>
+
 Server-pushed notifications on Android (FCM) and iOS (APNS) that can wake the app even when it's closed. Receiving is handled by the NativeBlade plugin; sending is done from your own backend using whatever library you prefer.
 
 Not to be confused with `NativeBlade::notification()`, which fires a local notification while the app is running.
+
+<p align="center">
+  <img src="native_push_static.jpeg" alt="Push Notification" width="300" />
+</p>
 
 ---
 
