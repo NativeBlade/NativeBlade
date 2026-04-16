@@ -21,12 +21,25 @@ export function prepareDirs() {
     ].forEach(d => php.mkdirTree(d));
 }
 
+async function fetchBundleJson() {
+    if (typeof DecompressionStream !== 'undefined') {
+        try {
+            const res = await fetch('./laravel-bundle.json.gz');
+            if (res.ok) {
+                const stream = res.body.pipeThrough(new DecompressionStream('gzip'));
+                return await new Response(stream).text();
+            }
+        } catch {}
+    }
+    const res = await fetch('./laravel-bundle.json');
+    if (!res.ok) throw new Error(`Bundle fetch failed: ${res.status}`);
+    return await res.text();
+}
+
 export async function loadBundle(onProgress) {
     const php = getInstance();
-    const response = await fetch('./laravel-bundle.json');
-    if (!response.ok) throw new Error(`Bundle fetch failed: ${response.status}`);
-
-    const bundle = JSON.parse(await response.text());
+    const text = await fetchBundleJson();
+    const bundle = JSON.parse(text);
     const paths = Object.keys(bundle);
     let loaded = 0;
 
