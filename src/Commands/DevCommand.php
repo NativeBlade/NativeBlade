@@ -11,7 +11,8 @@ class DevCommand extends Command
     protected $signature = 'nativeblade:dev
         {--platform=desktop : Platform to run (desktop, android, ios)}
         {--host= : IP address for mobile dev (auto-detected if empty)}
-        {--port=1420 : Vite dev server port}';
+        {--port=1420 : Vite dev server port}
+        {--build : Use built assets instead of Vite dev server (no HMR)}';
 
     protected $description = 'Start NativeBlade development server with hot reload';
 
@@ -22,10 +23,11 @@ class DevCommand extends Command
         $platform = $this->option('platform');
         $port = $this->option('port');
         $host = $this->option('host') ?: $this->detectIP();
+        $build = (bool) $this->option('build');
 
         $this->call('nativeblade:config');
 
-        $this->printBanner($platform, $host, $port);
+        $this->printBanner($platform, $host, $port, $build);
 
         // Ensure dist-wasm exists (Tauri checks frontendDist at compile time)
         $distDir = base_path('dist-wasm');
@@ -40,14 +42,51 @@ class DevCommand extends Command
         $bundleScript = NativeBladeServiceProvider::packagePath('js/scripts/bundle-laravel.js');
         $this->exec("node {$bundleScript} " . base_path());
 
+        if ($build) {
+            $this->info('Building frontend bundle...');
+            $this->exec('npx vite build --config vite.wasm.config.js');
+        }
+
         match ($platform) {
-            'desktop' => $this->runDesktop($port),
-            'android' => $this->runAndroid($host, $port),
-            'ios' => $this->runIos($host, $port),
+            'desktop' => $build ? $this->runBuiltDesktop() : $this->runDesktop($port),
+            'android' => $build ? $this->runBuiltAndroid() : $this->runAndroid($host, $port),
+            'ios' => $build ? $this->runBuiltIos() : $this->runIos($host, $port),
             default => $this->error("Unknown platform: {$platform}"),
         };
 
         return self::SUCCESS;
+    }
+
+    private function runBuiltDesktop(): void
+    {
+        $this->info('Starting Tauri desktop dev (built assets, no HMR)...');
+        $this->exec('npx tauri dev --config ' . $this->builtConfigArg());
+    }
+
+    private function runBuiltAndroid(): void
+    {
+        $this->info('Starting Tauri Android dev (built assets, no HMR)...');
+        $this->exec("npx tauri android dev --config " . $this->builtConfigArg(), $this->androidEnv());
+    }
+
+    private function runBuiltIos(): void
+    {
+        $this->info('Starting Tauri iOS dev (built assets, no HMR)...');
+        $this->exec('npx tauri ios dev --config ' . $this->builtConfigArg());
+    }
+
+    private function builtConfigArg(): string
+    {
+        $configJson = json_encode([
+            'build' => [
+                'devUrl' => null,
+                'beforeDevCommand' => null,
+                'frontendDist' => '../dist-wasm',
+            ],
+        ]);
+        return PHP_OS_FAMILY === 'Windows'
+            ? '"' . str_replace('"', '\\"', $configJson) . '"'
+            : escapeshellarg($configJson);
     }
 
     private function runDesktop(string $port): void
@@ -60,8 +99,11 @@ class DevCommand extends Command
 
     private function runAndroid(string $host, string $port): void
     {
-        $this->info('Starting Vite dev server...');
-        $vite = $this->background("npx vite --config vite.wasm.config.js --host --port {$port}");
+        $this->info("Starting Vite dev server at http://{$host}:{$port} ...");
+        $vite = $this->background(
+            "npx vite --config vite.wasm.config.js --host --port {$port}",
+            ['NATIVEBLADE_HOST' => $host]
+        );
 
         sleep(3);
 
@@ -82,8 +124,11 @@ class DevCommand extends Command
 
     private function runIos(string $host, string $port): void
     {
-        $this->info('Starting Vite dev server...');
-        $vite = $this->background("npx vite --config vite.wasm.config.js --host --port {$port}");
+        $this->info("Starting Vite dev server at http://{$host}:{$port} ...");
+        $vite = $this->background(
+            "npx vite --config vite.wasm.config.js --host --port {$port}",
+            ['NATIVEBLADE_HOST' => $host]
+        );
 
         sleep(3);
 
@@ -100,25 +145,68 @@ class DevCommand extends Command
 
     private function detectIP(): string
     {
-        $output = [];
         if (PHP_OS_FAMILY === 'Windows') {
-            exec('ipconfig', $output);
-            foreach ($output as $line) {
-                if (preg_match('/IPv4.*?:\s*(192\.168\.\d+\.\d+)/', $line, $m)) {
-                    return $m[1];
-                }
+            return $this->detectIPWindows();
+        }
+
+        $output = [];
+        exec("hostname -I 2>/dev/null", $output);
+        if (!empty($output[0])) {
+            $ips = array_values(array_filter(explode(' ', trim($output[0])), fn($ip) => $this->isUsableLanIp($ip)));
+            foreach ($ips as $ip) {
+                if (str_starts_with($ip, '192.168.')) return $ip;
             }
-        } else {
-            exec("hostname -I 2>/dev/null", $output);
-            if (!empty($output[0])) {
-                $ips = explode(' ', trim($output[0]));
-                foreach ($ips as $ip) {
-                    if (str_starts_with($ip, '192.168.')) return $ip;
-                }
-                return $ips[0];
-            }
+            return $ips[0] ?? '127.0.0.1';
         }
         return '127.0.0.1';
+    }
+
+    private function detectIPWindows(): string
+    {
+        $output = [];
+        exec('ipconfig', $output);
+
+        $skip = false;
+        $candidates = [];
+
+        foreach ($output as $line) {
+            if (preg_match('/^(Ethernet|Wireless LAN|Wireless|Unknown) adapter (.+):$/', $line, $m)) {
+                $adapter = $m[2];
+                $skip = stripos($adapter, 'VirtualBox') !== false
+                     || stripos($adapter, 'VMware') !== false
+                     || stripos($adapter, 'vEthernet') !== false
+                     || stripos($adapter, 'Loopback') !== false
+                     || stripos($adapter, 'WSL') !== false
+                     || stripos($adapter, 'Hyper-V') !== false;
+                continue;
+            }
+
+            if ($skip) continue;
+
+            if (preg_match('/IPv4.*?:\s*(\d+\.\d+\.\d+\.\d+)/', $line, $m) && $this->isUsableLanIp($m[1])) {
+                $candidates[] = $m[1];
+            }
+        }
+
+        foreach ($candidates as $ip) {
+            if (str_starts_with($ip, '192.168.')) return $ip;
+        }
+        foreach ($candidates as $ip) {
+            if (str_starts_with($ip, '10.')) return $ip;
+        }
+        return $candidates[0] ?? '127.0.0.1';
+    }
+
+    private function isUsableLanIp(string $ip): bool
+    {
+        if (!preg_match('/^\d+\.\d+\.\d+\.\d+$/', $ip)) return false;
+        if (str_starts_with($ip, '127.')) return false;
+        if (str_starts_with($ip, '169.254.')) return false;
+        // VirtualBox default host-only
+        if (str_starts_with($ip, '192.168.56.')) return false;
+        // VirtualBox alternate default
+        if (str_starts_with($ip, '192.168.99.')) return false;
+        return true;
     }
 
     private function androidEnv(): array
@@ -142,10 +230,11 @@ class DevCommand extends Command
         });
     }
 
-    private function background(string $command): Process
+    private function background(string $command, array $env = []): Process
     {
         $process = Process::fromShellCommandline($command, base_path());
         $process->setTimeout(null);
+        $process->setEnv(array_merge($_ENV, $env));
         $process->start(function ($type, $buffer) {
             $this->output->write($buffer);
         });
@@ -153,17 +242,21 @@ class DevCommand extends Command
         return $process;
     }
 
-    private function printBanner(string $platform, string $host, string $port): void
+    private function printBanner(string $platform, string $host, string $port, bool $build = false): void
     {
         $this->newLine();
         $this->line('  <fg=magenta;options=bold>NativeBlade Dev</>');
         $this->line("  Platform:  <info>{$platform}</info>");
-        $this->line("  Host:      <info>{$host}</info>");
-        $this->line("  Port:      <info>{$port}</info>");
+        $this->line('  Mode:      <info>' . ($build ? 'built (no HMR)' : 'dev (HMR)') . '</info>');
 
-        if ($platform !== 'desktop') {
-            $this->line("  Dev URL:   <info>http://{$host}:{$port}</info>");
-            $this->line('  <fg=yellow>Device must be on the same WiFi network</>');
+        if (!$build) {
+            $this->line("  Host:      <info>{$host}</info>");
+            $this->line("  Port:      <info>{$port}</info>");
+
+            if ($platform !== 'desktop') {
+                $this->line("  Dev URL:   <info>http://{$host}:{$port}</info>");
+                $this->line('  <fg=yellow>Device must be on the same WiFi network</>');
+            }
         }
 
         $this->newLine();

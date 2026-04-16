@@ -1,55 +1,70 @@
 import { readFileSync, writeFileSync, statSync, readdirSync, mkdirSync, existsSync } from 'fs';
 import { join, relative, extname, resolve } from 'path';
 import { execSync } from 'child_process';
+import { gzipSync } from 'zlib';
 
 const ROOT = process.argv[2] || process.cwd();
 
 try {
     execSync('composer install --no-dev --optimize-autoloader --quiet', { cwd: ROOT, stdio: 'inherit' });
 } catch {}
+
 const OUTPUT = join(ROOT, 'public', 'laravel-bundle.json');
+const OUTPUT_GZ = OUTPUT + '.gz';
+
+const envPath = join(ROOT, '.env');
+let activeLocales = new Set(['en']);
+try {
+    const envContent = readFileSync(envPath, 'utf-8');
+    const m1 = envContent.match(/^APP_LOCALE=(\S+)/m);
+    const m2 = envContent.match(/^APP_FALLBACK_LOCALE=(\S+)/m);
+    if (m1) activeLocales.add(m1[1].replace(/['"]/g, ''));
+    if (m2) activeLocales.add(m2[1].replace(/['"]/g, ''));
+} catch {}
+
+const localeList = [...activeLocales];
+console.log(`Keeping locales: ${localeList.join(', ')}`);
 
 const INCLUDE_DIRS = [
-    'app',
-    'bootstrap',
-    'config',
-    'database/migrations',
-    'lang',
-    'resources/views',
-    'public',
-    'routes',
-    'nativeblade-components',
-    'vendor',
+    'app', 'bootstrap', 'config', 'database/migrations', 'lang',
+    'resources/views', 'public', 'routes', 'nativeblade-components', 'vendor',
 ];
 
-const INCLUDE_FILES = [
-    '.env',
-    'artisan',
-    'composer.json',
-];
+const INCLUDE_FILES = ['.env', 'artisan', 'composer.json'];
 
 const EXCLUDE_PATTERNS = [
     /\/tests?\//i,
-    /\/test\//i,
     /\/Tests?\//i,
     /\/docs?\//i,
     /\/examples?\//i,
     /\/fixtures?\//i,
     /\/stubs?\//i,
+    /\/benchmarks?\//i,
     /\/phpunit/i,
     /\/phpstan/i,
     /\/psalm/i,
     /\/pint/i,
     /\/rector/i,
+    /\/infection/i,
     /\/CHANGELOG/i,
     /\/UPGRADE/i,
     /\/CONTRIBUTING/i,
+    /\/AUTHORS/,
+    /\/SECURITY(\.md)?$/i,
+    /\/CODE_OF_CONDUCT/i,
     /\/\.github\//,
     /\/\.git\//,
+    /\/\.idea\//,
     /\/node_modules\//,
+    /\/vendor\/bin\//,
+    /\/vendor\/nativeblade\/nativeblade\/(js|rust|resources\/js)\//,
     /\/storage\/framework\/views\//,
+    /\/storage\/framework\/cache\//,
+    /\/storage\/framework\/sessions\//,
     /\/storage\/logs\//,
     /platform_check\.php$/,
+    /\.ide-helper\.php$/,
+    /\.phpstorm\.meta\.php$/,
 ];
 
 const EXCLUDE_EXTENSIONS = [
@@ -65,10 +80,27 @@ const MIME_TYPES = {
     '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
 };
 
-const ALWAYS_INCLUDE = [
-    /composer\.json$/,
-    /autoload.*\.php$/,
-];
+const ALWAYS_INCLUDE = [/composer\.json$/, /autoload.*\.php$/];
+
+function isLocaleFileToSkip(rel) {
+    // Carbon: vendor/nesbot/carbon/src/Carbon/Lang/<locale>.php
+    const carbonMatch = rel.match(/vendor\/nesbot\/carbon\/src\/Carbon\/Lang\/([^\/]+?)\.php$/);
+    if (carbonMatch) {
+        const locale = carbonMatch[1];
+        if (!localeList.some(l => locale === l || locale.startsWith(l + '_') || l.startsWith(locale + '_'))) {
+            return true;
+        }
+    }
+    // Symfony translations: vendor/symfony/*/Resources/translations/messages.<locale>.xlf
+    const symfonyMatch = rel.match(/vendor\/symfony\/[^\/]+\/Resources\/translations\/[^\/]+\.([^.]+)\.(xlf|yaml|yml|php)$/);
+    if (symfonyMatch) {
+        const locale = symfonyMatch[1];
+        if (!localeList.some(l => locale === l || locale.startsWith(l + '_') || l.startsWith(locale + '_'))) {
+            return true;
+        }
+    }
+    return false;
+}
 
 function shouldInclude(filePath) {
     const rel = relative(ROOT, filePath).replace(/\\/g, '/');
@@ -80,6 +112,8 @@ function shouldInclude(filePath) {
     for (const pattern of EXCLUDE_PATTERNS) {
         if (pattern.test('/' + rel + '/')) return false;
     }
+
+    if (isLocaleFileToSkip(rel)) return false;
 
     const ext = extname(filePath).toLowerCase();
     if (EXCLUDE_EXTENSIONS.includes(ext)) return false;
@@ -114,15 +148,29 @@ function collectFiles(dir, files = [], virtualBase = null) {
 
 console.log('Bundling Laravel files...');
 const bundle = {};
+const sizeByPackage = {};
 let totalSize = 0;
 let fileCount = 0;
+
+function track(rel, size) {
+    let key = 'app';
+    const m = rel.match(/^\/vendor\/([^\/]+\/[^\/]+)/);
+    if (m) key = m[1];
+    else {
+        const topMatch = rel.match(/^\/([^\/]+)/);
+        if (topMatch) key = topMatch[1];
+    }
+    sizeByPackage[key] = (sizeByPackage[key] || 0) + size;
+}
 
 for (const file of INCLUDE_FILES) {
     const fullPath = join(ROOT, file);
     try {
         const content = readFileSync(fullPath, 'utf-8');
-        bundle['/' + file] = content;
+        const rel = '/' + file;
+        bundle[rel] = content;
         totalSize += content.length;
+        track(rel, content.length);
         fileCount++;
     } catch {}
 }
@@ -136,14 +184,17 @@ for (const dir of INCLUDE_DIRS) {
             const stat = statSync(real);
             if (stat.size > 2000000) continue;
             const ext = extname(real).toLowerCase();
+            let content;
             if (BINARY_EXTENSIONS.includes(ext)) {
                 const mime = MIME_TYPES[ext] || 'application/octet-stream';
                 const b64 = readFileSync(real).toString('base64');
-                bundle[rel] = `data:${mime};base64,${b64}`;
+                content = `data:${mime};base64,${b64}`;
             } else {
-                bundle[rel] = readFileSync(real, 'utf-8');
+                content = readFileSync(real, 'utf-8');
             }
-            totalSize += (bundle[rel] || '').length;
+            bundle[rel] = content;
+            totalSize += content.length;
+            track(rel, content.length);
             fileCount++;
         } catch {}
     }
@@ -151,6 +202,9 @@ for (const dir of INCLUDE_DIRS) {
 
 const json = JSON.stringify(bundle);
 writeFileSync(OUTPUT, json);
+
+const gz = gzipSync(json, { level: 9 });
+writeFileSync(OUTPUT_GZ, gz);
 
 try {
     const envContent = readFileSync(join(ROOT, '.env'), 'utf-8');
@@ -166,6 +220,16 @@ try {
 } catch {}
 
 const sizeMB = (Buffer.byteLength(json) / 1024 / 1024).toFixed(2);
+const sizeGzMB = (gz.length / 1024 / 1024).toFixed(2);
 console.log(`Files: ${fileCount}`);
-console.log(`Bundle size: ${sizeMB} MB`);
+console.log(`Bundle size:    ${sizeMB} MB  (JSON)`);
+console.log(`Bundle size:    ${sizeGzMB} MB  (gzip)`);
 console.log(`Output: ${OUTPUT}`);
+console.log(`Output: ${OUTPUT_GZ}`);
+
+const top = Object.entries(sizeByPackage).sort((a, b) => b[1] - a[1]).slice(0, 10);
+console.log('\nTop 10 by size:');
+for (const [pkg, size] of top) {
+    const mb = (size / 1024 / 1024).toFixed(2);
+    console.log(`  ${mb.padStart(6)} MB  ${pkg}`);
+}

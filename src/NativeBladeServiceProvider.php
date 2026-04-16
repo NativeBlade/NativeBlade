@@ -12,12 +12,16 @@ use League\Flysystem\Filesystem;
 
 class NativeBladeServiceProvider extends ServiceProvider
 {
+    private const ASSET_CACHE_MAX = 128;
+
+    /** @var array<string, string> */
+    private static array $assetCache = [];
+
     public function register(): void
     {
         $this->app->singleton('nativeblade', function () {
             return new ShellConfig();
         });
-
     }
 
     public function boot(): void
@@ -57,22 +61,29 @@ class NativeBladeServiceProvider extends ServiceProvider
 
     private function patchWasmRequest(): void
     {
-        if (isset($GLOBALS['__wasm_request_body'])) {
-            $body = $GLOBALS['__wasm_request_body'];
-            $request = $this->app['request'];
+        if (!isset($GLOBALS['__wasm_request_body'])) {
+            return;
+        }
 
-            $contentType = $request->header('Content-Type', '');
+        $body = $GLOBALS['__wasm_request_body'];
+        $request = $this->app['request'];
+        $contentType = $request->header('Content-Type', '');
 
-            if (str_contains($contentType, 'application/json')) {
-                $data = json_decode($body, true) ?: [];
-                $request->merge($data);
-                $request->setJson(new \Symfony\Component\HttpFoundation\InputBag($data));
-            }
+        if (str_contains($contentType, 'application/json')) {
+            $data = json_decode($body, true) ?: [];
+            $request->merge($data);
+            $request->setJson(new \Symfony\Component\HttpFoundation\InputBag($data));
+        }
 
+        try {
             $reflection = new \ReflectionClass($request);
-            $contentProp = $reflection->getProperty('content');
-            $contentProp->setAccessible(true);
-            $contentProp->setValue($request, $body);
+            if ($reflection->hasProperty('content')) {
+                $contentProp = $reflection->getProperty('content');
+                $contentProp->setAccessible(true);
+                $contentProp->setValue($request, $body);
+            }
+        } catch (\Throwable $e) {
+            @fwrite(STDERR, '[NativeBlade] patchWasmRequest: ' . $e->getMessage() . "\n");
         }
     }
 
@@ -115,9 +126,6 @@ class NativeBladeServiceProvider extends ServiceProvider
         Blade::component('nativeblade-font', Components\NbFont::class);
     }
 
-
-    private static array $assetCache = [];
-
     public static function assetToDataUri(string $file): string
     {
         if (isset(self::$assetCache[$file])) {
@@ -130,8 +138,7 @@ class NativeBladeServiceProvider extends ServiceProvider
         $content = file_get_contents($path);
 
         if (str_starts_with($content, 'data:')) {
-            self::$assetCache[$file] = $content;
-            return $content;
+            return self::rememberAsset($file, $content);
         }
 
         $mime = match(strtolower(pathinfo($file, PATHINFO_EXTENSION))) {
@@ -144,22 +151,36 @@ class NativeBladeServiceProvider extends ServiceProvider
             default => 'application/octet-stream',
         };
 
-        $result = 'data:' . $mime . ';base64,' . base64_encode($content);
-        self::$assetCache[$file] = $result;
-        return $result;
+        return self::rememberAsset($file, 'data:' . $mime . ';base64,' . base64_encode($content));
+    }
+
+    private static function rememberAsset(string $file, string $value): string
+    {
+        if (count(self::$assetCache) >= self::ASSET_CACHE_MAX) {
+            array_shift(self::$assetCache);
+        }
+        self::$assetCache[$file] = $value;
+        return $value;
     }
 
     private function syncClock(): void
     {
         $realTs = $_SERVER['NATIVEBLADE_TIMESTAMP'] ?? null;
-        if ($realTs) {
-            $real = \Carbon\Carbon::createFromTimestamp((int) $realTs);
-            \Carbon\Carbon::setTestNow($real);
+        if (!$realTs) {
+            return;
         }
+
+        \Illuminate\Support\Facades\Date::setTestNow(
+            \Carbon\CarbonImmutable::createFromTimestamp((float) $realTs)
+        );
     }
 
     private function registerScheduleRoute(): void
     {
+        if (!$this->isWasmRuntime()) {
+            return;
+        }
+
         \Illuminate\Support\Facades\Route::get('/__nb/schedule/{name}', function (string $name) {
             $ran = Schedule\ScheduleRunner::runByName($name);
             return response()->json(['ran' => $ran]);
@@ -176,25 +197,27 @@ class NativeBladeServiceProvider extends ServiceProvider
 
     private function registerPushRoutes(): void
     {
-        \Illuminate\Support\Facades\Route::post('/_nativeblade/push', function () {
-            $raw = $this->readJsonBody();
-            $payload = Plugins\PushPayload::fromArray($raw);
+        if (!$this->isWasmRuntime()) {
+            return;
+        }
 
+        $readJsonBody = fn(): array => $this->readJsonBody();
+        $skipCsrf = [\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class];
+
+        \Illuminate\Support\Facades\Route::post('/_nativeblade/push', function () use ($readJsonBody) {
+            $payload = Plugins\PushPayload::fromArray($readJsonBody());
             $result = Plugins\PushRegistry::handleReceive($payload);
 
             if ($result instanceof NativeResponse) {
                 return $result->toResponse() ?? response()->json(['ok' => true]);
             }
-
             return response()->json(['ok' => true]);
-        });
+        })->withoutMiddleware($skipCsrf);
 
-        \Illuminate\Support\Facades\Route::post('/_nativeblade/push-token', function () {
-            $raw = $this->readJsonBody();
-            $token = (string) ($raw['token'] ?? '');
-
+        \Illuminate\Support\Facades\Route::post('/_nativeblade/push-token', function () use ($readJsonBody) {
+            $token = (string) ($readJsonBody()['token'] ?? '');
             if ($token === '') {
-                return response()->json(['ok' => false, 'error' => 'missing token'], 422);
+                return response()->json(['ok' => false, 'error' => 'invalid token'], 422);
             }
 
             $result = Plugins\PushRegistry::handleTokenRefresh($token);
@@ -202,9 +225,8 @@ class NativeBladeServiceProvider extends ServiceProvider
             if ($result instanceof NativeResponse) {
                 return $result->toResponse() ?? response()->json(['ok' => true]);
             }
-
             return response()->json(['ok' => true]);
-        });
+        })->withoutMiddleware($skipCsrf);
     }
 
     /**
@@ -236,19 +258,6 @@ class NativeBladeServiceProvider extends ServiceProvider
             $adapter = new \NativeBlade\Storage\NativeFilesystemAdapter($config['purpose'] ?? 'app');
             return new FilesystemAdapter(new Filesystem($adapter), $adapter, $config);
         });
-    }
-
-    private function runMigrations(): void
-    {
-        try {
-            $migrator = app('migrator');
-            $migrator->usingConnection('sqlite', function () use ($migrator) {
-                if (!$migrator->repositoryExists()) {
-                    $migrator->getRepository()->createRepository();
-                }
-                $migrator->run(database_path('migrations'));
-            });
-        } catch (\Throwable) {}
     }
 
     private function registerViewComposer(): void
@@ -328,6 +337,32 @@ class NativeBladeServiceProvider extends ServiceProvider
                         config(["nativeblade.package_js.{$name}" => $fullPath]);
                     }
                 }
+            }
+        }
+    }
+
+    private function runMigrations(): void
+    {
+        try {
+            $migrator = app('migrator');
+            $migrator->usingConnection('sqlite', function () use ($migrator) {
+                if (!$migrator->repositoryExists()) {
+                    $migrator->getRepository()->createRepository();
+                }
+                $migrator->run(database_path('migrations'));
+            });
+        } catch (\Throwable $e) {
+            try {
+                \Illuminate\Support\Facades\Log::error('[NativeBlade] migration failure', [
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ]);
+            } catch (\Throwable) {
+                @fwrite(STDERR, '[NativeBlade] migration failure: ' . $e->getMessage() . "\n");
+            }
+            if (config('app.debug')) {
+                throw $e;
             }
         }
     }

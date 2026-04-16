@@ -14,6 +14,7 @@ class WasmHttpHandler
 
     private static bool $poolMode = false;
     private static array $pendingRequests = [];
+    private static int $requestIndex = 0;
 
     public static function enablePool(): void
     {
@@ -52,7 +53,9 @@ class WasmHttpHandler
         }
         $body = (string) $request->getBody();
 
-        $key = md5($method . $url . $body);
+        ksort($headers);
+        $key = md5($method . '|' . $url . '|' . json_encode($headers) . '|' . $body . '|' . self::$requestIndex);
+        self::$requestIndex++;
         $cachePath = self::CACHE_DIR . '/' . $key . '.json';
 
         if (file_exists($cachePath)) {

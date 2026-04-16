@@ -1,11 +1,24 @@
 const PENDING_PATH = '/tmp/__nb_db_pending.json';
 const CACHE_DIR = '/tmp/__nb_db_cache';
+// Hard cap on re-executions within a single request. The md5(type+sql+index)
+// cache key assumes deterministic query ordering across PHP reboots; any
+// non-determinism would otherwise loop forever. Mirrors http-bridge.js.
+const MAX_RETRIES = 20;
+
+let retryCount = 0;
 
 export async function hasPendingRequest(php, output) {
     return typeof output === 'string' && output.includes('__NB_DB_PENDING__');
 }
 
 export async function fulfill(php) {
+    if (retryCount >= MAX_RETRIES) {
+        console.warn('[NativeBlade] db bridge: MAX_RETRIES reached, giving up to avoid infinite loop');
+        cleanup(php);
+        return false;
+    }
+    retryCount++;
+
     try {
         const pendingList = JSON.parse(php.readFileAsText(PENDING_PATH));
         if (!Array.isArray(pendingList) || pendingList.length === 0) {
@@ -44,10 +57,12 @@ export async function fulfill(php) {
 }
 
 export function done(php) {
+    retryCount = 0;
     clearCache(php);
 }
 
 function cleanup(php) {
+    retryCount = 0;
     try { php.unlink(PENDING_PATH); } catch {}
     clearCache(php);
 }

@@ -42,23 +42,43 @@ export async function fulfill(php) {
             const body = await response.text();
 
             return {
-                key: pending.key,
-                data: {
-                    status: response.status,
-                    headers: Object.fromEntries(response.headers.entries()),
-                    body,
-                },
+                status: response.status,
+                headers: Object.fromEntries(response.headers.entries()),
+                body,
             };
         });
 
-        const results = await Promise.all(fetches);
+        const settled = await Promise.allSettled(fetches);
+
+        const allAborted = settled.every(r =>
+            r.status === 'rejected' && r.reason && r.reason.name === 'AbortError'
+        );
+        if (allAborted) {
+            abortController = null;
+            return false;
+        }
 
         try { php.mkdirTree(CACHE_DIR); } catch {}
-        for (const { key, data } of results) {
-            php.writeFile(`${CACHE_DIR}/${key}.json`, JSON.stringify(data));
-        }
-        try { php.unlink(PENDING_PATH); } catch {}
 
+        for (let i = 0; i < settled.length; i++) {
+            const pending = pendingList[i];
+            const res = settled[i];
+
+            if (res.status === 'fulfilled') {
+                php.writeFile(`${CACHE_DIR}/${pending.key}.json`, JSON.stringify(res.value));
+            } else if (res.reason && res.reason.name === 'AbortError') {
+                continue;
+            } else {
+                php.writeFile(`${CACHE_DIR}/${pending.key}.json`, JSON.stringify({
+                    status: 0,
+                    headers: {},
+                    body: '',
+                    error: (res.reason && res.reason.message) || String(res.reason),
+                }));
+            }
+        }
+
+        try { php.unlink(PENDING_PATH); } catch {}
         abortController = null;
         return true;
     } catch (err) {

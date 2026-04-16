@@ -39,6 +39,7 @@ NativeBlade lets Laravel developers build **desktop** and **mobile** apps using 
 ## Features
 
 - **Pure Laravel** — Routes, Livewire components, Blade templates, Eloquent (SQLite)
+- **Tiny Bundle** — A full Laravel + Livewire app compresses to **~6 MB gzipped** (see [BUILD.md](BUILD.md#bundle-size--the-absurd-part))
 - **Native Shell** — Top bar, bottom navigation, drawer, modal, tray — all outside the WebView
 - **Native APIs** — Dialogs, notifications, camera, geolocation, haptics, biometric, NFC, barcode
 - **Desktop** — Windows, macOS, Linux with native menus and system tray
@@ -46,7 +47,7 @@ NativeBlade lets Laravel developers build **desktop** and **mobile** apps using 
 - **Push Notifications** — Server-pushed notifications via FCM (Android) and APNS (iOS) that wake the app even when closed
 - **Animations** — 90+ [Animate.css](https://animate.style/) animations + custom NativeBlade animations via `nb-animation` attribute
 - **Offline-First** — SQLite persisted to IndexedDB, works without a server
-- **Hot Reload** — Vite HMR for instant feedback during development
+- **Hot Reload** — Vite HMR for instant feedback during development, plus `--build` mode to preview the production bundle locally
 - **Icons** — 3,024 [Phosphor Icons](https://phosphoricons.com/) (regular + fill) included
 - **Custom Fonts** — Offline font loading via base64 embedding
 - **Page Transitions** — Fade, slide, zoom, flip, bounce, blur — powered by Animate.css
@@ -98,6 +99,18 @@ php artisan nativeblade:dev --platform=ios --host=192.168.0.10
 ```
 
 > **Mobile requires `--host=<your-local-ip>`** so the device/emulator can reach the Vite dev server running on your machine. Replace `192.168.0.10` with your computer's LAN IP (find it with `ipconfig` on Windows or `ifconfig` / `ip addr` on macOS/Linux). `localhost` won't work because the phone can't reach your machine through it.
+
+### Preview the Production Bundle
+
+Test the exact bundle that will ship — without the Vite dev server and without running a full `nativeblade:build`:
+
+```bash
+php artisan nativeblade:dev --build
+php artisan nativeblade:dev --platform=android --build
+php artisan nativeblade:dev --platform=ios --build
+```
+
+Builds the frontend once, points Tauri at `dist-wasm/`, and launches the app. Ideal for validating the real production payload or iterating on Rust/native shell without HMR in the way. See [BUILD.md](BUILD.md#production-preview---build).
 
 ## How It Works
 
@@ -308,6 +321,7 @@ $responses = NativeBlade::pool(fn ($pool) => [
 | **Language** | PHP + Blade | JavaScript | JavaScript | Dart |
 | **Backend** | Built-in (Laravel) | Separate | Separate | Separate |
 | **Binary Size** | ~15 MB | ~150 MB | ~30 MB | ~20 MB |
+| **App Bundle** | ~6 MB gzip (full Laravel) | — | — | — |
 | **Learning Curve** | None (if you know Laravel) | Medium | High | High |
 | **Native UI** | Shell + WebView | WebView only | Native | Custom rendering |
 | **Offline** | Yes (WASM + IndexedDB) | Manual | Manual | Manual |
