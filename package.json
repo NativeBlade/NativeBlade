@@ -1,6 +1,10 @@
 {
   "private": true,
   "type": "module",
+  "scripts": {
+    "test": "node --test \"tests/js/**/*.test.js\"",
+    "test:watch": "node --test --watch \"tests/js/**/*.test.js\""
+  },
   "devDependencies": {
     "@phosphor-icons/core": "^2.1.1"
   }

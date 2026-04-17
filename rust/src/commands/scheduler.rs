@@ -100,3 +100,90 @@ async fn schedule_loop(app: AppHandle, entry: ScheduleEntry) {
         last_fired = Some(next);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ---------------- ScheduleEntry serde ----------------
+
+    #[test]
+    fn schedule_entry_deserializes_with_camelcase_last_run() {
+        let json = r#"{"name":"cleanup","cron":"*/5 * * * *","lastRun":1700000000}"#;
+        let entry: ScheduleEntry = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(entry.name, "cleanup");
+        assert_eq!(entry.cron, "*/5 * * * *");
+        assert_eq!(entry.last_run, Some(1700000000));
+    }
+
+    #[test]
+    fn schedule_entry_accepts_null_last_run() {
+        let json = r#"{"name":"n","cron":"* * * * *","lastRun":null}"#;
+        let entry: ScheduleEntry = serde_json::from_str(json).unwrap();
+        assert!(entry.last_run.is_none());
+    }
+
+    #[test]
+    fn schedule_entry_rejects_snake_case_last_run_field() {
+        // Without #[serde(default)] or an alias, the snake_case form is a foreign field.
+        // Since lastRun is Option, serde allows missing; so "last_run" is simply ignored
+        // and last_run defaults to None. This test pins that behavior.
+        let json = r#"{"name":"n","cron":"* * * * *","last_run":123}"#;
+        let entry: ScheduleEntry = serde_json::from_str(json).unwrap();
+        assert_eq!(entry.last_run, None, "snake_case key must not populate last_run");
+    }
+
+    #[test]
+    fn schedule_entry_requires_name_and_cron() {
+        // Missing "cron" → error.
+        let res: Result<ScheduleEntry, _> = serde_json::from_str(r#"{"name":"only"}"#);
+        assert!(res.is_err());
+    }
+
+    // ---------------- ScheduleEvent serde ----------------
+
+    #[test]
+    fn schedule_event_serializes_to_json_with_name_field() {
+        let ev = ScheduleEvent { name: "nightly".into() };
+        let s = serde_json::to_string(&ev).unwrap();
+        assert_eq!(s, r#"{"name":"nightly"}"#);
+    }
+
+    // ---------------- SchedulerState ----------------
+
+    #[test]
+    fn scheduler_state_new_starts_with_empty_handles_vec() {
+        let s = SchedulerState::new();
+        let handles = s.handles.lock().unwrap();
+        assert!(handles.is_empty());
+    }
+
+    // ---------------- Cron parsing (croner smoke) ----------------
+    //
+    // schedule_loop bails early on invalid cron. Smoke-test the parser so we
+    // notice immediately if an upstream change breaks the cron format we rely on.
+
+    #[test]
+    fn croner_parses_standard_5_field_expressions() {
+        assert!(croner::Cron::new("*/5 * * * *").parse().is_ok());
+        assert!(croner::Cron::new("0 * * * *").parse().is_ok());
+        assert!(croner::Cron::new("0 2 * * *").parse().is_ok());
+    }
+
+    #[test]
+    fn croner_rejects_obviously_malformed_cron_strings() {
+        // Wrong number of fields plus nonsense tokens — must not parse.
+        assert!(croner::Cron::new("this is not cron").parse().is_err());
+    }
+
+    #[test]
+    fn croner_iter_after_produces_monotonic_future_times() {
+        let cron = croner::Cron::new("* * * * *").parse().unwrap();
+        let now = chrono::Utc::now();
+        let next: Vec<_> = cron.iter_after(now).take(3).collect();
+        assert_eq!(next.len(), 3);
+        assert!(next[0] > now);
+        assert!(next[1] > next[0]);
+        assert!(next[2] > next[1]);
+    }
+}

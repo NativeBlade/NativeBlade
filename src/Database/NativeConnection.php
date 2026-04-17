@@ -233,6 +233,17 @@ class NativeConnection extends Connection
                 $config['port'] ?? '3306',
                 $config['database'] ?? '',
             ),
+            // Mirror the default branches in getDefaultQueryGrammar /
+            // getDefaultPostProcessor / getDefaultSchemaGrammar — unknown
+            // drivers fall back to mysql so the constructor never blows up.
+            default => sprintf(
+                'mysql://%s:%s@%s:%s/%s',
+                $config['username'] ?? 'root',
+                $config['password'] ?? '',
+                $config['host'] ?? '127.0.0.1',
+                $config['port'] ?? '3306',
+                $config['database'] ?? '',
+            ),
         };
     }
 }

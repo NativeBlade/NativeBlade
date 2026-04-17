@@ -1,0 +1,160 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  php:
+    name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4', '8.5']
+        laravel: ['^12.0']
+        include:
+          - php: '8.3'
+            laravel: '^11.0'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, intl, dom, fileinfo, sqlite3, pdo_sqlite
+          coverage: none
+          tools: composer:v2
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ matrix.php }}-${{ matrix.laravel }}-${{ hashFiles('composer.json') }}
+          restore-keys: |
+            composer-${{ matrix.php }}-${{ matrix.laravel }}-
+            composer-${{ matrix.php }}-
+
+      - name: Install dependencies
+        run: |
+          composer require "laravel/framework:${{ matrix.laravel }}" --no-update --no-interaction
+          composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Show versions
+        run: |
+          php --version
+          composer --version
+          vendor/bin/phpunit --version
+
+      - name: Run PHPUnit
+        run: composer test
+
+  js:
+    name: JS (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Node test runner
+        run: npm test
+
+  rust:
+    name: Rust (${{ matrix.os }} / ${{ matrix.toolchain }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        toolchain: [stable]
+        # macOS/windows matrix is commented out below — enable when/if we need
+        # cross-platform CI for the Tauri commands. They take considerably
+        # longer because the Tauri deps must cold-compile from scratch.
+        # include:
+        #   - os: macos-latest
+        #     toolchain: stable
+        #   - os: windows-latest
+        #     toolchain: stable
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Tauri Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: cargo-${{ matrix.os }}-${{ matrix.toolchain }}-${{ hashFiles('rust/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ matrix.os }}-${{ matrix.toolchain }}-
+
+      - name: Show versions
+        run: |
+          rustc --version
+          cargo --version
+
+      # fmt is informational for now — the codebase hasn't been run through
+      # rustfmt end-to-end yet, so failures here would be noisy rather than
+      # useful. Flip continue-on-error to false once the tree is clean.
+      - name: cargo fmt (check, advisory)
+        working-directory: rust
+        continue-on-error: true
+        run: cargo fmt --all -- --check
+
+      - name: cargo test
+        working-directory: rust
+        run: cargo test --lib -- --nocapture

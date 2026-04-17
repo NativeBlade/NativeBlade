@@ -135,3 +135,103 @@ pub fn get_config() -> AppConfig {
         translations,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ---------------- load_env_from_string ----------------
+
+    #[test]
+    fn load_env_from_string_parses_simple_key_value_lines() {
+        let env = load_env_from_string("FOO=bar\nBAZ=qux");
+        assert_eq!(env.get("FOO"), Some(&"bar".to_string()));
+        assert_eq!(env.get("BAZ"), Some(&"qux".to_string()));
+        assert_eq!(env.len(), 2);
+    }
+
+    #[test]
+    fn load_env_from_string_skips_comment_lines() {
+        let env = load_env_from_string("# this is a comment\nFOO=bar\n#ANOTHER=ignored");
+        assert_eq!(env.get("FOO"), Some(&"bar".to_string()));
+        assert!(!env.contains_key("ANOTHER"));
+        assert_eq!(env.len(), 1);
+    }
+
+    #[test]
+    fn load_env_from_string_skips_lines_without_equals() {
+        let env = load_env_from_string("FOO=bar\nnot_a_kv_line\nBAZ=qux");
+        assert_eq!(env.len(), 2);
+        assert_eq!(env.get("FOO"), Some(&"bar".to_string()));
+        assert_eq!(env.get("BAZ"), Some(&"qux".to_string()));
+    }
+
+    #[test]
+    fn load_env_from_string_trims_whitespace_around_key_and_value() {
+        let env = load_env_from_string("  FOO  =  bar  ");
+        assert_eq!(env.get("FOO"), Some(&"bar".to_string()));
+    }
+
+    #[test]
+    fn load_env_from_string_keeps_empty_values() {
+        // splitn(2, '=') on "KEY=" yields ["KEY", ""]; trimmed val is "".
+        // We accept this — env_or's filter(!empty) handles blank values.
+        let env = load_env_from_string("EMPTY=");
+        assert_eq!(env.get("EMPTY"), Some(&"".to_string()));
+    }
+
+    #[test]
+    fn load_env_from_string_handles_equals_in_value() {
+        // splitn(2) ensures we split only on the first '='.
+        let env = load_env_from_string("URL=http://a.test?x=1&y=2");
+        assert_eq!(env.get("URL"), Some(&"http://a.test?x=1&y=2".to_string()));
+    }
+
+    #[test]
+    fn load_env_from_string_empty_returns_empty_map() {
+        let env = load_env_from_string("");
+        assert!(env.is_empty());
+    }
+
+    #[test]
+    fn load_env_from_string_drops_lines_with_empty_key() {
+        // Line "=value" → key is empty → filter_map yields None.
+        let env = load_env_from_string("=orphan\nFOO=bar");
+        assert_eq!(env.len(), 1);
+        assert_eq!(env.get("FOO"), Some(&"bar".to_string()));
+    }
+
+    // ---------------- env_or ----------------
+
+    #[test]
+    fn env_or_returns_value_when_present_and_non_empty() {
+        let mut env = HashMap::new();
+        env.insert("KEY".to_string(), "value".to_string());
+        assert_eq!(env_or(&env, "KEY", "default"), "value");
+    }
+
+    #[test]
+    fn env_or_falls_back_to_default_when_key_missing() {
+        let env = HashMap::new();
+        assert_eq!(env_or(&env, "MISSING", "fallback"), "fallback");
+    }
+
+    #[test]
+    fn env_or_falls_back_to_default_when_value_is_empty_string() {
+        // The .filter(|v| !v.is_empty()) branch — blank env vars should
+        // behave like unset ones. Matches get_config's user-facing intent.
+        let mut env = HashMap::new();
+        env.insert("KEY".to_string(), "".to_string());
+        assert_eq!(env_or(&env, "KEY", "default"), "default");
+    }
+
+    // ---------------- is_mobile ----------------
+
+    #[test]
+    fn is_mobile_returns_false_in_desktop_test_context() {
+        // Tests run on the host (desktop). cfg!(mobile) is controlled by the
+        // `mobile` custom cfg set by tauri's platform-specific builds, which
+        // is not active in our test target.
+        assert!(!is_mobile());
+    }
+}

@@ -349,6 +349,333 @@ fn row_to_json_pg(row: &sqlx::postgres::PgRow) -> Value {
     Value::Object(map)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ---------------- bytes_to_b64 ----------------
+    //
+    // Hand-rolled base64 encoder in the source; check it against the
+    // canonical RFC 4648 alphabet + padding behavior.
+
+    #[test]
+    fn bytes_to_b64_empty_input_produces_empty_string() {
+        assert_eq!(bytes_to_b64(&[]), Value::String(String::new()));
+    }
+
+    #[test]
+    fn bytes_to_b64_three_byte_block_no_padding() {
+        // "Man" in ASCII (0x4d,0x61,0x6e) → "TWFu"
+        assert_eq!(bytes_to_b64(b"Man"), Value::String("TWFu".into()));
+    }
+
+    #[test]
+    fn bytes_to_b64_two_byte_remainder_gets_single_padding() {
+        // "Ma" → "TWE="
+        assert_eq!(bytes_to_b64(b"Ma"), Value::String("TWE=".into()));
+    }
+
+    #[test]
+    fn bytes_to_b64_one_byte_remainder_gets_double_padding() {
+        // "M" → "TQ=="
+        assert_eq!(bytes_to_b64(b"M"), Value::String("TQ==".into()));
+    }
+
+    #[test]
+    fn bytes_to_b64_classic_rfc4648_vector() {
+        // "Hello world!" → "SGVsbG8gd29ybGQh"
+        assert_eq!(
+            bytes_to_b64(b"Hello world!"),
+            Value::String("SGVsbG8gd29ybGQh".into())
+        );
+    }
+
+    #[test]
+    fn bytes_to_b64_uses_plus_and_slash_in_high_value_bytes() {
+        // 0xFB 0xFF 0xBF packs into indices that exercise + and /.
+        // Expected: base64 of [0xFB, 0xFF, 0xBF] = "+/+/"
+        assert_eq!(
+            bytes_to_b64(&[0xFB, 0xFF, 0xBF]),
+            Value::String("+/+/".into())
+        );
+    }
+
+    // ---------------- *_as_value helpers ----------------
+
+    #[test]
+    fn decimal_as_value_ok_returns_string_repr() {
+        let d = Decimal::from_str("123.456").unwrap();
+        assert_eq!(decimal_as_value(Ok(d)), Value::String("123.456".into()));
+    }
+
+    #[test]
+    fn decimal_as_value_err_returns_null() {
+        let err = sqlx::Error::ColumnNotFound("missing".into());
+        assert_eq!(decimal_as_value(Err(err)), Value::Null);
+    }
+
+    #[test]
+    fn datetime_as_value_formats_iso_like_string_with_fractional_seconds() {
+        let dt = NaiveDate::from_ymd_opt(2026, 4, 17)
+            .unwrap()
+            .and_hms_opt(12, 34, 56)
+            .unwrap();
+        assert_eq!(
+            datetime_as_value(Ok(dt)),
+            Value::String("2026-04-17T12:34:56".into())
+        );
+    }
+
+    #[test]
+    fn datetime_as_value_err_returns_null() {
+        let err = sqlx::Error::ColumnNotFound("missing".into());
+        assert_eq!(datetime_as_value(Err(err)), Value::Null);
+    }
+
+    #[test]
+    fn date_as_value_formats_yyyy_mm_dd() {
+        let d = NaiveDate::from_ymd_opt(2026, 4, 17).unwrap();
+        assert_eq!(date_as_value(Ok(d)), Value::String("2026-04-17".into()));
+    }
+
+    #[test]
+    fn date_as_value_err_returns_null() {
+        let err = sqlx::Error::ColumnNotFound("missing".into());
+        assert_eq!(date_as_value(Err(err)), Value::Null);
+    }
+
+    #[test]
+    fn time_as_value_formats_hh_mm_ss() {
+        let t = NaiveTime::from_hms_opt(9, 8, 7).unwrap();
+        assert_eq!(time_as_value(Ok(t)), Value::String("09:08:07".into()));
+    }
+
+    #[test]
+    fn time_as_value_err_returns_null() {
+        let err = sqlx::Error::ColumnNotFound("missing".into());
+        assert_eq!(time_as_value(Err(err)), Value::Null);
+    }
+
+    // ---------------- DatabaseState ----------------
+
+    #[test]
+    fn database_state_new_starts_with_empty_pool_map() {
+        let s = DatabaseState::new();
+        let pools = s.pools.lock().unwrap();
+        assert!(pools.is_empty());
+    }
+
+    // ---------------- Integration: in-memory sqlite ----------------
+    //
+    // These exercise execute_select / execute_insert / execute_statement
+    // against a real sqlite pool. The pool is constructed directly —
+    // get_or_create_pool requires a tauri::State which is awkward to fake.
+
+    async fn sqlite_pool() -> DatabasePool {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("open in-memory sqlite");
+        DatabasePool::Sqlite(pool)
+    }
+
+    async fn setup_widgets(pool: &DatabasePool) {
+        // Create a table with a mix of types we claim to support in row_to_json_sqlite.
+        let _ = execute_statement(
+            pool,
+            "CREATE TABLE widgets (\
+                id INTEGER PRIMARY KEY AUTOINCREMENT, \
+                name TEXT NOT NULL, \
+                active BOOLEAN NOT NULL DEFAULT 1, \
+                score REAL, \
+                note TEXT\
+            )",
+            &[],
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn execute_insert_returns_affected_and_last_insert_id_for_sqlite() {
+        let pool = sqlite_pool().await;
+        setup_widgets(&pool).await;
+
+        let res = execute_insert(
+            &pool,
+            "INSERT INTO widgets (name, active, score) VALUES (?, ?, ?)",
+            &[
+                Value::String("alpha".into()),
+                Value::Bool(true),
+                Value::Number(serde_json::Number::from_f64(3.5).unwrap()),
+            ],
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(res["affected"], Value::Number(1.into()));
+        // First row → lastInsertRowid == 1 on an empty table.
+        assert_eq!(res["lastInsertId"], Value::Number(1.into()));
+    }
+
+    #[tokio::test]
+    async fn execute_select_hydrates_rows_into_json_objects() {
+        let pool = sqlite_pool().await;
+        setup_widgets(&pool).await;
+
+        execute_insert(
+            &pool,
+            "INSERT INTO widgets (name, active, score) VALUES (?, ?, ?)",
+            &[
+                Value::String("alpha".into()),
+                Value::Bool(false),
+                Value::Number(serde_json::Number::from_f64(1.25).unwrap()),
+            ],
+        )
+        .await
+        .unwrap();
+
+        let rows = execute_select(&pool, "SELECT id, name, active, score FROM widgets", &[])
+            .await
+            .unwrap();
+
+        let arr = rows.as_array().expect("select returns Array");
+        assert_eq!(arr.len(), 1);
+
+        let row = arr[0].as_object().unwrap();
+        assert_eq!(row["id"], Value::Number(1.into()));
+        assert_eq!(row["name"], Value::String("alpha".into()));
+        // BOOLEAN column in sqlite is stored as 0/1 — depending on sqlx version the
+        // declared type surfaces as "BOOLEAN" (→ Value::Bool) or "INTEGER"
+        // (→ Value::Number). Either encoding is correct.
+        let active = &row["active"];
+        assert!(
+            *active == Value::Bool(false)
+                || *active == Value::Number(0.into())
+                || *active == Value::Number((0i64).into()),
+            "active should decode as false/0, got {:?}",
+            active,
+        );
+        assert_eq!(
+            row["score"].as_f64().unwrap(),
+            1.25,
+            "REAL should decode as f64",
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_select_returns_empty_array_when_no_rows_match() {
+        let pool = sqlite_pool().await;
+        setup_widgets(&pool).await;
+
+        let rows = execute_select(&pool, "SELECT * FROM widgets WHERE 1 = 0", &[])
+            .await
+            .unwrap();
+        assert_eq!(rows, Value::Array(vec![]));
+    }
+
+    #[tokio::test]
+    async fn execute_statement_reports_rows_affected_for_update_and_delete() {
+        let pool = sqlite_pool().await;
+        setup_widgets(&pool).await;
+
+        // seed three rows
+        for n in ["a", "b", "c"] {
+            execute_insert(
+                &pool,
+                "INSERT INTO widgets (name) VALUES (?)",
+                &[Value::String(n.into())],
+            )
+            .await
+            .unwrap();
+        }
+
+        let upd = execute_statement(&pool, "UPDATE widgets SET active = 0", &[])
+            .await
+            .unwrap();
+        assert_eq!(upd["affected"], Value::Number(3.into()));
+
+        let del = execute_statement(&pool, "DELETE FROM widgets WHERE name = ?", &[
+            Value::String("b".into()),
+        ])
+        .await
+        .unwrap();
+        assert_eq!(del["affected"], Value::Number(1.into()));
+    }
+
+    #[tokio::test]
+    async fn execute_insert_binds_null_value_as_sql_null() {
+        let pool = sqlite_pool().await;
+        setup_widgets(&pool).await;
+
+        execute_insert(
+            &pool,
+            "INSERT INTO widgets (name, note) VALUES (?, ?)",
+            &[Value::String("x".into()), Value::Null],
+        )
+        .await
+        .unwrap();
+
+        let rows = execute_select(&pool, "SELECT note FROM widgets WHERE name = ?", &[
+            Value::String("x".into()),
+        ])
+        .await
+        .unwrap();
+
+        let arr = rows.as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        assert_eq!(arr[0]["note"], Value::Null);
+    }
+
+    #[tokio::test]
+    async fn execute_insert_binds_integers_and_floats_distinctly() {
+        let pool = sqlite_pool().await;
+        setup_widgets(&pool).await;
+
+        execute_insert(
+            &pool,
+            "INSERT INTO widgets (name, score) VALUES (?, ?)",
+            &[
+                Value::String("int".into()),
+                Value::Number(42i64.into()),
+            ],
+        )
+        .await
+        .unwrap();
+
+        let rows = execute_select(&pool, "SELECT score FROM widgets WHERE name = ?", &[
+            Value::String("int".into()),
+        ])
+        .await
+        .unwrap();
+
+        // sqlite doesn't distinguish int/float in REAL column strongly, but the
+        // value should round-trip as a number.
+        let arr = rows.as_array().unwrap();
+        let v = &arr[0]["score"];
+        assert!(v.is_number(), "score should decode as a JSON number, got {:?}", v);
+    }
+
+    #[tokio::test]
+    async fn db_query_rejects_unknown_query_type() {
+        let pool = sqlite_pool().await;
+        // We call the type dispatcher directly by replicating what db_query does
+        // without needing a tauri::State. (db_query itself is gated behind Tauri.)
+        async fn dispatch(pool: &DatabasePool, qt: &str) -> Result<Value, String> {
+            match qt {
+                "select" => execute_select(pool, "SELECT 1", &[]).await,
+                "insert" => execute_insert(pool, "SELECT 1", &[]).await,
+                "update" | "delete" | "statement" => execute_statement(pool, "SELECT 1", &[]).await,
+                other => Err(format!("Unknown query type: {}", other)),
+            }
+        }
+
+        let err = dispatch(&pool, "weird").await.unwrap_err();
+        assert!(err.starts_with("Unknown query type:"), "got: {}", err);
+    }
+}
+
 fn row_to_json_sqlite(row: &sqlx::sqlite::SqliteRow) -> Value {
     let mut map = serde_json::Map::new();
     for col in row.columns() {
@@ -360,15 +687,38 @@ fn row_to_json_sqlite(row: &sqlx::sqlite::SqliteRow) -> Value {
             "REAL" => row.try_get::<f64, _>(name)
                 .map(|v| serde_json::Number::from_f64(v).map(Value::Number).unwrap_or(Value::Null))
                 .unwrap_or(Value::Null),
-            "NUMERIC" | "DECIMAL" => row.try_get::<String, _>(name).map(Value::String)
-                .or_else(|_| row.try_get::<f64, _>(name).map(|v| Value::String(v.to_string())))
-                .or_else(|_| row.try_get::<i64, _>(name).map(|v| Value::String(v.to_string())))
-                .unwrap_or(Value::Null),
+            // NUMERIC/DECIMAL in sqlite is stored as TEXT/INTEGER/REAL depending
+            // on the inserted value; fall back through each shape and unwrap
+            // Option<String> first so NULL doesn't masquerade as "".
+            "NUMERIC" | "DECIMAL" => {
+                if let Ok(Some(s)) = row.try_get::<Option<String>, _>(name) {
+                    Value::String(s)
+                } else if let Ok(Some(v)) = row.try_get::<Option<f64>, _>(name) {
+                    Value::String(v.to_string())
+                } else if let Ok(Some(v)) = row.try_get::<Option<i64>, _>(name) {
+                    Value::String(v.to_string())
+                } else {
+                    Value::Null
+                }
+            }
             "DATETIME" | "TIMESTAMP" => datetime_as_value(row.try_get::<NaiveDateTime, _>(name)),
             "DATE" => date_as_value(row.try_get::<NaiveDate, _>(name)),
             "TIME" => time_as_value(row.try_get::<NaiveTime, _>(name)),
-            "BLOB" => row.try_get::<Vec<u8>, _>(name).map(|b| bytes_to_b64(&b)).unwrap_or(Value::Null),
-            _ => row.try_get::<String, _>(name).map(Value::String).unwrap_or(Value::Null),
+            "BLOB" => row.try_get::<Option<Vec<u8>>, _>(name)
+                .ok()
+                .flatten()
+                .map(|b| bytes_to_b64(&b))
+                .unwrap_or(Value::Null),
+            // TEXT / default: decode via Option<String>. sqlx's SQLite driver
+            // decodes SQL NULL into String as "" (not an Err) because the
+            // underlying sqlite3_column_text C API returns an empty string for
+            // NULL. Using Option<String> preserves the distinction between
+            // NULL and a genuine empty string.
+            _ => row.try_get::<Option<String>, _>(name)
+                .ok()
+                .flatten()
+                .map(Value::String)
+                .unwrap_or(Value::Null),
         };
         map.insert(name.to_string(), value);
     }

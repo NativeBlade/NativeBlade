@@ -11,6 +11,11 @@
             "src/helpers.php"
         ]
     },
+    "autoload-dev": {
+        "psr-4": {
+            "NativeBlade\\Tests\\": "tests/"
+        }
+    },
     "extra": {
         "laravel": {
             "providers": [
@@ -24,5 +29,14 @@
     "require": {
         "php": "8.3.*|8.4.*|8.5.*",
         "laravel/framework": "^11.0|^12.0|^13.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0|^12.0",
+        "orchestra/testbench": "^9.0|^10.0",
+        "livewire/livewire": "^3.0"
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "test:coverage": "vendor/bin/phpunit --coverage-text"
     }
 }
