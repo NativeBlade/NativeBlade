@@ -80,7 +80,11 @@ class WasmHttpHandler
 
         if (self::$poolMode) {
             self::$pendingRequests[] = $pending;
-            return new FulfilledPromise(new Response(0, [], ''));
+            // Placeholder response — the process exits(0) inside flushPool() and
+            // Tauri replays the pool with cache files populated, so this value
+            // is never actually observed by userland. Status must be 100-599
+            // per PSR-7 (guzzlehttp/psr7 >= 2.8 validates this).
+            return new FulfilledPromise(new Response(200, [], ''));
         }
 
         // Single request mode

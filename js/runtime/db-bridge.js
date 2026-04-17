@@ -1,11 +1,12 @@
 const PENDING_PATH = '/tmp/__nb_db_pending.json';
 const CACHE_DIR = '/tmp/__nb_db_cache';
-// Hard cap on re-executions within a single request. The md5(type+sql+index)
-// cache key assumes deterministic query ordering across PHP reboots; any
-// non-determinism would otherwise loop forever. Mirrors http-bridge.js.
 const MAX_RETRIES = 20;
 
 let retryCount = 0;
+
+let _invokeOverride = null;
+export function __setInvokeForTests(fn) { _invokeOverride = fn; }
+export function __resetForTests() { retryCount = 0; _invokeOverride = null; }
 
 export async function hasPendingRequest(php, output) {
     return typeof output === 'string' && output.includes('__NB_DB_PENDING__');
@@ -28,7 +29,7 @@ export async function fulfill(php) {
 
         try { php.mkdirTree(CACHE_DIR); } catch {}
 
-        const { invoke } = await import('@tauri-apps/api/core');
+        const invoke = _invokeOverride ?? (await import('@tauri-apps/api/core')).invoke;
 
         for (const pending of pendingList) {
             let result = null;

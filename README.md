@@ -7,6 +7,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/NativeBlade/NativeBlade/actions/workflows/tests.yml"><img src="https://github.com/NativeBlade/NativeBlade/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
   <a href="https://discord.gg/Vzpach5J2h"><img src="https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
@@ -325,6 +326,37 @@ $responses = NativeBlade::pool(fn ($pool) => [
 | **Learning Curve** | None (if you know Laravel) | Medium | High | High |
 | **Native UI** | Shell + WebView | WebView only | Native | Custom rendering |
 | **Offline** | Yes (WASM + IndexedDB) | Manual | Manual | Manual |
+
+## Testing
+
+NativeBlade ships with a three-layer test suite that runs on every push to `main` via [GitHub Actions](https://github.com/NativeBlade/NativeBlade/actions/workflows/tests.yml).
+
+**PHP** — PHPUnit against Laravel 11/12/13 on PHP 8.3/8.4/8.5 via Testbench:
+
+```bash
+composer test
+composer test:coverage          # text summary (needs pcov or Xdebug)
+composer test:coverage-html     # full HTML report in build/coverage/
+```
+
+**JavaScript** — `node:test` suite covering the runtime bridges (db/http/fs), action handlers and ctx helpers. No browser needed:
+
+```bash
+npm test
+```
+
+**Rust** — `cargo test` suite covering the Tauri command handlers (config, fileops, database row serialization, scheduler). sqlx integration tests use in-memory SQLite:
+
+```bash
+cd rust
+cargo test --lib
+```
+
+**Run everything locally:**
+
+```bash
+composer test && npm test && (cd rust && cargo test --lib)
+```
 
 ## Contributing
 

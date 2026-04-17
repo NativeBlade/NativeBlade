@@ -2,10 +2,20 @@ const PENDING_PATH = '/tmp/__nb_http_pending.json';
 const CACHE_DIR = '/tmp/__nb_http_cache';
 const MAX_RETRIES = 10;
 
-const nativeFetch = window.fetch.bind(window);
+const nativeFetch = (typeof window !== 'undefined' && typeof window.fetch === 'function')
+    ? window.fetch.bind(window)
+    : (typeof fetch === 'function' ? fetch : null);
 
 let retryCount = 0;
 let abortController = null;
+
+let _fetchOverride = null;
+export function __setFetchForTests(fn) { _fetchOverride = fn; }
+export function __resetForTests() {
+    retryCount = 0;
+    abortController = null;
+    _fetchOverride = null;
+}
 
 export async function hasPendingRequest(php, output) {
     return typeof output === 'string' && output.includes('__NB_HTTP_PENDING__');
@@ -38,7 +48,7 @@ export async function fulfill(php) {
                 options.body = pending.body;
             }
 
-            const response = await nativeFetch(pending.url, options);
+            const response = await (_fetchOverride ?? nativeFetch)(pending.url, options);
             const body = await response.text();
 
             return {
