@@ -12,6 +12,7 @@ class InstallCommand extends Command
 
     private string $appName;
     private string $identifier;
+    private string $template;
 
     public function handle(): int
     {
@@ -21,6 +22,11 @@ class InstallCommand extends Command
 
         $this->appName = $this->ask('App name', config('app.name', 'MyApp'));
         $this->identifier = $this->ask('Identifier (com.example.app)', $this->guessIdentifier());
+        $this->template = $this->choice(
+            'Which starter template?',
+            ['demo', 'blank'],
+            'demo'
+        );
 
         $this->installComposerDependencies();
         $this->scaffoldTauri();
@@ -29,7 +35,7 @@ class InstallCommand extends Command
         $this->publishViteConfig();
         $this->publishDefaultConfigs();
         $this->installNpmDependencies();
-        $this->publishDemo();
+        $this->publishTemplate();
         $this->updateAppServiceProvider();
         $this->updateBootstrap();
         $this->patchTailwindSources();
@@ -250,6 +256,15 @@ class InstallCommand extends Command
         $this->line("  <fg=green>✓</> bootstrap/app.php updated (CSRF disabled)");
     }
 
+    private function publishTemplate(): void
+    {
+        if ($this->template === 'blank') {
+            $this->publishBlank();
+        } else {
+            $this->publishDemo();
+        }
+    }
+
     private function publishDemo(): void
     {
         $livewireDir = app_path('Livewire');
@@ -282,6 +297,35 @@ class InstallCommand extends Command
         @unlink(resource_path('views/welcome.blade.php'));
 
         $this->line("  <fg=green>✓</> Demo app published (Login, Trail, Lesson, Rank, Profile)");
+    }
+
+    private function publishBlank(): void
+    {
+        $livewireDir = app_path('Livewire');
+        $viewsDir = resource_path('views/livewire');
+
+        if (!is_dir($livewireDir)) mkdir($livewireDir, 0755, true);
+        if (!is_dir($viewsDir)) mkdir($viewsDir, 0755, true);
+
+        // Ship the auth middleware stub anyway so the nb.auth alias registered
+        // in bootstrap/app.php resolves to a real class if the dev opts into
+        // auth later.
+        $middlewareDir = app_path('Http/Middleware');
+        if (!is_dir($middlewareDir)) mkdir($middlewareDir, 0755, true);
+        $this->publishStub('demo/NativeBladeAuth.php.stub', $middlewareDir . '/NativeBladeAuth.php');
+
+        $this->publishStub('blank/Welcome.php.stub', $livewireDir . '/Welcome.php');
+        $this->publishStub('blank/welcome.blade.php.stub', $viewsDir . '/welcome.blade.php');
+        $this->publishStub('blank/routes.php.stub', base_path('routes/web.php'));
+
+        $logo = NativeBladeServiceProvider::packagePath('logo_nb.png');
+        if (file_exists($logo)) {
+            copy($logo, public_path('logo_nb.png'));
+        }
+
+        @unlink(resource_path('views/welcome.blade.php'));
+
+        $this->line("  <fg=green>✓</> Blank template published (Welcome with counter)");
     }
 
     private function patchTailwindSources(): void

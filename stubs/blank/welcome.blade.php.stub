@@ -1,0 +1,37 @@
+<div class="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center px-6">
+    <div class="max-w-sm w-full flex flex-col items-center text-center">
+
+        {{-- Logo --}}
+        <div nb-animation="zoomIn" class="w-24 h-24 rounded-3xl bg-gradient-to-br from-[#8B0000] to-[#c0392b] flex items-center justify-center mb-8 shadow-[0_0_40px_rgba(192,57,43,0.4)]">
+            <x-nativeblade-icon name="lightning-fill" size="48" class="text-white" />
+        </div>
+
+        {{-- Title --}}
+        <h1 nb-animation="fadeInUp" nb-animation-delay="100ms" class="text-4xl font-black tracking-tight text-white mb-2">
+            Welcome to NativeBlade
+        </h1>
+        <p nb-animation="fadeInUp" nb-animation-delay="200ms" class="text-[#9ca3af] text-sm mb-10 px-2">
+            Edit <code class="text-[#c0392b] font-mono text-xs">resources/views/livewire/welcome.blade.php</code> and save to reload.
+        </p>
+
+        {{-- Counter --}}
+        <div nb-animation="fadeInUp" nb-animation-delay="300ms" class="bg-[#111111] border border-[#2a2a2a] rounded-2xl px-8 py-6 mb-6 w-full">
+            <p class="text-[10px] uppercase font-black text-[#6b7280] tracking-widest mb-2">Count</p>
+            <p class="text-6xl font-black text-[#c0392b] tabular-nums">{{ $count }}</p>
+        </div>
+
+        {{-- Buttons --}}
+        <div nb-animation="fadeInUp" nb-animation-delay="400ms" class="flex gap-3 w-full">
+            <button wire:click="resetCount" nb-feedback
+                class="py-4 px-5 rounded-xl font-bold text-sm uppercase tracking-wide bg-[#1a1a1a] border border-[#2a2a2a] text-[#9ca3af] hover:text-white transition-colors flex items-center justify-center gap-2">
+                <x-nativeblade-icon name="arrow-counter-clockwise" size="16" />
+                Reset
+            </button>
+            <button wire:click="increment" nb-feedback
+                class="flex-1 py-4 rounded-xl font-black text-sm uppercase tracking-wider bg-[#c0392b] border-2 border-[#e74c3c] text-white shadow-[0_4px_0_rgba(139,0,0,1),0_0_20px_rgba(231,76,60,0.5)] active:translate-y-[2px] active:shadow-[0_2px_0_rgba(139,0,0,1)] transition-all flex items-center justify-center gap-2">
+                <x-nativeblade-icon name="plus-circle-fill" size="20" />
+                Count +1
+            </button>
+        </div>
+    </div>
+</div>
