@@ -1,27 +1,32 @@
-<div class="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center px-6">
-    <div class="max-w-sm w-full flex flex-col items-center text-center">
+<div class="min-h-screen w-full bg-[#0a0a0a] text-white flex flex-col items-center justify-center px-6 relative overflow-hidden">
+
+    {{-- Red glow background --}}
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[300px] bg-[#8B0000] rounded-full blur-[120px] opacity-30 pointer-events-none"></div>
+
+    <div class="w-full max-w-sm flex flex-col items-center z-10">
 
         {{-- Logo --}}
-        <div nb-animation="zoomIn" class="w-24 h-24 rounded-3xl bg-gradient-to-br from-[#8B0000] to-[#c0392b] flex items-center justify-center mb-8 shadow-[0_0_40px_rgba(192,57,43,0.4)]">
-            <x-nativeblade-icon name="lightning-fill" size="48" class="text-white" />
+        <div nb-animation="fadeInUp" class="flex flex-col items-center mb-10">
+            <div class="relative mb-6">
+                <x-nativeblade-image asset="logo_nb.png" class="w-20 h-20 rounded-2xl drop-shadow-[0_0_15px_rgba(231,76,60,0.8)]" />
+                <div class="absolute inset-0 bg-[#e74c3c] blur-2xl opacity-40 rounded-full"></div>
+            </div>
+            <h1 class="text-4xl font-black tracking-tighter mb-2 text-center uppercase">
+                Native<span class="text-[#c0392b]">Blade</span>
+            </h1>
+            <p class="text-[#9ca3af] text-center text-sm px-4">
+                Edit <code class="text-[#c0392b] font-mono text-xs">resources/views/livewire/welcome.blade.php</code> and save to reload.
+            </p>
         </div>
 
-        {{-- Title --}}
-        <h1 nb-animation="fadeInUp" nb-animation-delay="100ms" class="text-4xl font-black tracking-tight text-white mb-2">
-            Welcome to NativeBlade
-        </h1>
-        <p nb-animation="fadeInUp" nb-animation-delay="200ms" class="text-[#9ca3af] text-sm mb-10 px-2">
-            Edit <code class="text-[#c0392b] font-mono text-xs">resources/views/livewire/welcome.blade.php</code> and save to reload.
-        </p>
-
         {{-- Counter --}}
-        <div nb-animation="fadeInUp" nb-animation-delay="300ms" class="bg-[#111111] border border-[#2a2a2a] rounded-2xl px-8 py-6 mb-6 w-full">
-            <p class="text-[10px] uppercase font-black text-[#6b7280] tracking-widest mb-2">Count</p>
-            <p class="text-6xl font-black text-[#c0392b] tabular-nums">{{ $count }}</p>
+        <div nb-animation="fadeInUp" nb-animation-delay="200ms" class="bg-[#111111] border border-[#2a2a2a] rounded-2xl px-8 py-6 mb-6 w-full">
+            <p class="text-[10px] uppercase font-black text-[#6b7280] tracking-widest mb-2 text-center">Count</p>
+            <p class="text-6xl font-black text-[#c0392b] tabular-nums text-center">{{ $count }}</p>
         </div>
 
         {{-- Buttons --}}
-        <div nb-animation="fadeInUp" nb-animation-delay="400ms" class="flex gap-3 w-full">
+        <div nb-animation="fadeInUp" nb-animation-delay="300ms" class="flex gap-3 w-full">
             <button wire:click="resetCount" nb-feedback
                 class="py-4 px-5 rounded-xl font-bold text-sm uppercase tracking-wide bg-[#1a1a1a] border border-[#2a2a2a] text-[#9ca3af] hover:text-white transition-colors flex items-center justify-center gap-2">
                 <x-nativeblade-icon name="arrow-counter-clockwise" size="16" />
