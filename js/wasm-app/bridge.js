@@ -1,67 +1,83 @@
-import * as camera from './components/camera/camera.js';
+// NativeBlade JS bridge — wires PHP/Livewire-emitted actions to native APIs.
+//
+// The fat switch that used to live here was split into one file per plugin
+// under ./actions/. This file now just:
+//   1) boots the Tauri plugin APIs during init()
+//   2) builds a context object that exposes those APIs + helpers
+//   3) dispatches incoming actions to the correct handler in ./actions/index.js
+
+import * as cameraModule from './components/camera/camera.js';
 import { getComponent } from './component-registry.js';
+import { actions } from './actions/index.js';
 
 let appFrameRef = null;
 let isTauri = false;
-
-let dialogApi = null;
-let notificationApi = null;
-let clipboardApi = null;
-let geolocationApi = null;
-let hapticsApi = null;
-let biometricApi = null;
-let barcodeApi = null;
-let nfcApi = null;
-let openerApi = null;
-let osApi = null;
-let uploadApi = null;
-let shellApi = null;
-
-export async function init(appFrame) {
-    appFrameRef = appFrame;
-    camera.init(appFrame);
-
-    try {
-        dialogApi = await import('@tauri-apps/plugin-dialog');
-        notificationApi = await import('@tauri-apps/plugin-notification');
-        isTauri = true;
-    } catch {}
-
-    if (isTauri) {
-        try {
-            const os = await import('@tauri-apps/plugin-os');
-            const platform = await os.platform();
-            isMobile = platform === 'android' || platform === 'ios';
-            isAndroid = platform === 'android';
-        } catch {}
-        try { clipboardApi = await import('@tauri-apps/plugin-clipboard-manager'); } catch {}
-        try { geolocationApi = await import('@tauri-apps/plugin-geolocation'); } catch {}
-        try { hapticsApi = await import('@tauri-apps/plugin-haptics'); } catch {}
-        try { biometricApi = await import('@tauri-apps/plugin-biometric'); } catch {}
-        try { barcodeApi = await import('@tauri-apps/plugin-barcode-scanner'); } catch {}
-        try { nfcApi = await import('@tauri-apps/plugin-nfc'); } catch {}
-        try { openerApi = await import('@tauri-apps/plugin-opener'); } catch {}
-        try { osApi = await import('@tauri-apps/plugin-os'); } catch {}
-        try { uploadApi = await import('@tauri-apps/plugin-upload'); } catch {}
-        try { shellApi = await import('@tauri-apps/plugin-shell'); } catch {}
-    }
-}
-
 let isMobile = false;
 let isAndroid = false;
 
-export function hapticSelection() {
-    if (!hapticsApi || !isMobile) return;
-    try { hapticsApi.selectionFeedback().catch(() => {}); } catch {}
+// All the lazily-imported Tauri plugin APIs live on this object so we can
+// spread it into the ctx without listing each one.
+const apis = {
+    dialogApi: null,
+    notificationApi: null,
+    clipboardApi: null,
+    geolocationApi: null,
+    hapticsApi: null,
+    biometricApi: null,
+    barcodeApi: null,
+    nfcApi: null,
+    openerApi: null,
+    osApi: null,
+    uploadApi: null,
+    shellApi: null,
+};
+
+export async function init(appFrame) {
+    appFrameRef = appFrame;
+    cameraModule.init(appFrame);
+
+    try {
+        apis.dialogApi = await import('@tauri-apps/plugin-dialog');
+        apis.notificationApi = await import('@tauri-apps/plugin-notification');
+        isTauri = true;
+    } catch {}
+
+    if (!isTauri) return;
+
+    try {
+        const os = await import('@tauri-apps/plugin-os');
+        const platform = await os.platform();
+        isMobile = platform === 'android' || platform === 'ios';
+        isAndroid = platform === 'android';
+    } catch {}
+
+    try { apis.clipboardApi   = await import('@tauri-apps/plugin-clipboard-manager'); } catch {}
+    try { apis.geolocationApi = await import('@tauri-apps/plugin-geolocation'); } catch {}
+    try { apis.hapticsApi     = await import('@tauri-apps/plugin-haptics'); } catch {}
+    try { apis.biometricApi   = await import('@tauri-apps/plugin-biometric'); } catch {}
+    try { apis.barcodeApi     = await import('@tauri-apps/plugin-barcode-scanner'); } catch {}
+    try { apis.nfcApi         = await import('@tauri-apps/plugin-nfc'); } catch {}
+    try { apis.openerApi      = await import('@tauri-apps/plugin-opener'); } catch {}
+    try { apis.osApi          = await import('@tauri-apps/plugin-os'); } catch {}
+    try { apis.uploadApi      = await import('@tauri-apps/plugin-upload'); } catch {}
+    try { apis.shellApi       = await import('@tauri-apps/plugin-shell'); } catch {}
 }
+
+// Used by components (e.g. bottom-nav) for internal tap feedback.
+export function hapticSelection() {
+    if (!apis.hapticsApi || !isMobile) return;
+    try { apis.hapticsApi.selectionFeedback().catch(() => {}); } catch {}
+}
+
+// --- helpers shared by multiple actions ---
 
 const __nbCreatedChannels = new Set();
 
-async function __nbEnsureChannel(channelId) {
-    if (!channelId || !notificationApi || __nbCreatedChannels.has(channelId)) return;
+async function ensureChannel(channelId) {
+    if (!channelId || !apis.notificationApi || __nbCreatedChannels.has(channelId)) return;
     __nbCreatedChannels.add(channelId);
     try {
-        await notificationApi.createChannel({
+        await apis.notificationApi.createChannel({
             id: channelId,
             name: channelId,
             importance: 3,
@@ -86,476 +102,47 @@ async function resolveFileDest(pathApi, relativePath, purpose) {
     return base + relativePath.replace(/\//g, sep);
 }
 
-export function handleNativeAction(action, payload, appFrame) {
-    const title = payload.title || 'NativeBlade';
+// --- dispatcher ---
 
-    switch (action) {
-        case 'alert':
-            if (isTauri) {
-                dialogApi.message(payload.message, { title, kind: payload.kind || 'info' });
-            } else {
-                appFrame?.contentWindow?.postMessage({ type: 'nativeblade-alert', message: payload.message }, '*');
-            }
-            break;
-
-        case 'confirm':
-            if (isTauri) {
-                dialogApi.confirm(payload.message, { title, kind: payload.kind || 'warning' })
-                    .then(confirmed => {
-                        appFrame?.contentWindow?.postMessage({ type: 'nativeblade-confirm-result', confirmed, id: payload.id || null }, '*');
-                    });
-            } else {
-                const confirmed = confirm(payload.message);
-                appFrame?.contentWindow?.postMessage({ type: 'nativeblade-confirm-result', confirmed, id: payload.id || null }, '*');
-            }
-            break;
-
-        case 'notification':
-            if (isTauri && notificationApi) {
-                (async () => {
-                    let granted = await notificationApi.isPermissionGranted();
-                    if (!granted) {
-                        const perm = await notificationApi.requestPermission();
-                        granted = perm === 'granted';
-                    }
-                    if (!granted) return;
-                    const opts = { title, body: payload.body || '' };
-                    if (payload.sound) opts.sound = payload.sound;
-                    if (payload.icon) {
-                        opts.icon = payload.icon;
-                    } else if (isAndroid) {
-                        // Default Android small icon — monochrome silhouette
-                        // generated by nativeblade:icon into drawable-*/ic_notification.png.
-                        // Without this, Tauri falls back to a generic info icon.
-                        opts.icon = 'ic_notification';
-                    }
-                    if (payload.channel) {
-                        opts.channelId = payload.channel;
-                        await __nbEnsureChannel(payload.channel);
-                    }
-                    notificationApi.sendNotification(opts);
-                })();
-            } else {
-                appFrame?.contentWindow?.postMessage({ type: 'nativeblade-alert', message: payload.body }, '*');
-            }
-            break;
-
-        case 'clipboard_write':
-            if (clipboardApi) {
-                clipboardApi.writeText(payload.text || '');
-            }
-            break;
-
-        case 'clipboard_read':
-            if (clipboardApi) {
-                clipboardApi.readText().then(text => {
-                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-clipboard', text, id: payload.id || null }, '*');
-                });
-            }
-            break;
-
-        case 'geolocation':
-            if (geolocationApi) {
-                (async () => {
-                    let state = await geolocationApi.checkPermissions();
-                    if (state.location !== 'granted') {
-                        state = await geolocationApi.requestPermissions(['location']);
-                    }
-                    if (state.location !== 'granted') return;
-                    const pos = await geolocationApi.getCurrentPosition();
-                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-geolocation', position: pos, id: payload.id || null }, '*');
-                })().catch(() => {});
-            }
-            break;
-
-        case 'vibrate':
-            if (hapticsApi) {
-                hapticsApi.vibrate(payload.duration || 100);
-            }
-            break;
-
-        case 'impact':
-            if (hapticsApi) {
-                hapticsApi.impactFeedback(payload.style || 'medium');
-            }
-            break;
-
-        case 'selection':
-            if (hapticsApi) {
-                hapticsApi.selectionFeedback();
-            }
-            break;
-
-        case 'biometric':
-            if (biometricApi) {
-                (async () => {
-                    const status = await biometricApi.checkStatus();
-                    if (!status.isAvailable) {
-                        appFrame?.contentWindow?.postMessage({ type: 'nativeblade-biometric', success: false, error: 'Biometric not available', id: payload.id || null }, '*');
-                        return;
-                    }
-                    await biometricApi.authenticate(payload.reason || 'Authenticate', {
-                        allowDeviceCredential: payload.allowDeviceCredential ?? true,
-                    });
-                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-biometric', success: true, id: payload.id || null }, '*');
-                })().catch(err => {
-                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-biometric', success: false, error: err.message || String(err), id: payload.id || null }, '*');
-                });
-            }
-            break;
-
-        case 'scan':
-            if (barcodeApi) {
-                (async () => {
-                    let state = await barcodeApi.checkPermissions();
-                    if (state !== 'granted') {
-                        state = await barcodeApi.requestPermissions();
-                    }
-                    if (state !== 'granted') return;
-                    const result = await barcodeApi.scan({ formats: payload.formats || [] });
-                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-scan', result, id: payload.id || null }, '*');
-                })().catch(() => {});
-            }
-            break;
-
-        case 'nfc_read':
-            if (nfcApi) {
-                (async () => {
-                    const available = await nfcApi.isAvailable();
-                    if (!available) return;
-                    const tag = await nfcApi.scan({ type: 'ndef' });
-                    appFrame?.contentWindow?.postMessage({ type: 'nativeblade-nfc', tag, id: payload.id || null }, '*');
-                })().catch(() => {});
-            }
-            break;
-
-        case 'open_url':
-            if (openerApi) {
-                openerApi.openUrl(payload.url || '');
-            }
-            break;
-
-        case 'open_file':
-            if (openerApi) {
-                openerApi.openPath(payload.path || '');
-            }
-            break;
-
-        case 'os_info':
-            if (osApi) {
-                Promise.all([
-                    osApi.platform(),
-                    osApi.version(),
-                    osApi.arch(),
-                    osApi.locale(),
-                ]).then(([platform, version, arch, locale]) => {
-                    appFrame?.contentWindow?.postMessage({
-                        type: 'nativeblade-os-info',
-                        info: { platform, version, arch, locale }
-                    }, '*');
-                });
-            }
-            break;
-
-        case 'camera':
-            camera.open(payload);
-            break;
-
-        case 'gallery':
-            camera.openGallery(payload);
-            break;
-
-        case 'file_picker':
-            if (dialogApi?.open) {
-                const opts = {};
-                if (payload.title) opts.title = payload.title;
-                if (payload.defaultPath) opts.defaultPath = payload.defaultPath;
-                if (payload.multiple) opts.multiple = true;
-                if (payload.directory) opts.directory = true;
-                if (payload.filters) opts.filters = payload.filters;
-                dialogApi.open(opts).then(result => {
-                    const paths = result == null ? [] : Array.isArray(result) ? result : [result];
-                    appFrame?.contentWindow?.postMessage({
-                        type: 'nativeblade-file-result',
-                        paths,
-                        id: payload.id || null,
-                    }, '*');
-                }).catch(() => {
-                    appFrame?.contentWindow?.postMessage({
-                        type: 'nativeblade-file-result',
-                        paths: [],
-                        id: payload.id || null,
-                    }, '*');
-                });
-            }
-            break;
-
-        case 'file_save':
-            if (dialogApi?.save) {
-                const opts = {};
-                if (payload.title) opts.title = payload.title;
-                if (payload.defaultPath) opts.defaultPath = payload.defaultPath;
-                if (payload.defaultName) opts.defaultPath = payload.defaultName;
-                if (payload.filters) opts.filters = payload.filters;
-                dialogApi.save(opts).then(path => {
-                    appFrame?.contentWindow?.postMessage({
-                        type: 'nativeblade-file-save-result',
-                        path: path || null,
-                        id: payload.id || null,
-                    }, '*');
-                }).catch(() => {
-                    appFrame?.contentWindow?.postMessage({
-                        type: 'nativeblade-file-save-result',
-                        path: null,
-                        id: payload.id || null,
-                    }, '*');
-                });
-            }
-            break;
-
-        case 'copy_file':
-        case 'move_file': {
-            const op = action === 'copy_file' ? 'copy' : 'move';
-            Promise.all([
-                import('@tauri-apps/api/core'),
-                import('@tauri-apps/api/path'),
-            ]).then(async ([{ invoke: inv }, pathApi]) => {
-                try {
-                    const dest = await resolveFileDest(pathApi, payload.to, payload.purpose);
-                    const cmd = op === 'copy' ? 'nb_copy_file' : 'nb_move_file';
-                    await inv(cmd, { from: payload.from, to: dest });
-                    appFrame?.contentWindow?.postMessage({
-                        type: 'nativeblade-file-op-result',
-                        success: true,
-                        operation: op,
-                        from: payload.from,
-                        to: dest,
-                    }, '*');
-                } catch (e) {
-                    console.warn(`[NB] ${op}File failed:`, e);
-                    appFrame?.contentWindow?.postMessage({
-                        type: 'nativeblade-file-op-result',
-                        success: false,
-                        operation: op,
-                        error: e?.message || `${op} failed`,
-                    }, '*');
-                }
-            }).catch(() => {});
-            break;
-        }
-
-        case 'upload':
-            if (uploadApi && payload.path && payload.url) {
-                const headers = payload.headers || {};
-                uploadApi.upload(payload.url, payload.path, (progress) => {
-                    appFrame?.contentWindow?.postMessage({
-                        type: 'nativeblade-upload-progress',
-                        id: payload.id || null,
-                        progress: progress.progress,
-                        total: progress.total,
-                    }, '*');
-                }, headers).then(() => {
-                    appFrame?.contentWindow?.postMessage({
-                        type: 'nativeblade-upload-complete',
-                        id: payload.id || null,
-                        success: true,
-                    }, '*');
-                }).catch(e => {
-                    appFrame?.contentWindow?.postMessage({
-                        type: 'nativeblade-upload-complete',
-                        id: payload.id || null,
-                        success: false,
-                        error: e?.message || 'Upload failed',
-                    }, '*');
-                });
-            }
-            break;
-
-        case 'navigate':
-            window.postMessage({ type: 'nativeblade-navigate', path: payload.path, replace: !!payload.replace, transition: payload.transition }, '*');
-            break;
-
-        case 'showModal': {
-            const modal = getComponent('modal');
-            if (modal?.show) modal.show();
-            break;
-        }
-
-        case 'hideModal': {
-            const modal = getComponent('modal');
-            if (modal?.hide) modal.hide();
-            break;
-        }
-
-        case 'shell': {
-            const id = payload.id || null;
-            const post = (stdout, stderr, exitCode) => {
-                appFrame?.contentWindow?.postMessage({
-                    type: 'nativeblade-shell-result',
-                    stdout,
-                    stderr,
-                    exitCode,
-                    id,
-                }, '*');
-            };
-
-            if (isMobile) {
-                post('', 'not supported on this platform', -1);
-                break;
-            }
-
-            if (!shellApi || !payload.command) {
-                post('', 'shell plugin not available', -1);
-                break;
-            }
-
-            (async () => {
-                try {
-                    const platform = osApi ? await osApi.platform() : 'linux';
-                    const isWin = platform === 'windows';
-
-                    // openTerminal — fire-and-forget, opens a visible terminal window
-                    if (payload.openTerminal) {
-                        const cmd = payload.command;
-                        const cwd = payload.cwd || null;
-
-                        if (isWin) {
-                            const prefer = (payload.terminalType || 'wt').toLowerCase();
-                            const tryList = [];
-                            if (prefer === 'wt') {
-                                const wtArgs = [];
-                                if (cwd) wtArgs.push('-d', cwd);
-                                wtArgs.push('cmd.exe', '/K', cmd);
-                                tryList.push({ program: 'wt.exe', args: wtArgs });
-                            }
-                            if (prefer === 'powershell') {
-                                const psArgs = ['-NoExit', '-Command'];
-                                const cdPart = cwd ? `Set-Location -Path "${cwd}"; ` : '';
-                                psArgs.push(cdPart + cmd);
-                                tryList.push({ program: 'powershell.exe', args: psArgs });
-                            }
-                            const cmdArgs = [];
-                            if (cwd) { cmdArgs.push('/D', cwd); }
-                            cmdArgs.push('/K', cmd);
-                            tryList.push({ program: 'cmd.exe', args: cmdArgs });
-
-                            let spawned = false;
-                            for (const t of tryList) {
-                                try {
-                                    const child = shellApi.Command.create(t.program, t.args);
-                                    await child.spawn();
-                                    spawned = true;
-                                    break;
-                                } catch {}
-                            }
-                            if (!spawned) console.warn('[NB] shell.openTerminal: no terminal found on Windows');
-                        } else if (platform === 'macos') {
-                            const script = cwd
-                                ? `tell application "Terminal" to do script "cd ${cwd.replace(/"/g, '\\"')} && ${cmd.replace(/"/g, '\\"')}"`
-                                : `tell application "Terminal" to do script "${cmd.replace(/"/g, '\\"')}"`;
-                            try {
-                                const child = shellApi.Command.create('osascript', ['-e', script]);
-                                await child.spawn();
-                            } catch (e) {
-                                console.warn('[NB] shell.openTerminal: failed to open Terminal.app', e);
-                            }
-                        } else {
-                            const sh = cwd ? `cd ${JSON.stringify(cwd)} && ${cmd}; exec bash` : `${cmd}; exec bash`;
-                            const candidates = [
-                                ['gnome-terminal', ['--', 'bash', '-c', sh]],
-                                ['konsole', ['-e', 'bash', '-c', sh]],
-                                ['xfce4-terminal', ['--command', `bash -c '${sh.replace(/'/g, "'\\''")}'`]],
-                                ['xterm', ['-e', 'bash', '-c', sh]],
-                            ];
-                            let spawned = false;
-                            for (const [bin, args] of candidates) {
-                                try {
-                                    const child = shellApi.Command.create(bin, args);
-                                    await child.spawn();
-                                    spawned = true;
-                                    break;
-                                } catch {}
-                            }
-                            if (!spawned) console.warn('[NB] shell.openTerminal: no terminal found on Linux');
-                        }
-                        return;
-                    }
-
-                    // Captured execution — run via platform shell and report stdout/stderr/exitCode
-                    const program = isWin ? 'cmd' : 'sh';
-                    const args = isWin ? ['/C', payload.command] : ['-c', payload.command];
-                    const options = {};
-                    if (payload.cwd) options.cwd = payload.cwd;
-                    if (payload.env && typeof payload.env === 'object') options.env = payload.env;
-
-                    const command = shellApi.Command.create(program, args, options);
-
-                    let timer = null;
-                    let timedOut = false;
-                    const runPromise = command.execute();
-
-                    const racers = [runPromise];
-                    if (payload.timeout && payload.timeout > 0) {
-                        racers.push(new Promise((_, reject) => {
-                            timer = setTimeout(() => {
-                                timedOut = true;
-                                reject(new Error(`timeout after ${payload.timeout}s`));
-                            }, payload.timeout * 1000);
-                        }));
-                    }
-
-                    try {
-                        const output = await Promise.race(racers);
-                        if (timer) clearTimeout(timer);
-                        post(output.stdout || '', output.stderr || '', output.code ?? -1);
-                    } catch (e) {
-                        if (timer) clearTimeout(timer);
-                        if (timedOut) {
-                            post('', `timeout after ${payload.timeout}s`, -1);
-                        } else {
-                            post('', e?.message || String(e), -1);
-                        }
-                    }
-                } catch (e) {
-                    post('', e?.message || String(e), -1);
-                }
-            })();
-            break;
-        }
-
-        case 'exit':
-            try {
-                import('@tauri-apps/plugin-process').then(m => m.exit(0));
-            } catch {}
-            break;
-
-        case 'log': {
-            const level = payload.level || 'info';
-            const message = payload.message || '';
-            const context = payload.context || {};
-            const fn = { info: 'log', warn: 'warn', error: 'error', debug: 'debug' }[level] || 'log';
-            const color = { info: '#3498db', warn: '#f39c12', error: '#e74c3c', debug: '#9b59b6' }[level] || '#3498db';
-            const style = `color:${color};font-weight:bold`;
-            const prefix = `%c[NB:${level}]`;
-            if (context && Object.keys(context).length > 0) {
-                console[fn](prefix, style, message, context);
-            } else {
-                console[fn](prefix, style, message);
-            }
-            break;
-        }
-
-        default: {
-            const comp = getComponent(action);
-            if (comp?.render) {
-                comp.render(payload);
-            } else {
-                import(`@components/${action}/${action}.js`)
-                    .then(mod => { if (mod.render) mod.render(payload); })
-                    .catch(() => {});
-            }
-            break;
-        }
-    }
+function buildCtx(appFrame) {
+    return {
+        // all the Tauri APIs, spread so handlers can destructure what they need
+        ...apis,
+        // platform flags
+        isTauri,
+        isMobile,
+        isAndroid,
+        // frame + postMessage helper
+        appFrame,
+        post: (type, data = {}) => appFrame?.contentWindow?.postMessage({ type, ...data }, '*'),
+        // shared modules + helpers
+        camera: cameraModule,
+        ensureChannel,
+        resolveFileDest,
+    };
 }
 
+export function handleNativeAction(action, payload, appFrame) {
+    const handler = actions[action];
+    if (handler) {
+        try {
+            const result = handler(payload, buildCtx(appFrame));
+            if (result && typeof result.catch === 'function') {
+                result.catch(e => console.error(`[NB] action '${action}' failed`, e));
+            }
+        } catch (e) {
+            console.error(`[NB] action '${action}' failed`, e);
+        }
+        return;
+    }
+
+    // Fallback — treat unknown action as a component name and try to render it.
+    const comp = getComponent(action);
+    if (comp?.render) {
+        comp.render(payload);
+        return;
+    }
+    import(`@components/${action}/${action}.js`)
+        .then(mod => { if (mod.render) mod.render(payload); })
+        .catch(() => {});
+}
