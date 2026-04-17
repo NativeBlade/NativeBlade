@@ -15,6 +15,13 @@ async function loadFsApi() {
     return fsApi;
 }
 
+export function __setFsApiForTests(fs) { fsApi = fs; }
+export function __resetForTests() {
+    retryCount = 0;
+    fsApi = null;
+    ensuredDirs.clear();
+}
+
 const BASE_DIR_MAP = {
     'app': 'AppData',
     'cache': 'AppCache',
