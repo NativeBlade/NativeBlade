@@ -21,6 +21,7 @@ This document lists every built-in bridge, what it does, and how to call it from
 - [Camera & Gallery](#camera--gallery)
 - [Navigation](#navigation)
 - [Modal](#modal)
+- [Shell](#shell)
 - [Process](#process)
 - [Receiving Results in PHP](#receiving-results-in-php)
 - [Adding Your Own Bridge](#adding-your-own-bridge)
@@ -101,6 +102,7 @@ return NativeBlade::notification(fn (Notification $n) => $n->title('Saved')->bod
 | Camera | `camera(?Closure)`, `gallery(?Closure)` |
 | Navigation | `navigate($path, $replace = false)` |
 | Modal | `showModal()`, `hideModal()` |
+| Shell | `shell(Closure)` (desktop only) |
 | Process | `exit()` |
 
 All closure-based builders live in `NativeBlade\Plugins\*` (`Dialog`, `Notification`, `Camera`, `Biometric`, `Scan`, `Geolocation`, `Clipboard`, `Nfc`). Builders marked with `?Closure` (nullable) let you omit the closure when you don't need to configure anything — useful for the simple `NativeBlade::geolocation()` / `NativeBlade::scan()` case.
@@ -789,6 +791,88 @@ public function confirmDelete()
 
 ---
 
+## Shell
+
+Backed by [`tauri-plugin-shell`](https://v2.tauri.app/plugin/shell/). **Desktop only** — on mobile the call is a no-op and a failure event is emitted with `exitCode = -1` and stderr `"not supported on this platform"`, so your listener code can handle both paths uniformly.
+
+Two modes:
+
+- **Captured execution** — runs the command in the platform shell (`cmd /C` on Windows, `/bin/sh -c` on Unix) and delivers stdout / stderr / exit code via the `nb:shell-result` Livewire event.
+- **`openTerminal()`** — spawns the command inside a visible OS terminal window (Windows Terminal / cmd / PowerShell on Windows, Terminal.app on macOS, gnome-terminal / konsole / xterm on Linux). Fire-and-forget: no result event is emitted, and the user can interact with the process directly.
+
+The `Shell` builder supports:
+
+| Method | Description |
+|---|---|
+| `->id($identifier)` | Tag the execution — echoed back as `$id` on the `nb:shell-result` listener |
+| `->run($command)` | Command line to execute (passed to the platform shell) |
+| `->cwd($path)` | Working directory for the command |
+| `->env(['K' => 'V'])` | Extra environment variables, merged on top of the process environment |
+| `->timeout($seconds)` | Kill the command and emit a timeout error after N seconds |
+| `->openTerminal($type = null)` | Spawn inside a visible terminal instead of capturing output. `$type` is Windows-only and accepts `'wt'`, `'cmd'` or `'powershell'` — on macOS/Linux the default terminal is auto-detected |
+
+### Example: run a captured command
+
+```php
+use Livewire\Attributes\On;
+use NativeBlade\Facades\NativeBlade;
+use NativeBlade\Plugins\Shell;
+
+public function checkDocker()
+{
+    return NativeBlade::shell(function (Shell $s) {
+        $s->id('docker_check')->run('docker ps');
+    });
+}
+
+public function gitPull()
+{
+    return NativeBlade::shell(function (Shell $s) {
+        $s->id('pull')
+          ->cwd('/home/user/repo')
+          ->env(['GIT_PAGER' => 'cat'])
+          ->timeout(30)
+          ->run('git pull');
+    });
+}
+
+#[On('nb:shell-result')]
+public function onShellResult($stdout = null, $stderr = null, $exitCode = null, $id = null)
+{
+    match ($id) {
+        'docker_check' => $this->parseDocker($stdout),
+        'pull'         => $this->updateBranchStatus($exitCode),
+        default        => null,
+    };
+}
+```
+
+### Example: open the command in the OS terminal
+
+```php
+public function connectSsh()
+{
+    return NativeBlade::shell(function (Shell $s) {
+        $s->openTerminal()->run('ssh prod-server');
+    });
+}
+```
+
+On Windows you can pick a specific terminal:
+
+```php
+NativeBlade::shell(fn (Shell $s) => $s->openTerminal('powershell')->run('Get-Service'));
+NativeBlade::shell(fn (Shell $s) => $s->openTerminal('wt')->cwd('C:\\repo')->run('npm run dev'));
+```
+
+### Permissions & scope
+
+`nativeblade:install` wires up `shell:allow-execute` + a scope for common shells (`cmd`, `powershell`, `wt`, `sh`, `bash`, `osascript`, `gnome-terminal`, `konsole`, `xfce4-terminal`, `xterm`) in `src-tauri/capabilities/default.json`. To call a different binary directly (without going through the shell), add it to the `shell:allow-execute` scope.
+
+> **Security note.** Shell execution is only enforced by the Tauri capabilities scope — NativeBlade does not sandbox the command itself. Never forward untrusted input into `->run()`. For apps that accept user input, whitelist the set of commands you expose and build the command line yourself.
+
+---
+
 ## Process
 
 Backed by [`tauri-plugin-process`](https://v2.tauri.app/plugin/process/). Quits the application.
@@ -837,6 +921,9 @@ class MyComponent extends Component
 
     #[On('nb:camera-result')]
     public function onPhoto($data = null, $name = null, $mime = null, $size = null, $id = null) { /* ... */ }
+
+    #[On('nb:shell-result')]
+    public function onShellResult($stdout = null, $stderr = null, $exitCode = null, $id = null) { /* ... */ }
 }
 ```
 

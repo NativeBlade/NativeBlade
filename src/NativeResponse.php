@@ -14,6 +14,7 @@ use NativeBlade\Plugins\Geolocation;
 use NativeBlade\Plugins\Nfc;
 use NativeBlade\Plugins\Notification;
 use NativeBlade\Plugins\Scan;
+use NativeBlade\Plugins\Shell;
 use NativeBlade\Plugins\Upload;
 
 /**
@@ -389,6 +390,35 @@ class NativeResponse
     public function hideModal(): static
     {
         return $this->push('hideModal', []);
+    }
+
+    // ------------------------------------------------------------------
+    // Shell
+    // ------------------------------------------------------------------
+
+    /**
+     * Execute a shell command on the host (desktop only).
+     *
+     * Runs the command in the platform shell (`cmd /C` on Windows,
+     * `/bin/sh -c` on Unix) and captures its output. The result is
+     * delivered via the `nb:shell-result` Livewire event with `$stdout`,
+     * `$stderr`, `$exitCode` and `$id` arguments.
+     *
+     * When the builder calls `->openTerminal()`, the command is spawned
+     * inside a visible OS terminal window instead — that path is
+     * fire-and-forget and no result event is emitted.
+     *
+     * Mobile platforms emit a failure result with `exitCode = -1` and
+     * a stderr of `"not supported on this platform"` so listeners can
+     * handle both paths with the same code.
+     *
+     * @param  Closure(Shell): void  $callback
+     */
+    public function shell(Closure $callback): static
+    {
+        $shell = new Shell();
+        $callback($shell);
+        return $this->push('shell', $shell->toArray());
     }
 
     // ------------------------------------------------------------------
