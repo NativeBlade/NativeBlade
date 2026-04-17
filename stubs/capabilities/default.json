@@ -7,6 +7,43 @@
         "core:default",
         "core:event:default",
         "shell:allow-open",
+        "shell:allow-kill",
+        {
+            "identifier": "shell:allow-execute",
+            "allow": [
+                { "name": "cmd",             "cmd": "cmd",             "args": true },
+                { "name": "cmd.exe",         "cmd": "cmd.exe",         "args": true },
+                { "name": "powershell",      "cmd": "powershell",      "args": true },
+                { "name": "powershell.exe",  "cmd": "powershell.exe",  "args": true },
+                { "name": "wt",              "cmd": "wt",              "args": true },
+                { "name": "wt.exe",          "cmd": "wt.exe",          "args": true },
+                { "name": "sh",              "cmd": "sh",              "args": true },
+                { "name": "bash",            "cmd": "bash",            "args": true },
+                { "name": "osascript",       "cmd": "osascript",       "args": true },
+                { "name": "gnome-terminal",  "cmd": "gnome-terminal",  "args": true },
+                { "name": "konsole",         "cmd": "konsole",         "args": true },
+                { "name": "xfce4-terminal",  "cmd": "xfce4-terminal",  "args": true },
+                { "name": "xterm",           "cmd": "xterm",           "args": true }
+            ]
+        },
+        {
+            "identifier": "shell:allow-spawn",
+            "allow": [
+                { "name": "cmd",             "cmd": "cmd",             "args": true },
+                { "name": "cmd.exe",         "cmd": "cmd.exe",         "args": true },
+                { "name": "powershell",      "cmd": "powershell",      "args": true },
+                { "name": "powershell.exe",  "cmd": "powershell.exe",  "args": true },
+                { "name": "wt",              "cmd": "wt",              "args": true },
+                { "name": "wt.exe",          "cmd": "wt.exe",          "args": true },
+                { "name": "sh",              "cmd": "sh",              "args": true },
+                { "name": "bash",            "cmd": "bash",            "args": true },
+                { "name": "osascript",       "cmd": "osascript",       "args": true },
+                { "name": "gnome-terminal",  "cmd": "gnome-terminal",  "args": true },
+                { "name": "konsole",         "cmd": "konsole",         "args": true },
+                { "name": "xfce4-terminal",  "cmd": "xfce4-terminal",  "args": true },
+                { "name": "xterm",           "cmd": "xterm",           "args": true }
+            ]
+        },
         "dialog:default",
         "notification:default",
         "store:default",
