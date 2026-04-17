@@ -1,0 +1,32 @@
+<?php
+
+namespace App\Livewire;
+
+use Livewire\Attributes\Layout;
+use Livewire\Component;
+use NativeBlade\Facades\NativeBlade;
+
+#[Layout('components.layouts.app')]
+class Welcome extends Component
+{
+    public int $count = 0;
+
+    public function increment()
+    {
+        $this->count++;
+
+        return NativeBlade::impact('light')->toResponse();
+    }
+
+    public function resetCount()
+    {
+        $this->count = 0;
+
+        return NativeBlade::impact('medium')->toResponse();
+    }
+
+    public function render()
+    {
+        return view('livewire.welcome');
+    }
+}
