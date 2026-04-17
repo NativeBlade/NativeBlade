@@ -1,4 +1,7 @@
 import { getInstance } from './php-runtime.js';
+import { getBundleBase } from './bundle-base.js';
+
+export { getBundleBase };
 
 export function detectPlatform() {
     const ua = navigator.userAgent;
@@ -22,16 +25,18 @@ export function prepareDirs() {
 }
 
 async function fetchBundleJson() {
+    const base = getBundleBase();
+
     if (typeof DecompressionStream !== 'undefined') {
         try {
-            const res = await fetch('./laravel-bundle.json.gz');
+            const res = await fetch(base + 'laravel-bundle.json.gz');
             if (res.ok) {
                 const stream = res.body.pipeThrough(new DecompressionStream('gzip'));
                 return await new Response(stream).text();
             }
         } catch {}
     }
-    const res = await fetch('./laravel-bundle.json');
+    const res = await fetch(base + 'laravel-bundle.json');
     if (!res.ok) throw new Error(`Bundle fetch failed: ${res.status}`);
     return await res.text();
 }

@@ -24,6 +24,18 @@ export function init(navigate, getCurrentPath) {
 }
 
 function resolveServerUrl() {
+    // Portal mode: the bundle is served from a remote dev server, and the same
+    // origin hosts the /__php_changes + /__php_version polling endpoints.
+    const portalBase = (typeof window !== 'undefined' ? window.__NB_BUNDLE_BASE__ : null)
+        ?? readLocalStorage('nb:bundleBase');
+    if (typeof portalBase === 'string' && portalBase.length) {
+        try {
+            return new URL(portalBase, location.href).origin;
+        } catch {
+            return portalBase.replace(/\/+$/, '');
+        }
+    }
+
     const meta = document.querySelector('meta[name="nativeblade-vite-url"]');
     const fromMeta = meta?.getAttribute('content');
     if (fromMeta) return fromMeta;
@@ -38,6 +50,10 @@ function resolveServerUrl() {
     }
 
     return '';
+}
+
+function readLocalStorage(key) {
+    try { return window.localStorage?.getItem?.(key) ?? null; } catch { return null; }
 }
 
 function scheduleChange(wasmPath, content, version) {

@@ -9,7 +9,7 @@ use Symfony\Component\Process\Process;
 class DevCommand extends Command
 {
     protected $signature = 'nativeblade:dev
-        {--platform=desktop : Platform to run (desktop, android, ios)}
+        {--platform=desktop : Platform to run (desktop, android, ios, portal)}
         {--host= : IP address for mobile dev (auto-detected if empty)}
         {--port=1420 : Vite dev server port}
         {--build : Use built assets instead of Vite dev server (no HMR)}';
@@ -51,6 +51,7 @@ class DevCommand extends Command
             'desktop' => $build ? $this->runBuiltDesktop() : $this->runDesktop($port),
             'android' => $build ? $this->runBuiltAndroid() : $this->runAndroid($host, $port),
             'ios' => $build ? $this->runBuiltIos() : $this->runIos($host, $port),
+            'portal' => $this->runPortal($host, $port),
             default => $this->error("Unknown platform: {$platform}"),
         };
 
@@ -141,6 +142,42 @@ class DevCommand extends Command
         ])));
 
         $vite->stop(0);
+    }
+
+    private function runPortal(string $host, string $port): void
+    {
+        $url = "http://{$host}:{$port}";
+
+        $this->newLine();
+        $this->line('  <fg=magenta;options=bold>NativeBlade Portal</>');
+        $this->line("  Bundle URL: <info>{$url}</info>");
+        $this->newLine();
+
+        $this->printQR($url);
+
+        $this->line('  Open the NativeBlade Portal app and paste:');
+        $this->line("    <fg=cyan;options=bold>{$url}</>");
+        $this->newLine();
+        $this->line('  <fg=yellow>Device must be on the same WiFi network</>');
+        $this->newLine();
+
+        $this->exec(
+            "npx vite --config vite.wasm.config.js --host 0.0.0.0 --port {$port}",
+            ['NATIVEBLADE_HOST' => $host]
+        );
+    }
+
+    private function printQR(string $content): void
+    {
+        try {
+            foreach (\NativeBlade\Support\TerminalQrCode::render($content) as $line) {
+                $this->line('  ' . $line);
+            }
+            $this->newLine();
+        } catch (\Throwable $e) {
+            $this->warn('  QR rendering unavailable: ' . $e->getMessage());
+            $this->newLine();
+        }
     }
 
     private function detectIP(): string

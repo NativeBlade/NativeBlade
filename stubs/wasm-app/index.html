@@ -26,6 +26,14 @@
         <div class="status" id="status">Loading...</div>
     </div>
     <iframe id="app"></iframe>
+    <script>
+        // Portal mode: if a dev bundle URL is persisted, expose it globally so
+        // filesystem.js and hot-reload.js pick it up before the app boots.
+        try {
+            var saved = localStorage.getItem('nb:bundleBase');
+            if (saved) window.__NB_BUNDLE_BASE__ = saved;
+        } catch (e) {}
+    </script>
     <script type="module" src="./nativeblade.js"></script>
 </body>
 </html>
