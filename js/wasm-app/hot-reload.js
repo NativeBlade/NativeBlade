@@ -24,6 +24,18 @@ export function init(navigate, getCurrentPath) {
 }
 
 function resolveServerUrl() {
+    // Portal mode: the bundle is served from a remote dev server, and the same
+    // origin hosts the /__php_changes + /__php_version polling endpoints.
+    const portalBase = (typeof window !== 'undefined' ? window.__NB_BUNDLE_BASE__ : null)
+        ?? readLocalStorage('nb:bundleBase');
+    if (typeof portalBase === 'string' && portalBase.length) {
+        try {
+            return new URL(portalBase, location.href).origin;
+        } catch {
+            return portalBase.replace(/\/+$/, '');
+        }
+    }
+
     const meta = document.querySelector('meta[name="nativeblade-vite-url"]');
     const fromMeta = meta?.getAttribute('content');
     if (fromMeta) return fromMeta;
@@ -38,6 +50,10 @@ function resolveServerUrl() {
     }
 
     return '';
+}
+
+function readLocalStorage(key) {
+    try { return window.localStorage?.getItem?.(key) ?? null; } catch { return null; }
 }
 
 function scheduleChange(wasmPath, content, version) {
@@ -92,6 +108,17 @@ function setupPolling(serverUrl, hasWs) {
     let backoffMs = 1000;
     const backoffCeil = 30000;
     let baselined = false;
+    let lastStatus = null;
+
+    function postStatus(status) {
+        if (status === lastStatus) return;
+        lastStatus = status;
+        try {
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'nb:vite-status', status }, '*');
+            }
+        } catch {}
+    }
 
     async function fetchJson(url) {
         const ctrl = new AbortController();
@@ -113,7 +140,9 @@ function setupPolling(serverUrl, hasWs) {
             }
             baselined = true;
             backoffMs = 1000;
+            postStatus('connected');
         } catch {
+            postStatus('disconnected');
             backoffMs = Math.min(backoffMs * 2, backoffCeil);
             setTimeout(baseline, backoffMs);
         }
@@ -131,7 +160,9 @@ function setupPolling(serverUrl, hasWs) {
                 lastVersion = Math.max(lastVersion, data.version);
             }
             backoffMs = 1000;
+            postStatus('connected');
         } catch {
+            postStatus('disconnected');
             backoffMs = Math.min(backoffMs * 2, backoffCeil);
         }
         setTimeout(check, hasWs ? backoffMs * 3 : backoffMs);

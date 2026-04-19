@@ -76,13 +76,26 @@ export default function phpHmrPlugin(projectRoot) {
                 } catch {}
             });
 
+            // Permissive CORS on every response so the installed Portal app
+            // (served from a different origin) can fetch the bundle and poll.
+            server.middlewares.use((req, res, next) => {
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+                res.setHeader('Access-Control-Allow-Headers', '*');
+                if (req.method === 'OPTIONS') {
+                    res.statusCode = 204;
+                    res.end();
+                    return;
+                }
+                next();
+            });
+
             server.middlewares.use((req, res, next) => {
                 if (!req.url.startsWith('/__php_changes') && !req.url.startsWith('/__php_version')) {
                     return next();
                 }
 
                 res.setHeader('Content-Type', 'application/json');
-                res.setHeader('Access-Control-Allow-Origin', '*');
 
                 if (req.url.startsWith('/__php_version')) {
                     res.end(JSON.stringify({ version }));
