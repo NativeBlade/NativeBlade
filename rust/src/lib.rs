@@ -25,7 +25,8 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
         .plugin(tauri_plugin_biometric::init())
         .plugin(tauri_plugin_barcode_scanner::init())
         .plugin(tauri_plugin_nfc::init())
-        .plugin(tauri_plugin_nativeblade_push::init());
+        .plugin(tauri_plugin_nativeblade_push::init())
+        .plugin(tauri_plugin_nativeblade_media::init());
 
     let builder = builder
         .manage(commands::scheduler::SchedulerState::new())

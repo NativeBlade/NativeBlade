@@ -1,0 +1,18 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = """
+Default permission set for the NativeBlade media plugin.
+Allows opening the camera and the gallery, querying and requesting
+the OS-level camera/photos permissions, and reading bytes from an
+asset URL produced by a previous pick.
+"""
+
+permissions = [
+  "allow-pick-from-camera",
+  "allow-pick-from-gallery",
+  "allow-pick-video",
+  "allow-check-permissions",
+  "allow-request-permissions",
+  "allow-read-asset",
+]

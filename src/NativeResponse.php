@@ -11,6 +11,7 @@ use NativeBlade\Plugins\Clipboard;
 use NativeBlade\Plugins\Dialog;
 use NativeBlade\Plugins\FilePicker;
 use NativeBlade\Plugins\Geolocation;
+use NativeBlade\Plugins\Media;
 use NativeBlade\Plugins\Nfc;
 use NativeBlade\Plugins\Notification;
 use NativeBlade\Plugins\Scan;
@@ -303,6 +304,58 @@ class NativeResponse
         $camera = new Camera();
         if ($callback) $callback($camera);
         return $this->push('gallery', $camera->toArray());
+    }
+
+    // ------------------------------------------------------------------
+    // Media (nativeblade-media plugin): native camera/gallery/video with
+    // on-device resize. Preferred over camera()/gallery() on mobile because
+    // the work is done natively instead of via a JS canvas.
+    // ------------------------------------------------------------------
+
+    /**
+     * Open the native camera via the `nativeblade-media` plugin.
+     *
+     * Produces a resized JPEG on the native side, avoiding the WebView
+     * memory pressure of JS-canvas resizing. Result arrives on the
+     * `nb:media-result` Livewire event with `$items`, `$source` (= `'camera'`),
+     * and optional `$id`.
+     *
+     * @param  ?Closure(Media): void  $callback  Optional builder callback.
+     */
+    public function pickCamera(?Closure $callback = null): static
+    {
+        $media = new Media();
+        if ($callback) $callback($media);
+        return $this->push('pick_camera', $media->toArray());
+    }
+
+    /**
+     * Open the native photo picker to choose one or more existing images.
+     *
+     * Permission-free on Android 13+ and iOS 14+. Result arrives on
+     * `nb:media-result` with `$source` = `'gallery'`.
+     *
+     * @param  ?Closure(Media): void  $callback  Optional builder callback.
+     */
+    public function pickGallery(?Closure $callback = null): static
+    {
+        $media = new Media();
+        if ($callback) $callback($media);
+        return $this->push('pick_gallery', $media->toArray());
+    }
+
+    /**
+     * Open the native video picker to choose one or more existing videos.
+     *
+     * Result arrives on `nb:media-result` with `$source` = `'video'`.
+     *
+     * @param  ?Closure(Media): void  $callback  Optional builder callback.
+     */
+    public function pickVideo(?Closure $callback = null): static
+    {
+        $media = new Media();
+        if ($callback) $callback($media);
+        return $this->push('pick_video', $media->toArray());
     }
 
     // ------------------------------------------------------------------

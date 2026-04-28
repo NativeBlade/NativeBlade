@@ -16,6 +16,7 @@ import * as nfc from './nfc.js';
 import * as opener from './opener.js';
 import * as osMod from './os.js';
 import * as cameraActions from './camera.js';
+import * as mediaActions from './media.js';
 import * as files from './files.js';
 import * as uploadMod from './upload.js';
 import * as navigation from './navigation.js';
@@ -61,6 +62,11 @@ export const actions = {
     // camera
     camera: cameraActions.camera,
     gallery: cameraActions.gallery,
+
+    // media (nativeblade-media plugin)
+    pick_camera: mediaActions.pick_camera,
+    pick_gallery: mediaActions.pick_gallery,
+    pick_video: mediaActions.pick_video,
 
     // files
     file_picker: files.file_picker,

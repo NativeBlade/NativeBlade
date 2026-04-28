@@ -17,6 +17,7 @@
   <a href="DIRECTIVES.md">Directives &amp; Attributes</a> &bull;
   <a href="PLUGINS.md">Plugins</a> &bull;
   <a href="PUSH.md">Push</a> &bull;
+  <a href="MEDIA.md">Media</a> &bull;
   <a href="ANIMATIONS.md">Animations</a> &bull;
   <a href="LIFECYCLE.md">Lifecycle</a> &bull;
   <a href="DATABASE.md">Database</a> &bull;
@@ -306,6 +307,7 @@ $responses = NativeBlade::pool(fn ($pool) => [
 | [DIRECTIVES.md](DIRECTIVES.md) | wire:nb-bridge, wire:nb-navigate, nb-feedback, native actions |
 | [PLUGINS.md](PLUGINS.md) | Built-in Tauri 2 plugin bridges (dialogs, notifications, clipboard, geolocation, haptics, biometric, barcode, NFC, opener, OS info) |
 | [PUSH.md](PUSH.md) | Server push notifications via FCM (Android) and APNS (iOS) |
+| [MEDIA.md](MEDIA.md) | Native camera, gallery and video pickers with on-device resize |
 | [ANIMATIONS.md](ANIMATIONS.md) | nb-animation, Animate.css, custom animations, haptic feedback |
 | [DATABASE.md](DATABASE.md) | SQLite local, native MySQL/PostgreSQL/MariaDB via Rust bridge |
 | [LIFECYCLE.md](LIFECYCLE.md) | Boot sequence, onBoot hook, clock sync, migrations |

@@ -25,6 +25,7 @@
 
         "nfc:default",
 
-        "nativeblade-push:default"
+        "nativeblade-push:default",
+        "nativeblade-media:default"
     ]
 }

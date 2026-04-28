@@ -79,16 +79,6 @@ class IosConfig
     /**
      * Configure iOS push notifications (APNS) via a fluent builder.
      *
-     * ```
-     * $config->notification(function (IosPushNotificationConfig $push) {
-     *     $push
-     *         ->environment('production')
-     *         ->badge(true)
-     *         ->sound('default')
-     *         ->onReceive(fn ($payload) => ...);
-     * });
-     * ```
-     *
      * @param  Closure(IosPushNotificationConfig): void  $callback
      */
     public function notification(Closure $callback): static

@@ -2,6 +2,7 @@
 
 namespace NativeBlade;
 
+use Closure;
 use Illuminate\Support\Facades\DB;
 use NativeBlade\Config\DesktopConfig;
 use NativeBlade\Config\AndroidConfig;

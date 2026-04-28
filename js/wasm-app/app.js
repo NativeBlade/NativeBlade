@@ -10,6 +10,7 @@ import { init as initRouter, navigate, getCurrentPath, goBack, runBoot } from '.
 import { init as initHotReload } from './hot-reload.js';
 import { init as initStore, restoreToWasm, startAutoSync } from './state-store.js';
 import { init as initPush } from './push.js';
+import { init as initMedia } from './media.js';
 import './nb.js';
 
 const splash = document.getElementById('splash');
@@ -29,6 +30,7 @@ async function main() {
         initShell(appFrame, navigate);
         await initBridge(appFrame);
         await initPush(appFrame, handleNativeAction);
+        await initMedia();
         initHotReload(navigate, getCurrentPath);
         startAutoSync();
 

@@ -1,5 +1,5 @@
 [workspace]
-members = ["plugins/push"]
+members = ["plugins/push", "plugins/media"]
 
 [package]
 name = "nativeblade-tauri"
@@ -46,3 +46,4 @@ tauri-plugin-biometric = "2"
 tauri-plugin-barcode-scanner = "2"
 tauri-plugin-nfc = "2"
 tauri-plugin-nativeblade-push = { path = "plugins/push" }
+tauri-plugin-nativeblade-media = { path = "plugins/media" }

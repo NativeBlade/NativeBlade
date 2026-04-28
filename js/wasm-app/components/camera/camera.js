@@ -34,32 +34,73 @@ export function init(frame) {
                 result = { data: await fileToBase64(file), mime: file.type, size: file.size };
             }
 
-            appFrame?.contentWindow?.postMessage({
-                type: 'nativeblade-camera-result',
+            sendResult({
                 data: result.data,
                 name: file.name,
                 mime: result.mime || file.type,
                 size: result.size || file.size,
                 originalSize: file.size,
-                id: currentOptions.id || null,
-            }, '*');
+            });
 
             input.value = '';
         });
     }
 }
 
-export function open(options = {}) {
-    if (!input) return;
+function sendResult(extra) {
+    appFrame?.contentWindow?.postMessage({
+        type: 'nativeblade-camera-result',
+        ...extra,
+        id: currentOptions.id || null,
+    }, '*');
+}
+
+async function tryNative(source, options) {
+    if (!window.nbMedia?.available) return false;
+    try {
+        const fn = source === 'camera' ? window.nbMedia.pickFromCamera : window.nbMedia.pickFromGallery;
+        const payload = await fn({
+            maxWidth: options.maxWidth || DEFAULTS.maxWidth,
+            maxHeight: options.maxHeight || DEFAULTS.maxHeight,
+            quality: options.quality || DEFAULTS.quality,
+            facing: options.facing || 'back',
+            output: 'both',
+            id: options.id || null,
+        });
+        const item = payload?.items?.[0];
+        if (!item) return true;
+        sendResult({
+            data: item.dataUrl || item.assetUrl || item.url,
+            assetUrl: item.assetUrl || item.url,
+            path: item.path,
+            name: item.name,
+            mime: item.mime,
+            size: item.size,
+            originalSize: item.size,
+            width: item.width,
+            height: item.height,
+        });
+        return true;
+    } catch (e) {
+        if (/cancel/i.test(e?.message || '')) return true;
+        console.warn('[nativeblade] native media failed, falling back to JS:', e);
+        return false;
+    }
+}
+
+export async function open(options = {}) {
     currentOptions = options;
+    if (await tryNative('camera', options)) return;
+    if (!input) return;
     input.capture = options.facing === 'front' ? 'user' : 'environment';
     input.accept = options.accept || 'image/*';
     input.click();
 }
 
-export function openGallery(options = {}) {
-    if (!input) return;
+export async function openGallery(options = {}) {
     currentOptions = options;
+    if (await tryNative('gallery', options)) return;
+    if (!input) return;
     input.removeAttribute('capture');
     input.accept = 'image/*';
     input.click();
@@ -81,7 +122,6 @@ async function compressImage(file, opts) {
     try {
         bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
     } catch (_) {
-        // Some HEIC variants reject the options arg.
         bitmap = await createImageBitmap(file);
     }
 
