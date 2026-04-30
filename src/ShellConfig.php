@@ -145,6 +145,47 @@ class ShellConfig
     }
 
     /**
+     * Declare which Tauri plugins to bundle. If not called, all plugins are
+     * included by default (matches the legacy behavior). When declared, only
+     * the listed plugins ship in the binary, capabilities, AndroidManifest,
+     * Info.plist, and package.json — keeping the app footprint minimal and
+     * avoiding store reviews flagging unused permissions.
+     *
+     * Always-on plugins (`dialog`, `os`, `process`, `store`, `fs`, `opener`)
+     * are added automatically because NativeBlade core depends on them.
+     *
+     * ```php
+     * NativeBladeConfig::plugins([
+     *     Plugin::MEDIA,
+     *     Plugin::PUSH,
+     *     Plugin::HAPTICS,
+     * ]);
+     * ```
+     *
+     * @param  \NativeBlade\Config\Plugin[]  $plugins
+     */
+    public function plugins(array $plugins): void
+    {
+        static::$appConfigs['plugins'] = array_map(
+            fn(\NativeBlade\Config\Plugin $p) => $p->value,
+            $plugins
+        );
+    }
+
+    /**
+     * @return \NativeBlade\Config\Plugin[]|null  null when the dev hasn't called plugins()
+     */
+    public static function getDeclaredPlugins(): ?array
+    {
+        if (!isset(static::$appConfigs['plugins'])) return null;
+
+        return array_filter(array_map(
+            fn(string $v) => \NativeBlade\Config\Plugin::tryFrom($v),
+            static::$appConfigs['plugins']
+        ));
+    }
+
+    /**
      * Return every registered platform config, keyed by platform.
      *
      * @return array<string, array<string, mixed>>

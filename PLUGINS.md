@@ -6,6 +6,7 @@ This document lists every built-in bridge, what it does, and how to call it from
 
 ## Table of Contents
 
+- [Declaring Plugins](#declaring-plugins)
 - [How Bridges Work](#how-bridges-work)
 - [The `NativeBlade` Facade](#the-nativeblade-facade)
 - [Dialogs](#dialogs)
@@ -25,6 +26,71 @@ This document lists every built-in bridge, what it does, and how to call it from
 - [Process](#process)
 - [Receiving Results in PHP](#receiving-results-in-php)
 - [Adding Your Own Bridge](#adding-your-own-bridge)
+
+---
+
+## Declaring Plugins
+
+By default, every plugin ships in your build. For production apps you should **declare only what you actually use** — App Store and Play Store reviewers flag binaries that reference unused permissions, and unused plugins also bloat the binary.
+
+Declare your plugin set in `app/Providers/AppServiceProvider.php`:
+
+```php
+use NativeBlade\Config\Plugin;
+use NativeBlade\Facades\NativeBladeConfig;
+
+NativeBladeConfig::plugins([
+    Plugin::MEDIA,        // camera, gallery, video picker
+    Plugin::PUSH,         // FCM / APNS push notifications
+    Plugin::HAPTICS,      // vibration, taptic feedback
+    Plugin::GEOLOCATION,  // GPS
+]);
+```
+
+Run `php artisan nativeblade:config` to apply. NativeBlade regenerates `Cargo.toml`, capabilities, and `package.json` so only the listed plugins compile in. Cargo skips the unused crates entirely — their code never reaches the binary.
+
+### How it works
+
+The `plugins()` declaration drives a Cargo feature toggle on every optional crate:
+
+```toml
+# Generated in your src-tauri/Cargo.toml
+[features]
+default = ["custom-protocol"]
+haptics = ["dep:tauri-plugin-haptics"]
+media = ["dep:tauri-plugin-nativeblade-media"]
+push = ["dep:tauri-plugin-nativeblade-push"]
+```
+
+When you run `nativeblade:dev` or `nativeblade:build`, the CLI passes `--features haptics,media,push` to Cargo. Optional crates whose feature isn't enabled are not downloaded, compiled, or linked.
+
+### Always-on plugins
+
+`dialog`, `os`, `process`, `store`, `fs`, and `opener` are always included regardless of declaration — NativeBlade core depends on them.
+
+### Available plugins
+
+| Enum | What it provides |
+|------|------------------|
+| `Plugin::MEDIA` | `NativeBlade::camera()`, `gallery()`, `video()` (mobile only) |
+| `Plugin::PUSH` | FCM (Android) and APNS (iOS) push notifications (mobile only) |
+| `Plugin::GEOLOCATION` | `nb:geolocation` event with current position |
+| `Plugin::BIOMETRIC` | `NativeBlade::biometric()` (mobile only) |
+| `Plugin::BARCODE_SCANNER` | `NativeBlade::scan()` (mobile only) |
+| `Plugin::NFC` | `NativeBlade::nfc()` (mobile only) |
+| `Plugin::HAPTICS` | `NativeBlade::impact()`, `vibrate()`, `selection()` |
+| `Plugin::CLIPBOARD` | `NativeBlade::clipboardWrite()`, `clipboardRead()` |
+| `Plugin::UPLOAD` | `NativeBlade::upload($path, $url)` streaming uploads |
+| `Plugin::NOTIFICATION` | `NativeBlade::notification()` local notifications |
+| `Plugin::HTTP` | Native HTTP requests (bypasses CORS) |
+| `Plugin::DEEP_LINK` | URL scheme handling |
+| `Plugin::SHELL` | Run external commands (desktop only — disabled by default) |
+
+> **Behavior when missing:** if a Livewire action calls `NativeBlade::camera()` without declaring `Plugin::MEDIA`, the build fails with a Cargo error pointing at the missing permission. This is intentional — fail at build time, not at runtime.
+
+### Skipping declaration
+
+If you don't call `NativeBladeConfig::plugins([...])`, all plugins are included by default. Useful while prototyping; switch to explicit declaration before shipping.
 
 ---
 

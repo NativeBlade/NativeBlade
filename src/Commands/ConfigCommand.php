@@ -6,6 +6,8 @@ use Illuminate\Console\Command;
 use NativeBlade\Commands\Config\AndroidConfigGenerator;
 use NativeBlade\Commands\Config\DesktopConfigGenerator;
 use NativeBlade\Commands\Config\IosConfigGenerator;
+use NativeBlade\Commands\Config\PluginsConfigGenerator;
+use NativeBlade\Config\PluginRegistry;
 use NativeBlade\ShellConfig;
 
 class ConfigCommand extends Command
@@ -18,7 +20,9 @@ class ConfigCommand extends Command
         app()->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
         $configs = ShellConfig::getAppConfigs();
+        $plugins = PluginRegistry::resolve(ShellConfig::getDeclaredPlugins());
 
+        (new PluginsConfigGenerator($this))->generate($plugins);
         (new DesktopConfigGenerator($this))->generate($configs['desktop'] ?? []);
         (new AndroidConfigGenerator($this))->generate($configs['android'] ?? []);
         (new IosConfigGenerator($this))->generate($configs['ios'] ?? []);

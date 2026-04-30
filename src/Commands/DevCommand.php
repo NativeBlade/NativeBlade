@@ -3,7 +3,9 @@
 namespace NativeBlade\Commands;
 
 use Illuminate\Console\Command;
+use NativeBlade\Config\PluginRegistry;
 use NativeBlade\NativeBladeServiceProvider;
+use NativeBlade\ShellConfig;
 use Symfony\Component\Process\Process;
 
 class DevCommand extends Command
@@ -61,19 +63,32 @@ class DevCommand extends Command
     private function runBuiltDesktop(): void
     {
         $this->info('Starting Tauri desktop dev (built assets, no HMR)...');
-        $this->exec('npx tauri dev --config ' . $this->builtConfigArg());
+        $this->exec('npx tauri dev ' . $this->cargoFeaturesArg() . ' --config ' . $this->builtConfigArg());
     }
 
     private function runBuiltAndroid(): void
     {
         $this->info('Starting Tauri Android dev (built assets, no HMR)...');
-        $this->exec("npx tauri android dev --config " . $this->builtConfigArg(), $this->androidEnv());
+        $this->exec("npx tauri android dev " . $this->cargoFeaturesArg() . " --config " . $this->builtConfigArg(), $this->androidEnv());
     }
 
     private function runBuiltIos(): void
     {
         $this->info('Starting Tauri iOS dev (built assets, no HMR)...');
-        $this->exec('npx tauri ios dev --config ' . $this->builtConfigArg());
+        $this->exec('npx tauri ios dev ' . $this->cargoFeaturesArg() . ' --config ' . $this->builtConfigArg());
+    }
+
+    private function cargoFeaturesArg(): string
+    {
+        $plugins = PluginRegistry::resolve(ShellConfig::getDeclaredPlugins());
+        $features = [];
+        foreach ($plugins as $plugin) {
+            $d = PluginRegistry::descriptor($plugin);
+            if (isset($d['feature'])) $features[] = $d['feature'];
+        }
+        if (empty($features)) return '';
+        sort($features);
+        return '--features ' . escapeshellarg(implode(',', $features));
     }
 
     private function builtConfigArg(): string
@@ -93,7 +108,7 @@ class DevCommand extends Command
     private function runDesktop(string $port): void
     {
         $this->info('Starting Tauri desktop dev...');
-        $this->exec("npx tauri dev", [
+        $this->exec("npx tauri dev " . $this->cargoFeaturesArg(), [
             'TAURI_CONFIG' => json_encode(['build' => ['devUrl' => "http://localhost:{$port}"]]),
         ]);
     }
@@ -118,7 +133,7 @@ class DevCommand extends Command
         $escaped = PHP_OS_FAMILY === 'Windows'
             ? '"' . str_replace('"', '\\"', $configJson) . '"'
             : escapeshellarg($configJson);
-        $this->exec("npx tauri android dev --config {$escaped}", $this->androidEnv());
+        $this->exec("npx tauri android dev " . $this->cargoFeaturesArg() . " --config {$escaped}", $this->androidEnv());
 
         $vite->stop(0);
     }
@@ -134,7 +149,7 @@ class DevCommand extends Command
         sleep(3);
 
         $this->info('Starting Tauri iOS dev...');
-        $this->exec("npx tauri ios dev --config " . escapeshellarg(json_encode([
+        $this->exec("npx tauri ios dev " . $this->cargoFeaturesArg() . " --config " . escapeshellarg(json_encode([
             'build' => [
                 'devUrl' => "http://{$host}:{$port}",
                 'beforeDevCommand' => '',

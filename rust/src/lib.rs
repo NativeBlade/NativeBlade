@@ -3,30 +3,22 @@ pub mod commands;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use tauri::Manager;
 
+/// Returns a `tauri::Builder` pre-configured with NativeBlade's always-on
+/// plugins (dialog, os, process, store, fs, opener), the framework
+/// commands (scheduler, database, fileops), and desktop window/menu
+/// handlers.
+///
+/// Optional plugins (haptics, geolocation, push, media, etc.) are
+/// registered in the user's `src-tauri/src/lib.rs` after this call,
+/// gated by Cargo features that NativeBladeConfig::plugins([...]) toggles.
 pub fn build() -> tauri::Builder<tauri::Wry> {
     let builder = tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_geolocation::init())
-        .plugin(tauri_plugin_haptics::init())
-        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_http::init())
-        .plugin(tauri_plugin_deep_link::init())
-        .plugin(tauri_plugin_upload::init());
-
-    #[cfg(any(target_os = "android", target_os = "ios"))]
-    let builder = builder
-        .plugin(tauri_plugin_biometric::init())
-        .plugin(tauri_plugin_barcode_scanner::init())
-        .plugin(tauri_plugin_nfc::init())
-        .plugin(tauri_plugin_nativeblade_push::init())
-        .plugin(tauri_plugin_nativeblade_media::init());
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_opener::init());
 
     let builder = builder
         .manage(commands::scheduler::SchedulerState::new())

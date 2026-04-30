@@ -18,30 +18,42 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 nativeblade-tauri = { path = "{{NATIVEBLADE_RUST_PATH}}" }
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
-tauri-plugin-shell = "2"
-tauri-plugin-dialog = "2"
-tauri-plugin-notification = "2"
-tauri-plugin-store = "2"
-tauri-plugin-process = "2"
-tauri-plugin-clipboard-manager = "2"
-tauri-plugin-fs = "2"
-tauri-plugin-geolocation = "2"
-tauri-plugin-haptics = "2"
-tauri-plugin-opener = "2"
-tauri-plugin-os = "2"
-tauri-plugin-http = "2"
-tauri-plugin-deep-link = "2"
-tauri-plugin-upload = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
-tauri-plugin-biometric = "2"
-tauri-plugin-barcode-scanner = "2"
-tauri-plugin-nfc = "2"
-tauri-plugin-nativeblade-push = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/push" }
-tauri-plugin-nativeblade-media = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/media" }
+# Always-on plugins. NativeBlade core depends on them. Listed here as
+# direct deps so tauri-build can discover their permissions.
+tauri-plugin-dialog = "2"
+tauri-plugin-os = "2"
+tauri-plugin-process = "2"
+tauri-plugin-store = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-opener = "2"
 
+# Optional Tauri plugins. Each one is gated by a Cargo feature so it
+# only ships in the binary when explicitly enabled via
+# NativeBladeConfig::plugins([...]) in your AppServiceProvider.
+#
+# Run `php artisan nativeblade:config` to regenerate the [features]
+# section below to match your declared plugins.
+tauri-plugin-shell = { version = "2", optional = true }
+tauri-plugin-notification = { version = "2", optional = true }
+tauri-plugin-clipboard-manager = { version = "2", optional = true }
+tauri-plugin-geolocation = { version = "2", optional = true }
+tauri-plugin-haptics = { version = "2", optional = true }
+tauri-plugin-http = { version = "2", optional = true }
+tauri-plugin-deep-link = { version = "2", optional = true }
+tauri-plugin-upload = { version = "2", optional = true }
+
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-biometric = { version = "2", optional = true }
+tauri-plugin-barcode-scanner = { version = "2", optional = true }
+tauri-plugin-nfc = { version = "2", optional = true }
+tauri-plugin-nativeblade-push = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/push", optional = true }
+tauri-plugin-nativeblade-media = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/media", optional = true }
+
+# nativeblade:plugins:start
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+# nativeblade:plugins:end

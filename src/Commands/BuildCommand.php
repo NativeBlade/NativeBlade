@@ -3,6 +3,7 @@
 namespace NativeBlade\Commands;
 
 use Illuminate\Console\Command;
+use NativeBlade\Config\PluginRegistry;
 use NativeBlade\ShellConfig;
 
 class BuildCommand extends Command
@@ -65,7 +66,7 @@ class BuildCommand extends Command
         $buildDir = base_path('build/android');
         if (!is_dir($buildDir)) mkdir($buildDir, 0755, true);
 
-        if (!$this->runProcess($this->npxCommand('tauri android build'))) {
+        if (!$this->runProcess($this->npxCommand('tauri android build ' . $this->cargoFeaturesArg()))) {
             return false;
         }
 
@@ -95,7 +96,7 @@ class BuildCommand extends Command
         $buildDir = base_path('build/ios');
         if (!is_dir($buildDir)) mkdir($buildDir, 0755, true);
 
-        if (!$this->runProcess($this->npxCommand('tauri ios build'))) {
+        if (!$this->runProcess($this->npxCommand('tauri ios build ' . $this->cargoFeaturesArg()))) {
             return false;
         }
 
@@ -109,7 +110,7 @@ class BuildCommand extends Command
         $buildDir = base_path('build/desktop');
         if (!is_dir($buildDir)) mkdir($buildDir, 0755, true);
 
-        if (!$this->runProcess($this->npxCommand('tauri build'))) {
+        if (!$this->runProcess($this->npxCommand('tauri build ' . $this->cargoFeaturesArg()))) {
             return false;
         }
 
@@ -118,6 +119,19 @@ class BuildCommand extends Command
         ]);
 
         return true;
+    }
+
+    private function cargoFeaturesArg(): string
+    {
+        $plugins = PluginRegistry::resolve(ShellConfig::getDeclaredPlugins());
+        $features = [];
+        foreach ($plugins as $plugin) {
+            $d = PluginRegistry::descriptor($plugin);
+            if (isset($d['feature'])) $features[] = $d['feature'];
+        }
+        if (empty($features)) return '';
+        sort($features);
+        return '--features ' . escapeshellarg(implode(',', $features));
     }
 
     private function searchAndCopyArtifacts(string $searchDir, string $destDir, string $version, array $extensions): void

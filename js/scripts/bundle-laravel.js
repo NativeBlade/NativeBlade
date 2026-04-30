@@ -63,7 +63,7 @@ const EXCLUDE_PATTERNS = [
     /\/docs?\//i,
     /\/examples?\//i,
     /\/fixtures?\//i,
-    /\/stubs?\//i,
+    /(?<!Resources)\/stubs?\//i,
     /\/benchmarks?\//i,
     /\/phpunit/i,
     /\/phpstan/i,

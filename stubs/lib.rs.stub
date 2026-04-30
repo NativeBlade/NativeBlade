@@ -1,6 +1,11 @@
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    nativeblade::build()
+    let builder = nativeblade::build();
+
+    // nativeblade:plugins:start
+    // nativeblade:plugins:end
+
+    builder
         .run(tauri::generate_context!())
         .expect("error while running NativeBlade");
 }
