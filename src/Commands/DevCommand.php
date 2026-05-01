@@ -49,13 +49,25 @@ class DevCommand extends Command
             $this->exec('npx vite build --config vite.wasm.config.js');
         }
 
-        match ($platform) {
-            'desktop' => $build ? $this->runBuiltDesktop() : $this->runDesktop($port),
-            'android' => $build ? $this->runBuiltAndroid() : $this->runAndroid($host, $port),
-            'ios' => $build ? $this->runBuiltIos() : $this->runIos($host, $port),
-            'portal' => $this->runPortal($host, $port),
-            default => $this->error("Unknown platform: {$platform}"),
-        };
+        // Background watcher: rebuilds the bundle on PHP/Blade changes so
+        // cold restarts pick up edits, not just HMR sessions.
+        $watcher = null;
+        if (!$build) {
+            $watchScript = NativeBladeServiceProvider::packagePath('js/scripts/watch-bundle.js');
+            $watcher = $this->background("node {$watchScript} " . base_path());
+        }
+
+        try {
+            match ($platform) {
+                'desktop' => $build ? $this->runBuiltDesktop() : $this->runDesktop($port),
+                'android' => $build ? $this->runBuiltAndroid() : $this->runAndroid($host, $port),
+                'ios' => $build ? $this->runBuiltIos() : $this->runIos($host, $port),
+                'portal' => $this->runPortal($host, $port),
+                default => $this->error("Unknown platform: {$platform}"),
+            };
+        } finally {
+            if ($watcher) $watcher->stop(0);
+        }
 
         return self::SUCCESS;
     }

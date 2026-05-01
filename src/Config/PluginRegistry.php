@@ -82,7 +82,12 @@ class PluginRegistry
                 'feature_crate' => 'tauri-plugin-barcode-scanner',
                 'rust_init' => 'tauri_plugin_barcode_scanner::init()',
                 'mobile_only' => true,
-                'mobile_capabilities' => ['barcode-scanner:allow-scan', 'barcode-scanner:allow-cancel'],
+                'mobile_capabilities' => [
+                    'barcode-scanner:allow-scan',
+                    'barcode-scanner:allow-cancel',
+                    'barcode-scanner:allow-check-permissions',
+                    'barcode-scanner:allow-request-permissions',
+                ],
                 'npm' => ['@tauri-apps/plugin-barcode-scanner' => '^2'],
                 'android_permissions' => ['CAMERA'],
                 'ios_plist' => ['NSCameraUsageDescription'],

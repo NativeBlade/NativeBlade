@@ -25,12 +25,7 @@ export function prepareDirs() {
     ].forEach(d => php.mkdirTree(d));
 }
 
-async function fetchBundleJson() {
-    const cached = await tryLoadCachedBundle();
-    if (cached) return cached;
-
-    const base = getBundleBase();
-
+async function tryFetchAt(base) {
     if (typeof DecompressionStream !== 'undefined') {
         try {
             const res = await fetch(base + 'laravel-bundle.json.gz');
@@ -40,9 +35,33 @@ async function fetchBundleJson() {
             }
         } catch {}
     }
-    const res = await fetch(base + 'laravel-bundle.json');
-    if (!res.ok) throw new Error(`Bundle fetch failed: ${res.status}`);
-    return await res.text();
+    try {
+        const res = await fetch(base + 'laravel-bundle.json');
+        if (res.ok) return await res.text();
+    } catch {}
+    return null;
+}
+
+async function fetchBundleJson() {
+    const cached = await tryLoadCachedBundle();
+    if (cached) return cached;
+
+    const base = getBundleBase();
+    const text = await tryFetchAt(base);
+    if (text) return text;
+
+    // Fallback: if a custom (portal) base was saved and is now unreachable,
+    // clear it and fall back to the bundled "./". This makes the app usable
+    // again — the portal's landing page boots, user can re-enter the URL.
+    if (base !== './') {
+        try { window.localStorage?.removeItem?.('nb:bundleBase'); } catch {}
+        try { delete window.__NB_BUNDLE_BASE__; } catch {}
+
+        const fallback = await tryFetchAt('./');
+        if (fallback) return fallback;
+    }
+
+    throw new Error('Bundle fetch failed: unreachable and no fallback bundle available');
 }
 
 export async function loadBundle(onProgress) {
