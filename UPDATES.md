@@ -183,15 +183,28 @@ For any of these, ship a shell update via the store (or notarized desktop update
 
 ### How to publish a bundle
 
+For bundle push you don't need to rebuild the native shell. Use the dedicated bundle command:
+
 ```bash
-# 1. Build to produce the new bundle
-php artisan nativeblade:build android
+# 1. Build only the Laravel bundle (fast — no Tauri build)
+php artisan nativeblade:bundle --version=1.0.5
 
-# 2. Upload the bundle file to your CDN
-# (the build script writes it to public/laravel-bundle.json.gz)
-
-# 3. Update version.json with the new version + URL
+# Output:
+#   public/laravel-bundle.json.gz          (canonical, always overwritten)
+#   public/laravel-bundle-1.0.5.json.gz    (versioned copy)
+#
+# 2. Upload public/laravel-bundle-1.0.5.json.gz to your CDN
+#
+# 3. Update version.json on your server:
+{
+    "bundle": {
+        "version": "1.0.5",
+        "url": "https://releases.myapp.com/laravel-bundle-1.0.5.json.gz"
+    }
+}
 ```
+
+`nativeblade:bundle` skips the native build entirely — it only runs `composer install --no-dev` + the bundle script. Typical run is 10-30 seconds vs minutes for a full `nativeblade:build`.
 
 ### Recommendations
 
