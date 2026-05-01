@@ -133,9 +133,27 @@ class DevCommand extends Command
         $escaped = PHP_OS_FAMILY === 'Windows'
             ? '"' . str_replace('"', '\\"', $configJson) . '"'
             : escapeshellarg($configJson);
-        $this->exec("npx tauri android dev " . $this->cargoFeaturesArg() . " --config {$escaped}", $this->androidEnv());
+        $target = $this->detectAndroidTarget();
+        $targetArg = $target ? "--target {$target} " : '';
+        $this->exec("npx tauri android dev {$targetArg}" . $this->cargoFeaturesArg() . " --config {$escaped}", $this->androidEnv());
 
         $vite->stop(0);
+    }
+
+    private function detectAndroidTarget(): ?string
+    {
+        $output = [];
+        @exec('adb shell getprop ro.product.cpu.abi 2>&1', $output, $code);
+        if ($code !== 0 || empty($output)) return null;
+
+        $abi = trim($output[0]);
+        return match ($abi) {
+            'arm64-v8a' => 'aarch64',
+            'armeabi-v7a' => 'armv7',
+            'x86_64' => 'x86_64',
+            'x86' => 'i686',
+            default => null,
+        };
     }
 
     private function runIos(string $host, string $port): void
