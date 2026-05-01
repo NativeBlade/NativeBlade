@@ -218,6 +218,45 @@ class ShellConfig
     }
 
     // ------------------------------------------------------------------
+    // Bundle push (OTA Laravel updates without store re-submit)
+    // ------------------------------------------------------------------
+
+    /**
+     * Enable over-the-air updates for the Laravel bundle. The app checks
+     * the URL on boot and, if a newer bundle version is available, downloads
+     * and applies it. Only the Laravel/Livewire/Blade code updates — the
+     * native shell stays the same.
+     *
+     * The endpoint must return JSON with this shape:
+     * ```json
+     * {
+     *   "bundle": {
+     *     "version": "1.0.5",
+     *     "url": "https://cdn.myapp.com/bundles/laravel-bundle-1.0.5.json.gz",
+     *     "minShellVersion": "1.0.0"
+     *   }
+     * }
+     * ```
+     *
+     * `minShellVersion` guards against bundles that need a feature only
+     * present in newer shell versions (e.g. a plugin you added). When the
+     * shell is older than `minShellVersion`, the update is skipped — the
+     * user has to update the shell first via the normal Tauri/store flow.
+     *
+     * @param  string  $url        URL returning the version JSON.
+     * @param  bool    $autoApply  When true, downloads in background and
+     *                             swaps the bundle on the next boot.
+     */
+    public function bundlePush(string $url, bool $autoApply = true): static
+    {
+        static::$appConfigs['bundlePush'] = [
+            'url' => $url,
+            'autoApply' => $autoApply,
+        ];
+        return $this;
+    }
+
+    // ------------------------------------------------------------------
     // Boot & transitions
     // ------------------------------------------------------------------
 

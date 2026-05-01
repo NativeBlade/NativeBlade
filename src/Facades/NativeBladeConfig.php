@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static void android(callable $callback)
  * @method static void ios(callable $callback)
  * @method static void plugins(array $plugins)
+ * @method static static bundlePush(string $url, bool $autoApply = true)
  * @method static static onBoot(callable $callback)
  * @method static static transition(string $type = 'fade')
  * @method static array getAppConfigs()

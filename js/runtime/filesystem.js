@@ -1,5 +1,6 @@
 import { getInstance } from './php-runtime.js';
 import { getBundleBase } from './bundle-base.js';
+import { tryLoadCachedBundle } from './bundle-push.js';
 
 export { getBundleBase };
 
@@ -25,6 +26,9 @@ export function prepareDirs() {
 }
 
 async function fetchBundleJson() {
+    const cached = await tryLoadCachedBundle();
+    if (cached) return cached;
+
     const base = getBundleBase();
 
     if (typeof DecompressionStream !== 'undefined') {

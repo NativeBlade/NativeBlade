@@ -30,8 +30,32 @@ class ConfigCommand extends Command
         (new DesktopConfigGenerator($this))->generate($configs['desktop'] ?? []);
         (new AndroidConfigGenerator($this))->generate($configs['android'] ?? []);
         (new IosConfigGenerator($this))->generate($configs['ios'] ?? []);
+        $this->writeRuntimeConfig($configs);
 
         $this->info('  Config generated from PHP.');
         return self::SUCCESS;
+    }
+
+    /**
+     * Write runtime config that the JS side reads at boot. Currently used
+     * by the bundle-push module — published to public/nativeblade-config.json
+     * so it ships alongside laravel-bundle.json.gz.
+     */
+    private function writeRuntimeConfig(array $configs): void
+    {
+        $runtime = [];
+        if (isset($configs['bundlePush'])) {
+            $runtime['bundlePush'] = $configs['bundlePush'];
+        }
+
+        $path = base_path('public/nativeblade-config.json');
+        if (empty($runtime)) {
+            if (file_exists($path)) unlink($path);
+            return;
+        }
+
+        @mkdir(dirname($path), 0755, true);
+        file_put_contents($path, json_encode($runtime, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->line("  <fg=green>✓</> public/nativeblade-config.json");
     }
 }

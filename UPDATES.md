@@ -1,8 +1,19 @@
 # Auto-Update
 
-NativeBlade supports automatic update checking on all platforms.
+NativeBlade has two complementary update mechanisms:
 
-## How It Works
+| | Shell Update | Bundle Push |
+|---|---|---|
+| **What updates** | The native binary (Rust, plugins, Tauri shell) | Just the Laravel bundle (PHP, Blade, Livewire, CSS, JS) |
+| **Size** | 50–200MB | 5–15MB |
+| **Desktop** | Tauri updater downloads + restarts | Auto-applied on next reload |
+| **Mobile** | Modal → redirect to store | Auto-applied on next reload |
+| **Store review** | Required (mobile) | **Not required** |
+| **Frequency** | Rare (when plugins/Rust change) | Frequent (any Laravel-side fix) |
+
+Most updates only need bundle push. Shell update kicks in when you change the `plugins([...])` declaration, native plugin code, or anything else that changes the binary.
+
+## Shell Update — How It Works
 
 | Platform | Behavior |
 |----------|----------|
@@ -107,3 +118,83 @@ npx tauri signer sign -k ~/.tauri/myapp.key build/desktop/1.1.0.msi
 ```
 
 This generates a `.sig` file — include the signature content in the `platforms.*.signature` field of your version JSON.
+
+---
+
+## Bundle Push
+
+Push Laravel updates to all installed apps without rebuilding the native shell or going through the App Store / Play Store. The shell stays the same; only `laravel-bundle.json.gz` is replaced.
+
+### Configuration
+
+```php
+NativeBladeConfig::bundlePush(
+    url: 'https://releases.myapp.com/version.json',
+    autoApply: true,
+);
+```
+
+Run `php artisan nativeblade:config` once to publish the runtime config to `public/nativeblade-config.json`. From there, every app boot checks the URL and downloads new bundles in the background.
+
+### Manifest format
+
+The same `version.json` your Tauri shell update uses, plus a `bundle` block:
+
+```json
+{
+    "version": "1.1.0",
+    "platforms": { "...": "..." },
+    "bundle": {
+        "version": "1.0.5",
+        "url": "https://releases.myapp.com/laravel-bundle-1.0.5.json.gz",
+        "minShellVersion": "1.0.0"
+    }
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `bundle.version` | yes | Semver. Compared against the locally installed bundle version. |
+| `bundle.url` | yes | URL to the new `laravel-bundle.json.gz`. |
+| `bundle.minShellVersion` | no | Skip the bundle if the shell is older. Useful when the bundle calls into a plugin you only added in a newer shell. |
+
+### Storage
+
+Downloaded bundles are stored in IndexedDB (works on web, Tauri desktop, Android, iOS — no platform-specific code). On boot, the app loads from cache if present, otherwise falls back to the bundle that shipped in the binary.
+
+### Rollback
+
+If a downloaded bundle is corrupt or fails to decompress, the cache is cleared automatically and the app falls back to the binary's bundled version on the next boot.
+
+### What works with bundle push
+
+- Laravel routes, controllers, models, migrations, service providers
+- Blade templates, Livewire components
+- Public CSS/JS assets (Tailwind, Vite output)
+- Composer dependencies (anything in `vendor/`)
+
+### What does NOT work with bundle push
+
+- Adding/removing plugins (`Plugin::CAMERA`, etc.) — changes Cargo features and native permissions
+- Changing native plugin code (push, media, custom Tauri plugins)
+- Changing iOS/Android `permissions()` config — affects Info.plist / AndroidManifest
+
+For any of these, ship a shell update via the store (or notarized desktop updater).
+
+### How to publish a bundle
+
+```bash
+# 1. Build to produce the new bundle
+php artisan nativeblade:build android
+
+# 2. Upload the bundle file to your CDN
+# (the build script writes it to public/laravel-bundle.json.gz)
+
+# 3. Update version.json with the new version + URL
+```
+
+### Recommendations
+
+- Keep `minShellVersion` accurate — bumping it when you add a plugin saves users from a broken app
+- Use a CDN with proper cache headers (e.g. CloudFront, Cloudflare R2)
+- Version your bundle URLs (`bundle-1.0.5.json.gz`) so old shells keep working with old bundles

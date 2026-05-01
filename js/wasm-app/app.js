@@ -11,6 +11,7 @@ import { init as initHotReload } from './hot-reload.js';
 import { init as initStore, restoreToWasm, startAutoSync } from './state-store.js';
 import { init as initPush } from './push.js';
 import { init as initMedia } from './media.js';
+import { checkAndDownload as checkBundlePush } from '../runtime/bundle-push.js';
 import './nb.js';
 
 const splash = document.getElementById('splash');
@@ -33,6 +34,10 @@ async function main() {
         await initMedia();
         initHotReload(navigate, getCurrentPath);
         startAutoSync();
+
+        // Bundle push runs in the background — never blocks boot. Downloaded
+        // updates apply on the next reload, not the current session.
+        checkBundlePush().catch(() => {});
 
         try {
             if (window.__TAURI_INTERNALS__) {
