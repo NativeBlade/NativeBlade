@@ -6,63 +6,132 @@ use Illuminate\Console\Command;
 
 class AndroidConfigGenerator
 {
-    private const PERMISSIONS = [
-        'camera' => 'android.permission.CAMERA',
-        'location' => 'android.permission.ACCESS_FINE_LOCATION',
-        'location_coarse' => 'android.permission.ACCESS_COARSE_LOCATION',
-        'microphone' => 'android.permission.RECORD_AUDIO',
-        'storage' => 'android.permission.READ_EXTERNAL_STORAGE',
-        'storage_write' => 'android.permission.WRITE_EXTERNAL_STORAGE',
-        'notifications' => 'android.permission.POST_NOTIFICATIONS',
-        'vibrate' => 'android.permission.VIBRATE',
-        'biometric' => 'android.permission.USE_BIOMETRIC',
-        'nfc' => 'android.permission.NFC',
-        'internet' => 'android.permission.INTERNET',
-        'network_state' => 'android.permission.ACCESS_NETWORK_STATE',
-    ];
-
     public function __construct(private Command $cmd) {}
+
+    private const START_XML = '<!-- nativeblade:config:start -->';
+    private const END_XML = '<!-- nativeblade:config:end -->';
 
     public function generate(array $config): void
     {
         $this->generateTheme($config);
         $this->generateOrientation($config);
         $this->generateVersion($config);
-        $this->generateFullscreen($config);
         $this->generateSdk($config);
-        $this->generateSplash($config);
         $this->generatePushNotification($config);
     }
 
+    /**
+     * Single source of truth for everything written to themes.xml: status
+     * bar color/style, navigation bar color, fullscreen, splash background.
+     * Items are wrapped in `<!-- nativeblade:config -->` markers — anything
+     * outside the markers (custom items the dev added manually) stays put.
+     */
     private function generateTheme(array $config): void
     {
         $themePath = base_path('src-tauri/gen/android/app/src/main/res/values/themes.xml');
         if (!file_exists($themePath)) return;
 
         $themeName = $this->detectThemeName();
-        $statusColor = $config['statusBar']['color'] ?? '#FF0A0A0A';
-        $navColor = $config['navigationBar']['color'] ?? '#FF0A0A0A';
-        $lightStatus = ($config['statusBar']['style'] ?? 'dark') === 'light' ? 'true' : 'false';
+        $items = $this->buildThemeItems($config);
 
-        if (!str_starts_with($statusColor, '#FF')) $statusColor = '#FF' . ltrim($statusColor, '#');
-        if (!str_starts_with($navColor, '#FF')) $navColor = '#FF' . ltrim($navColor, '#');
+        foreach ([$themePath, str_replace('/values/', '/values-night/', $themePath)] as $path) {
+            if (!file_exists($path)) {
+                $this->writeFreshTheme($path, $themeName, $items);
+                continue;
+            }
 
+            $xml = file_get_contents($path);
+            $xml = $this->upsertThemeItems($xml, $themeName, $items);
+            file_put_contents($path, $xml);
+        }
+
+        $this->cmd->line("  <fg=green>✓</> Android theme: " . count($items) . " items");
+    }
+
+    private function buildThemeItems(array $config): array
+    {
+        $items = [];
+
+        if (isset($config['statusBar'])) {
+            $color = $this->normalizeArgb($config['statusBar']['color'] ?? '#FF0A0A0A');
+            $light = ($config['statusBar']['style'] ?? 'dark') === 'light' ? 'true' : 'false';
+            $items[] = '<item name="android:statusBarColor">' . $color . '</item>';
+            $items[] = '<item name="android:windowLightStatusBar" tools:targetApi="23">' . $light . '</item>';
+        }
+
+        if (isset($config['navigationBar'])) {
+            $navColor = $this->normalizeArgb($config['navigationBar']['color'] ?? '#FF0A0A0A');
+            $items[] = '<item name="android:navigationBarColor">' . $navColor . '</item>';
+        }
+
+        if (isset($config['fullscreen'])) {
+            $items[] = '<item name="android:windowFullscreen">' . ($config['fullscreen'] ? 'true' : 'false') . '</item>';
+        }
+
+        if (isset($config['splashBackground'])) {
+            $color = $this->normalizeArgb($config['splashBackground']);
+            $items[] = '<item name="android:windowSplashScreenBackground">' . $color . '</item>';
+        }
+
+        return $items;
+    }
+
+    private function normalizeArgb(string $color): string
+    {
+        return str_starts_with($color, '#FF') ? $color : '#FF' . ltrim($color, '#');
+    }
+
+    private function writeFreshTheme(string $path, string $themeName, array $items): void
+    {
+        $body = empty($items) ? '' : "\n        " . implode("\n        ", $items);
         $xml = <<<XML
 <resources xmlns:tools="http://schemas.android.com/tools">
     <style name="{$themeName}" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="android:statusBarColor">{$statusColor}</item>
-        <item name="android:navigationBarColor">{$navColor}</item>
-        <item name="android:windowLightStatusBar" tools:targetApi="23">{$lightStatus}</item>
+        {$this->markerOpen()}{$body}
+        {$this->markerClose()}
     </style>
 </resources>
 XML;
+        @mkdir(dirname($path), 0755, true);
+        file_put_contents($path, $xml);
+    }
 
-        file_put_contents($themePath, $xml);
+    private function upsertThemeItems(string $xml, string $themeName, array $items): string
+    {
+        $body = empty($items) ? '' : "\n        " . implode("\n        ", $items);
+        $newBlock = $this->markerOpen() . $body . "\n        " . $this->markerClose();
 
-        $nightPath = str_replace('/values/', '/values-night/', $themePath);
-        if (file_exists($nightPath)) file_put_contents($nightPath, $xml);
+        $startQ = preg_quote(self::START_XML, '/');
+        $endQ = preg_quote(self::END_XML, '/');
+        $pattern = "/[ \t]*{$startQ}.*?{$endQ}/s";
 
-        $this->cmd->line("  <fg=green>✓</> Android theme updated");
+        if (preg_match($pattern, $xml)) {
+            return preg_replace($pattern, $newBlock, $xml);
+        }
+
+        $itemPattern = '/<item name="android:(statusBarColor|navigationBarColor|windowLightStatusBar|windowFullscreen|windowSplashScreenBackground)"[^>]*>[^<]*<\/item>\s*/';
+        $xml = preg_replace($itemPattern, '', $xml);
+
+        if (preg_match('/<style name="' . preg_quote($themeName, '/') . '"[^>]*>/', $xml)) {
+            return preg_replace(
+                '/(<style name="' . preg_quote($themeName, '/') . '"[^>]*>)/',
+                "$1\n        {$newBlock}",
+                $xml,
+                1
+            );
+        }
+
+        return $xml;
+    }
+
+    private function markerOpen(): string
+    {
+        return self::START_XML;
+    }
+
+    private function markerClose(): string
+    {
+        return self::END_XML;
     }
 
     private function detectThemeName(): string
@@ -78,13 +147,23 @@ XML;
         return 'Theme.nativeblade';
     }
 
+    /**
+     * Activity attribute, not a child element — can't wrap with comments.
+     * Set when defined; remove the attribute entirely when not.
+     */
     private function generateOrientation(array $config): void
     {
         $manifestPath = base_path('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
         if (!file_exists($manifestPath)) return;
 
+        $manifest = file_get_contents($manifestPath);
         $orientation = $config['orientation'] ?? null;
-        if (!$orientation) return;
+
+        if ($orientation === null) {
+            $manifest = preg_replace('/\s*android:screenOrientation="[^"]*"/', '', $manifest);
+            file_put_contents($manifestPath, $manifest);
+            return;
+        }
 
         $androidOrientation = match ($orientation) {
             'portrait' => 'portrait',
@@ -93,8 +172,6 @@ XML;
             default => 'portrait',
         };
 
-        $manifest = file_get_contents($manifestPath);
-
         if (str_contains($manifest, 'android:screenOrientation')) {
             $manifest = preg_replace(
                 '/android:screenOrientation="[^"]*"/',
@@ -102,10 +179,11 @@ XML;
                 $manifest
             );
         } else {
-            $manifest = str_replace(
-                '<activity',
+            $manifest = preg_replace(
+                '/<activity\b/',
                 '<activity android:screenOrientation="' . $androidOrientation . '"',
-                $manifest
+                $manifest,
+                1
             );
         }
 
@@ -129,75 +207,6 @@ XML;
 
         file_put_contents($gradlePath, $gradle);
         $this->cmd->line("  <fg=green>✓</> Android version: {$config['version']} ({$config['buildNumber']})");
-    }
-
-    private function generateFullscreen(array $config): void
-    {
-        if (!isset($config['fullscreen'])) return;
-
-        $themePath = base_path('src-tauri/gen/android/app/src/main/res/values/themes.xml');
-        if (!file_exists($themePath)) return;
-
-        $value = $config['fullscreen'] ? 'true' : 'false';
-
-        foreach ([$themePath, str_replace('/values/', '/values-night/', $themePath)] as $path) {
-            if (!file_exists($path)) continue;
-            $xml = file_get_contents($path);
-
-            if (str_contains($xml, 'windowFullscreen')) {
-                $xml = preg_replace(
-                    '/<item name="android:windowFullscreen">[^<]*<\/item>/',
-                    '<item name="android:windowFullscreen">' . $value . '</item>',
-                    $xml
-                );
-            } else {
-                $xml = str_replace(
-                    '</style>',
-                    '    <item name="android:windowFullscreen">' . $value . '</item>' . "\n    </style>",
-                    $xml
-                );
-            }
-
-            file_put_contents($path, $xml);
-        }
-
-        $this->cmd->line("  <fg=green>✓</> Android fullscreen: {$value}");
-    }
-
-    private function generatePermissions(array $config): void
-    {
-        $permissions = $config['permissions'] ?? [];
-        if (empty($permissions)) return;
-
-        $manifestPath = base_path('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
-        if (!file_exists($manifestPath)) return;
-
-        $manifest = file_get_contents($manifestPath);
-
-        foreach ($permissions as $key => $description) {
-            $androidPerm = self::PERMISSIONS[$key] ?? null;
-            if (!$androidPerm) continue;
-
-            if (!str_contains($manifest, $androidPerm)) {
-                $tag = '<uses-permission android:name="' . $androidPerm . '" />';
-                $manifest = str_replace('<application', $tag . "\n\n    <application", $manifest);
-            }
-        }
-
-        $allowedPerms = array_merge(
-            array_values(array_filter(array_map(fn($k) => self::PERMISSIONS[$k] ?? null, array_keys($permissions)))),
-            ['android.permission.INTERNET', 'android.permission.ACCESS_NETWORK_STATE']
-        );
-
-        preg_match_all('/android.permission\.[A-Z_]+/', $manifest, $matches);
-        foreach (array_unique($matches[0]) as $existing) {
-            if (!in_array($existing, $allowedPerms)) {
-                $manifest = preg_replace('/\s*<uses-permission[^>]*' . preg_quote($existing) . '[^>]*\/?>/', '', $manifest);
-            }
-        }
-
-        file_put_contents($manifestPath, $manifest);
-        $this->cmd->line("  <fg=green>✓</> Android permissions: " . implode(', ', array_keys($permissions)));
     }
 
     private function generateSdk(array $config): void
@@ -306,36 +315,4 @@ XML;
         $this->cmd->line("  <fg=yellow>→</> could not auto-patch root build.gradle.kts — add `classpath(\"com.google.gms:google-services:4.4.4\")` to the buildscript.dependencies block manually");
     }
 
-    private function generateSplash(array $config): void
-    {
-        $color = $config['splashBackground'] ?? null;
-        if (!$color) return;
-
-        $argb = '#FF' . ltrim($color, '#');
-
-        foreach (['values', 'values-night'] as $dir) {
-            $themePath = base_path("src-tauri/gen/android/app/src/main/res/{$dir}/themes.xml");
-            if (!file_exists($themePath)) continue;
-
-            $xml = file_get_contents($themePath);
-
-            if (str_contains($xml, 'windowSplashScreenBackground')) {
-                $xml = preg_replace(
-                    '/<item name="android:windowSplashScreenBackground">[^<]*<\/item>/',
-                    '<item name="android:windowSplashScreenBackground">' . $argb . '</item>',
-                    $xml
-                );
-            } else {
-                $xml = str_replace(
-                    '</style>',
-                    '    <item name="android:windowSplashScreenBackground">' . $argb . '</item>' . "\n    </style>",
-                    $xml
-                );
-            }
-
-            file_put_contents($themePath, $xml);
-        }
-
-        $this->cmd->line("  <fg=green>✓</> Android splash: {$color}");
-    }
 }

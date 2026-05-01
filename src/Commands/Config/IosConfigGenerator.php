@@ -6,63 +6,121 @@ use Illuminate\Console\Command;
 
 class IosConfigGenerator
 {
-    private const PERMISSIONS = [
-        'camera' => 'NSCameraUsageDescription',
-        'location' => 'NSLocationWhenInUseUsageDescription',
-        'location_always' => 'NSLocationAlwaysUsageDescription',
-        'microphone' => 'NSMicrophoneUsageDescription',
-        'photos' => 'NSPhotoLibraryUsageDescription',
-        'photos_add' => 'NSPhotoLibraryAddUsageDescription',
-        'notifications' => 'NSUserNotificationsUsageDescription',
-        'biometric' => 'NSFaceIDUsageDescription',
-        'nfc' => 'NFCReaderUsageDescription',
-        'contacts' => 'NSContactsUsageDescription',
-        'calendar' => 'NSCalendarsUsageDescription',
-        'bluetooth' => 'NSBluetoothAlwaysUsageDescription',
-    ];
+    private const START_XML = '<!-- nativeblade:config:start -->';
+    private const END_XML = '<!-- nativeblade:config:end -->';
 
     public function __construct(private Command $cmd) {}
 
     public function generate(array $config): void
     {
-        $this->generateOrientation($config);
+        $this->generatePlistConfig($config);
         $this->generateVersion($config);
-        $this->generateStatusBar($config);
-        $this->generateFullscreen($config);
-        $this->generateMinVersion($config);
         $this->generatePrivacyManifest($config);
         $this->generateSplash($config);
     }
 
-    private function generateOrientation(array $config): void
+    /**
+     * Wraps every key NativeBlade owns in Info.plist (orientation, status
+     * bar, fullscreen, minimum version) inside `<!-- nativeblade:config -->`
+     * markers. Keys are regenerated from the config every run, so removing
+     * a config entry in PHP cleanly removes it from the plist.
+     */
+    private function generatePlistConfig(array $config): void
     {
-        $orientation = $config['orientation'] ?? null;
-        if (!$orientation) return;
-
         $plistPath = $this->findPlist();
         if (!$plistPath) return;
 
-        $orientations = match ($orientation) {
-            'portrait' => ['UIInterfaceOrientationPortrait'],
-            'landscape' => ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'],
-            default => ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'],
-        };
+        $entries = [];
 
-        $plist = file_get_contents($plistPath);
-        $orientationXml = "<array>\n" . implode("\n", array_map(fn($o) => "\t\t<string>{$o}</string>", $orientations)) . "\n\t</array>";
-
-        if (str_contains($plist, 'UISupportedInterfaceOrientations')) {
-            $plist = preg_replace(
-                '/<key>UISupportedInterfaceOrientations<\/key>\s*<array>.*?<\/array>/s',
-                "<key>UISupportedInterfaceOrientations</key>\n\t{$orientationXml}",
-                $plist
-            );
-        } else {
-            $plist = str_replace('</dict>', "<key>UISupportedInterfaceOrientations</key>\n\t{$orientationXml}\n</dict>", $plist);
+        if (isset($config['orientation'])) {
+            $orientations = match ($config['orientation']) {
+                'portrait' => ['UIInterfaceOrientationPortrait'],
+                'landscape' => ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'],
+                default => ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'],
+            };
+            $items = implode("\n", array_map(fn($o) => "        <string>{$o}</string>", $orientations));
+            $entries[] = "    <key>UISupportedInterfaceOrientations</key>";
+            $entries[] = "    <array>";
+            $entries[] = $items;
+            $entries[] = "    </array>";
         }
 
+        if (isset($config['statusBar'])) {
+            $style = ($config['statusBar']['style'] ?? 'dark') === 'light'
+                ? 'UIStatusBarStyleLightContent'
+                : 'UIStatusBarStyleDefault';
+            $entries[] = "    <key>UIStatusBarStyle</key>";
+            $entries[] = "    <string>{$style}</string>";
+            $entries[] = "    <key>UIViewControllerBasedStatusBarAppearance</key>";
+            $entries[] = "    <false/>";
+        }
+
+        if (isset($config['fullscreen'])) {
+            $value = $config['fullscreen'] ? 'true' : 'false';
+            $entries[] = "    <key>UIStatusBarHidden</key>";
+            $entries[] = "    <{$value}/>";
+        }
+
+        if (isset($config['minIosVersion'])) {
+            $entries[] = "    <key>MinimumOSVersion</key>";
+            $entries[] = "    <string>{$config['minIosVersion']}</string>";
+        }
+
+        $body = empty($entries) ? '' : "\n" . implode("\n", $entries);
+        $newBlock = "    " . self::START_XML . $body . "\n    " . self::END_XML;
+
+        $plist = file_get_contents($plistPath);
+        $plist = $this->stripLegacyKeys($plist);
+        $plist = $this->upsertConfigBlock($plist, $newBlock);
+
         file_put_contents($plistPath, $plist);
-        $this->cmd->line("  <fg=green>✓</> iOS orientation: {$orientation}");
+
+        $count = count(array_filter([
+            isset($config['orientation']),
+            isset($config['statusBar']),
+            isset($config['fullscreen']),
+            isset($config['minIosVersion']),
+        ]));
+        $this->cmd->line("  <fg=green>✓</> iOS Info.plist: {$count} config entries");
+    }
+
+    private function stripLegacyKeys(string $plist): string
+    {
+        $keys = [
+            'UISupportedInterfaceOrientations',
+            'UIStatusBarStyle',
+            'UIViewControllerBasedStatusBarAppearance',
+            'UIStatusBarHidden',
+            'MinimumOSVersion',
+        ];
+
+        $startQ = preg_quote(self::START_XML, '/');
+        $endQ = preg_quote(self::END_XML, '/');
+        if (preg_match("/{$startQ}.*?{$endQ}/s", $plist)) {
+            return $plist;
+        }
+
+        foreach ($keys as $key) {
+            $plist = preg_replace(
+                "/\\s*<key>{$key}<\\/key>\\s*<(?:string>[^<]*<\\/string|true\\/|false\\/|array>.*?<\\/array)>/s",
+                '',
+                $plist
+            );
+        }
+        return $plist;
+    }
+
+    private function upsertConfigBlock(string $plist, string $newBlock): string
+    {
+        $startQ = preg_quote(self::START_XML, '/');
+        $endQ = preg_quote(self::END_XML, '/');
+        $pattern = "/[ \t]*{$startQ}.*?{$endQ}/s";
+
+        if (preg_match($pattern, $plist)) {
+            return preg_replace($pattern, $newBlock, $plist);
+        }
+
+        return preg_replace('/(\s*)(<\/dict>)/', "\n{$newBlock}\n$2", $plist, 1);
     }
 
     private function generateVersion(array $config): void
@@ -78,81 +136,6 @@ class IosConfigGenerator
         file_put_contents($plistPath, $plist);
 
         $this->cmd->line("  <fg=green>✓</> iOS version: {$config['version']} ({$config['buildNumber']})");
-    }
-
-    private function generateStatusBar(array $config): void
-    {
-        $statusBar = $config['statusBar'] ?? null;
-        if (!$statusBar) return;
-
-        $plistPath = $this->findPlist();
-        if (!$plistPath) return;
-
-        $plist = file_get_contents($plistPath);
-        $style = ($statusBar['style'] ?? 'dark') === 'light' ? 'UIStatusBarStyleLightContent' : 'UIStatusBarStyleDefault';
-
-        $plist = $this->setPlistValue($plist, 'UIStatusBarStyle', $style);
-
-        if (!str_contains($plist, 'UIViewControllerBasedStatusBarAppearance')) {
-            $plist = str_replace('</dict>', "<key>UIViewControllerBasedStatusBarAppearance</key>\n\t<false/>\n</dict>", $plist);
-        }
-
-        file_put_contents($plistPath, $plist);
-        $this->cmd->line("  <fg=green>✓</> iOS statusBar: {$statusBar['style']}");
-    }
-
-    private function generateFullscreen(array $config): void
-    {
-        if (!isset($config['fullscreen'])) return;
-
-        $plistPath = $this->findPlist();
-        if (!$plistPath) return;
-
-        $plist = file_get_contents($plistPath);
-        $value = $config['fullscreen'] ? 'true' : 'false';
-
-        if (str_contains($plist, 'UIStatusBarHidden')) {
-            $plist = preg_replace('/<key>UIStatusBarHidden<\/key>\s*<(true|false)\/>/', "<key>UIStatusBarHidden</key>\n\t<{$value}/>", $plist);
-        } else {
-            $plist = str_replace('</dict>', "<key>UIStatusBarHidden</key>\n\t<{$value}/>\n</dict>", $plist);
-        }
-
-        file_put_contents($plistPath, $plist);
-        $this->cmd->line("  <fg=green>✓</> iOS fullscreen: {$value}");
-    }
-
-    private function generatePermissions(array $config): void
-    {
-        $permissions = $config['permissions'] ?? [];
-        if (empty($permissions)) return;
-
-        $plistPath = $this->findPlist();
-        if (!$plistPath) return;
-
-        $plist = file_get_contents($plistPath);
-
-        foreach ($permissions as $key => $description) {
-            $iosKey = self::PERMISSIONS[$key] ?? null;
-            if (!$iosKey || !$description) continue;
-            $plist = $this->setPlistValue($plist, $iosKey, $description);
-        }
-
-        file_put_contents($plistPath, $plist);
-        $this->cmd->line("  <fg=green>✓</> iOS permissions: " . implode(', ', array_keys($permissions)));
-    }
-
-    private function generateMinVersion(array $config): void
-    {
-        if (!isset($config['minIosVersion'])) return;
-
-        $plistPath = $this->findPlist();
-        if (!$plistPath) return;
-
-        $plist = file_get_contents($plistPath);
-        $plist = $this->setPlistValue($plist, 'MinimumOSVersion', $config['minIosVersion']);
-        file_put_contents($plistPath, $plist);
-
-        $this->cmd->line("  <fg=green>✓</> iOS minimum version: {$config['minIosVersion']}");
     }
 
     private function generatePrivacyManifest(array $config): void
