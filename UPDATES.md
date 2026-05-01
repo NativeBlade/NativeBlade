@@ -187,7 +187,7 @@ For bundle push you don't need to rebuild the native shell. Use the dedicated bu
 
 ```bash
 # 1. Build only the Laravel bundle (fast — no Tauri build)
-php artisan nativeblade:bundle --version=1.0.5
+php artisan nativeblade:bundle --tag=1.0.5
 
 # Output:
 #   public/laravel-bundle.json.gz          (canonical, always overwritten)

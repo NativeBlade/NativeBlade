@@ -8,14 +8,14 @@ use NativeBlade\NativeBladeServiceProvider;
 class BundleCommand extends Command
 {
     protected $signature = 'nativeblade:bundle
-        {--version= : Tag the output with a version (writes laravel-bundle-{version}.json.gz alongside the canonical name)}
+        {--tag= : Tag the output with a version (writes laravel-bundle-{tag}.json.gz alongside the canonical name)}
         {--no-dev : Run composer install --no-dev before bundling (default: true)}';
 
     protected $description = 'Build only the Laravel bundle (laravel-bundle.json.gz) — for OTA bundle push without rebuilding the native shell';
 
     public function handle(): int
     {
-        $version = $this->option('version');
+        $tag = $this->option('tag');
         $noDev = $this->option('no-dev') !== false;
 
         $this->line('');
@@ -42,10 +42,10 @@ class BundleCommand extends Command
         $this->line('');
         $this->line("  <fg=green>✓</> public/laravel-bundle.json.gz ({$sizeMb} MB)");
 
-        if ($version) {
-            $tagged = base_path("public/laravel-bundle-{$version}.json.gz");
+        if ($tag) {
+            $tagged = base_path("public/laravel-bundle-{$tag}.json.gz");
             copy($bundleGz, $tagged);
-            $this->line("  <fg=green>✓</> public/laravel-bundle-{$version}.json.gz");
+            $this->line("  <fg=green>✓</> public/laravel-bundle-{$tag}.json.gz");
         }
 
         $this->line('');
@@ -53,8 +53,8 @@ class BundleCommand extends Command
         $this->line('');
         $this->line('    {');
         $this->line('      "bundle": {');
-        $this->line("        \"version\": \"" . ($version ?: '1.0.0') . "\",");
-        $this->line("        \"url\": \"https://releases.myapp.com/laravel-bundle-" . ($version ?: '1.0.0') . ".json.gz\"");
+        $this->line("        \"version\": \"" . ($tag ?: '1.0.0') . "\",");
+        $this->line("        \"url\": \"https://releases.myapp.com/laravel-bundle-" . ($tag ?: '1.0.0') . ".json.gz\"");
         $this->line('      }');
         $this->line('    }');
         $this->line('');
