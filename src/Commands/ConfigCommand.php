@@ -22,7 +22,11 @@ class ConfigCommand extends Command
         $configs = ShellConfig::getAppConfigs();
         $plugins = PluginRegistry::resolve(ShellConfig::getDeclaredPlugins());
 
-        (new PluginsConfigGenerator($this))->generate($plugins);
+        (new PluginsConfigGenerator($this))->generate(
+            $plugins,
+            $configs['android'] ?? [],
+            $configs['ios'] ?? []
+        );
         (new DesktopConfigGenerator($this))->generate($configs['desktop'] ?? []);
         (new AndroidConfigGenerator($this))->generate($configs['android'] ?? []);
         (new IosConfigGenerator($this))->generate($configs['ios'] ?? []);

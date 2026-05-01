@@ -12,15 +12,19 @@ use NativeBlade\Config\PluginRegistry;
  * - src-tauri/src/lib.rs: optional plugin init chain between markers
  * - src-tauri/capabilities/default.json + mobile.json: permissions arrays
  * - package.json: only @tauri-apps/plugin-* deps that are actually used
+ * - AndroidManifest.xml: <uses-permission> entries between markers
+ * - Info.plist: usage description keys between markers
+ *
+ * Marker convention: NativeBlade owns ONLY the region between
+ * `nativeblade:plugins:start` and `nativeblade:plugins:end`. Anything
+ * outside the markers is preserved as-is — including manual additions
+ * for third-party Tauri plugins, custom permissions, or app-specific
+ * configuration.
  *
  * Optional plugin crates live in the user's Cargo.toml as `optional = true`
  * deps. A Cargo feature gates each one. When the feature is off, Cargo
  * doesn't pull in or compile the crate, so the binary contains zero
  * traces of unused plugin APIs — what App Store / Play Store reviewers scan for.
- *
- * AndroidManifest.xml and Info.plist are handled by their existing
- * platform generators — they own permission text from
- * AndroidConfig::permissions() / IosConfig::permissions().
  */
 class PluginsConfigGenerator
 {
@@ -28,18 +32,52 @@ class PluginsConfigGenerator
     private const END_HASH = '# nativeblade:plugins:end';
     private const START_SLASH = '// nativeblade:plugins:start';
     private const END_SLASH = '// nativeblade:plugins:end';
+    private const START_XML = '<!-- nativeblade:plugins:start -->';
+    private const END_XML = '<!-- nativeblade:plugins:end -->';
+
+    private const ANDROID_PERMISSION_MAP = [
+        'camera' => 'CAMERA',
+        'location' => 'ACCESS_FINE_LOCATION',
+        'location_coarse' => 'ACCESS_COARSE_LOCATION',
+        'microphone' => 'RECORD_AUDIO',
+        'storage' => 'READ_EXTERNAL_STORAGE',
+        'storage_write' => 'WRITE_EXTERNAL_STORAGE',
+        'notifications' => 'POST_NOTIFICATIONS',
+        'vibrate' => 'VIBRATE',
+        'biometric' => 'USE_BIOMETRIC',
+        'nfc' => 'NFC',
+        'bluetooth' => 'BLUETOOTH_CONNECT',
+    ];
+
+    private const IOS_PERMISSION_MAP = [
+        'camera' => 'NSCameraUsageDescription',
+        'location' => 'NSLocationWhenInUseUsageDescription',
+        'location_always' => 'NSLocationAlwaysUsageDescription',
+        'microphone' => 'NSMicrophoneUsageDescription',
+        'photos' => 'NSPhotoLibraryUsageDescription',
+        'photos_add' => 'NSPhotoLibraryAddUsageDescription',
+        'biometric' => 'NSFaceIDUsageDescription',
+        'nfc' => 'NFCReaderUsageDescription',
+        'contacts' => 'NSContactsUsageDescription',
+        'calendar' => 'NSCalendarsUsageDescription',
+        'bluetooth' => 'NSBluetoothAlwaysUsageDescription',
+    ];
 
     public function __construct(private Command $cmd) {}
 
     /**
-     * @param  Plugin[]  $plugins
+     * @param  Plugin[]              $plugins
+     * @param  array<string, mixed>  $androidConfig  AndroidConfig::toArray() output
+     * @param  array<string, mixed>  $iosConfig      IosConfig::toArray() output
      */
-    public function generate(array $plugins): void
+    public function generate(array $plugins, array $androidConfig = [], array $iosConfig = []): void
     {
         $this->generateCargoToml($plugins);
         $this->generateLibRs($plugins);
         $this->generateCapabilities($plugins);
         $this->generatePackageJson($plugins);
+        $this->generateAndroidManifest($plugins, $androidConfig);
+        $this->generateInfoPlist($plugins, $iosConfig);
     }
 
     /**
@@ -203,6 +241,143 @@ class PluginsConfigGenerator
 
         file_put_contents($path, json_encode($pkg, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
         $this->cmd->line("  <fg=green>✓</> package.json deps");
+    }
+
+    /**
+     * @param  Plugin[]  $plugins
+     */
+    private function generateAndroidManifest(array $plugins, array $androidConfig): void
+    {
+        $path = base_path('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
+        if (!file_exists($path)) return;
+
+        $perms = [];
+        foreach ($plugins as $plugin) {
+            $d = PluginRegistry::descriptor($plugin);
+            foreach ($d['android_permissions'] ?? [] as $perm) {
+                $perms[$perm] = true;
+            }
+        }
+
+        foreach (array_keys($androidConfig['permissions'] ?? []) as $key) {
+            $mapped = self::ANDROID_PERMISSION_MAP[$key] ?? null;
+            if ($mapped) $perms[$mapped] = true;
+        }
+
+        $perms['INTERNET'] = true;
+        $perms['ACCESS_NETWORK_STATE'] = true;
+
+        ksort($perms);
+
+        $lines = ['    ' . self::START_XML];
+        foreach (array_keys($perms) as $perm) {
+            $lines[] = '    <uses-permission android:name="android.permission.' . $perm . '" />';
+        }
+        $lines[] = '    ' . self::END_XML;
+
+        $newBlock = implode("\n", $lines);
+        $manifest = file_get_contents($path);
+        $manifest = $this->replaceXmlBlockBeforeApplication($manifest, $newBlock);
+
+        file_put_contents($path, $manifest);
+        $this->cmd->line("  <fg=green>✓</> AndroidManifest.xml: " . count($perms) . " permissions");
+    }
+
+    /**
+     * @param  Plugin[]  $plugins
+     */
+    private function generateInfoPlist(array $plugins, array $iosConfig): void
+    {
+        $path = $this->findInfoPlist();
+        if (!$path) return;
+
+        $userTexts = [];
+        foreach ($iosConfig['permissions'] ?? [] as $key => $description) {
+            $plistKey = self::IOS_PERMISSION_MAP[$key] ?? null;
+            if ($plistKey && is_string($description)) $userTexts[$plistKey] = $description;
+        }
+
+        $keys = [];
+        foreach ($plugins as $plugin) {
+            $d = PluginRegistry::descriptor($plugin);
+            foreach ($d['ios_plist'] ?? [] as $key) {
+                $keys[$key] = $userTexts[$key] ?? $this->defaultPlistText($key);
+            }
+        }
+        foreach ($userTexts as $key => $text) {
+            $keys[$key] = $text;
+        }
+
+        ksort($keys);
+
+        $lines = ['    ' . self::START_XML];
+        foreach ($keys as $key => $text) {
+            $escaped = htmlspecialchars($text, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+            $lines[] = "    <key>{$key}</key>";
+            $lines[] = "    <string>{$escaped}</string>";
+        }
+        $lines[] = '    ' . self::END_XML;
+        $newBlock = implode("\n", $lines);
+
+        $plist = file_get_contents($path);
+        $plist = $this->replacePlistBlock($plist, $newBlock);
+
+        file_put_contents($path, $plist);
+        $this->cmd->line("  <fg=green>✓</> Info.plist: " . count($keys) . " usage descriptions");
+    }
+
+    private function defaultPlistText(string $key): string
+    {
+        return match ($key) {
+            'NSCameraUsageDescription' => 'Take photos',
+            'NSPhotoLibraryUsageDescription' => 'Access your photo library',
+            'NSPhotoLibraryAddUsageDescription' => 'Save photos to your library',
+            'NSMicrophoneUsageDescription' => 'Record audio',
+            'NSLocationWhenInUseUsageDescription' => 'Use your location',
+            'NSLocationAlwaysUsageDescription' => 'Use your location in the background',
+            'NSFaceIDUsageDescription' => 'Authenticate using Face ID',
+            'NFCReaderUsageDescription' => 'Read NFC tags',
+            'NSContactsUsageDescription' => 'Access your contacts',
+            'NSCalendarsUsageDescription' => 'Access your calendar',
+            'NSBluetoothAlwaysUsageDescription' => 'Connect to Bluetooth devices',
+            default => 'Required by app feature',
+        };
+    }
+
+    private function replaceXmlBlockBeforeApplication(string $manifest, string $newBlock): string
+    {
+        $startQ = preg_quote(self::START_XML, '/');
+        $endQ = preg_quote(self::END_XML, '/');
+        $pattern = "/[ \t]*{$startQ}.*?{$endQ}/s";
+
+        if (preg_match($pattern, $manifest)) {
+            return preg_replace($pattern, $newBlock, $manifest);
+        }
+
+        $stripped = preg_replace('/\s*<uses-permission[^>]*\/?>/', '', $manifest);
+        return preg_replace('/(\s*)(<application)/', "\n\n{$newBlock}\n\n    $2", $stripped, 1);
+    }
+
+    private function replacePlistBlock(string $plist, string $newBlock): string
+    {
+        $startQ = preg_quote(self::START_XML, '/');
+        $endQ = preg_quote(self::END_XML, '/');
+        $pattern = "/[ \t]*{$startQ}.*?{$endQ}/s";
+
+        if (preg_match($pattern, $plist)) {
+            return preg_replace($pattern, $newBlock, $plist);
+        }
+
+        return preg_replace('/(\s*)(<\/dict>)/', "\n{$newBlock}\n$2", $plist, 1);
+    }
+
+    private function findInfoPlist(): ?string
+    {
+        $dir = base_path('src-tauri/gen/apple');
+        if (!is_dir($dir)) return null;
+
+        $found = glob($dir . '/*/Info.plist');
+        return $found[0] ?? null;
     }
 
     private function replaceBlock(string $content, string $start, string $end, string $newBlock): string

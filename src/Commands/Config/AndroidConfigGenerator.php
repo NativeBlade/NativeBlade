@@ -29,7 +29,6 @@ class AndroidConfigGenerator
         $this->generateOrientation($config);
         $this->generateVersion($config);
         $this->generateFullscreen($config);
-        $this->generatePermissions($config);
         $this->generateSdk($config);
         $this->generateSplash($config);
         $this->generatePushNotification($config);

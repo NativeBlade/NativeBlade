@@ -29,7 +29,6 @@ class IosConfigGenerator
         $this->generateVersion($config);
         $this->generateStatusBar($config);
         $this->generateFullscreen($config);
-        $this->generatePermissions($config);
         $this->generateMinVersion($config);
         $this->generatePrivacyManifest($config);
         $this->generateSplash($config);
