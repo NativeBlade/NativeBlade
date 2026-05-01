@@ -8,7 +8,9 @@ use NativeBlade\ShellConfig;
 
 class BuildCommand extends Command
 {
-    protected $signature = 'nativeblade:build {platform : android, ios, or desktop}';
+    protected $signature = 'nativeblade:build
+        {platform : android, ios, or desktop}
+        {--targets= : Comma-separated Android architectures (aarch64,armv7,x86_64,i686). Default: all}';
     protected $description = 'Build the app for the specified platform';
 
     public function handle(): int
@@ -66,7 +68,13 @@ class BuildCommand extends Command
         $buildDir = base_path('build/android');
         if (!is_dir($buildDir)) mkdir($buildDir, 0755, true);
 
-        if (!$this->runProcess($this->npxCommand('tauri android build ' . $this->cargoFeaturesArg()))) {
+        $targets = $this->resolveAndroidTargets();
+        $targetArgs = '';
+        foreach ($targets as $target) {
+            $targetArgs .= "--target {$target} ";
+        }
+
+        if (!$this->runProcess($this->npxCommand('tauri android build ' . trim($targetArgs) . ' ' . $this->cargoFeaturesArg()))) {
             return false;
         }
 
@@ -119,6 +127,25 @@ class BuildCommand extends Command
         ]);
 
         return true;
+    }
+
+    /**
+     * @return string[]
+     */
+    private function resolveAndroidTargets(): array
+    {
+        $opt = $this->option('targets');
+        if (empty($opt)) {
+            return ['aarch64', 'armv7', 'x86_64', 'i686'];
+        }
+
+        $valid = ['aarch64', 'armv7', 'x86_64', 'i686'];
+        $requested = array_filter(array_map('trim', explode(',', $opt)));
+        $resolved = [];
+        foreach ($requested as $t) {
+            if (in_array($t, $valid, true)) $resolved[] = $t;
+        }
+        return $resolved ?: ['aarch64'];
     }
 
     private function cargoFeaturesArg(): string

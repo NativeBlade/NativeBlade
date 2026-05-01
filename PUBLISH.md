@@ -2,35 +2,65 @@
 
 After running `php artisan nativeblade:build {platform}`, your artifacts are in `build/`. Here's how to publish each one.
 
+## First-time signing setup
+
+Both stores require signed binaries. Run the signing command once per platform (see [BUILD.md → Code Signing](BUILD.md#code-signing) for details):
+
+```bash
+php artisan nativeblade:sign android
+php artisan nativeblade:sign ios
+```
+
+After this, every subsequent `nativeblade:build` produces a signed artifact ready for upload.
+
 ## Android
 
 ### Play Store
 
-1. Go to [Google Play Console](https://play.google.com/console)
-2. Create app → Upload the `.aab` from `build/android/`
-3. Fill store listing: description, screenshots, privacy policy URL
-4. Fill Data Safety form
-5. Set content rating
-6. Submit for review
+1. Make sure you ran `php artisan nativeblade:sign android` once
+2. Build the AAB:
+   ```bash
+   php artisan nativeblade:build android
+   ```
+3. Go to [Google Play Console](https://play.google.com/console)
+4. Create app → Upload `build/android/{version}.aab`
+5. Fill store listing: description, screenshots, privacy policy URL
+6. Fill Data Safety form
+7. Set content rating
+8. Submit for review
 
-> The Play Store only accepts `.aab` (Android App Bundle). The `.apk` is for direct distribution/testing only.
+> The Play Store only accepts `.aab` (Android App Bundle). The `.apk` in `build/android/` is for direct distribution and testing.
+
+### Direct distribution (sideload / internal testing)
+
+If you don't want the Play Store, distribute the APK directly. To minimize size, build only the ABIs you need:
+
+```bash
+php artisan nativeblade:build android --targets=aarch64,armv7
+```
+
+Users install via `adb install build/android/{version}.apk` or by downloading the APK on their device (Settings → Install unknown apps must be enabled).
 
 ## iOS
 
 ### App Store
 
-1. Open the Xcode project at `src-tauri/gen/apple/`
-2. Select your signing team and provisioning profile
-3. Product → Archive
-4. Distribute App → App Store Connect
-5. Go to [App Store Connect](https://appstoreconnect.apple.com)
-6. Fill app information: description, screenshots, privacy policy URL
-7. Fill App Privacy details
-8. Submit for review
+1. Make sure you ran `php artisan nativeblade:sign ios` once and configured automatic signing in Xcode
+2. Build:
+   ```bash
+   php artisan nativeblade:build ios
+   ```
+3. Open the Xcode project at `src-tauri/gen/apple/`
+4. Product → Archive
+5. Distribute App → App Store Connect
+6. Go to [App Store Connect](https://appstoreconnect.apple.com)
+7. Fill app information: description, screenshots, privacy policy URL
+8. Fill App Privacy details
+9. Submit for review
 
 ### TestFlight
 
-Same as App Store flow, but choose "TestFlight" distribution instead. Invite testers via email.
+Same as App Store flow, but choose "TestFlight" distribution instead. Invite testers via email — no review needed for internal builds.
 
 ## Desktop
 
