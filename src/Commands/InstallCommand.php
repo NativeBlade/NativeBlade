@@ -499,10 +499,35 @@ PHP;
         return NativeBladeServiceProvider::packagePath("stubs/{$name}");
     }
 
+    /**
+     * Path to the framework's Rust crate, relative to `src-tauri/`. Relative
+     * (not absolute) so the same Cargo.toml can be committed to git and built
+     * on any machine — Windows, macOS, Linux, CI runners.
+     */
     private function rustCratePath(): string
     {
-        $vendorPath = NativeBladeServiceProvider::packagePath('rust');
-        return str_replace('\\', '/', realpath($vendorPath) ?: $vendorPath);
+        $rustAbs = realpath(NativeBladeServiceProvider::packagePath('rust'));
+        if ($rustAbs === false) {
+            return str_replace('\\', '/', NativeBladeServiceProvider::packagePath('rust'));
+        }
+
+        return str_replace('\\', '/', $this->relativePath(base_path('src-tauri'), $rustAbs));
+    }
+
+    /**
+     * Compute a path relative from $from to $to. Both paths must be absolute.
+     */
+    private function relativePath(string $from, string $to): string
+    {
+        $from = explode('/', str_replace('\\', '/', rtrim($from, '/\\')));
+        $to = explode('/', str_replace('\\', '/', rtrim($to, '/\\')));
+
+        while (!empty($from) && !empty($to) && $from[0] === $to[0]) {
+            array_shift($from);
+            array_shift($to);
+        }
+
+        return str_repeat('../', count($from)) . implode('/', $to);
     }
 
     private function guessIdentifier(): string
