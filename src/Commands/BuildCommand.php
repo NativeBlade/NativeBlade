@@ -43,6 +43,14 @@ class BuildCommand extends Command
         $this->line("  <fg=green>✓</> Frontend built");
 
         $this->line('');
+        $this->line('  Building WASM frontend...');
+        if (!$this->runProcess($this->npxCommand('vite build --config vite.wasm.config.js'))) {
+            $this->error('  WASM frontend build failed.');
+            return self::FAILURE;
+        }
+        $this->line("  <fg=green>✓</> WASM frontend built (dist-wasm/)");
+
+        $this->line('');
         $this->line("  Building {$platform}...");
 
         $success = match ($platform) {
