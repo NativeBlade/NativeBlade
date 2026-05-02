@@ -68,11 +68,11 @@ class NativeBladeMediaPlugin: Plugin, UIImagePickerControllerDelegate, UINavigat
         presentPHPicker(invoke: invoke, opts: opts, video: true)
     }
 
-    @objc public func checkPermissions(_ invoke: Invoke) {
+    @objc public override func checkPermissions(_ invoke: Invoke) {
         invoke.resolve(currentPermissionStatus())
     }
 
-    @objc public func requestPermissions(_ invoke: Invoke) {
+    @objc public override func requestPermissions(_ invoke: Invoke) {
         let status = AVCaptureDevice.authorizationStatus(for: .video)
         if status == .notDetermined {
             AVCaptureDevice.requestAccess(for: .video) { [weak self] _ in
