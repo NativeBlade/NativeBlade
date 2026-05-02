@@ -426,6 +426,44 @@ class NativeResponse
     }
 
     // ------------------------------------------------------------------
+    // Custom Tauri plugin invocation
+    // ------------------------------------------------------------------
+
+    /**
+     * Invoke any Tauri plugin command directly. Use this when you've added
+     * a third-party Tauri plugin (or your own) and want to call it from PHP
+     * without writing a JS action handler.
+     *
+     * The result is delivered as a Livewire event. You choose the event
+     * name via the `emit` argument; it always gets the `nb:` prefix on
+     * the listener side.
+     *
+     * ```php
+     * NativeBlade::tauriInvoke(
+     *     command: 'plugin:fingerprint|authenticate',
+     *     args: ['reason' => 'Authenticate to continue'],
+     *     emit: 'fingerprint-result',
+     * )->toResponse();
+     *
+     * // Then in your Livewire component:
+     * #[On('nb:fingerprint-result')]
+     * public function onAuth($result = null, $error = null) { ... }
+     * ```
+     *
+     * @param  string  $command  Tauri command name (e.g. `'plugin:foo|bar'` or a custom Rust command).
+     * @param  array<string,mixed>  $args  Arguments passed to the command.
+     * @param  string|null  $emit  Event name (without `nb:` prefix) for the result. When null, no event is dispatched.
+     */
+    public function tauriInvoke(string $command, array $args = [], ?string $emit = null): static
+    {
+        return $this->push('tauri_invoke', [
+            'command' => $command,
+            'args' => $args,
+            'emit' => $emit,
+        ]);
+    }
+
+    // ------------------------------------------------------------------
     // Modal
     // ------------------------------------------------------------------
 

@@ -22,6 +22,7 @@ import * as uploadMod from './upload.js';
 import * as navigation from './navigation.js';
 import * as shellMod from './shell.js';
 import * as system from './system.js';
+import * as tauri from './tauri.js';
 
 export const actions = {
     // dialog
@@ -88,4 +89,7 @@ export const actions = {
     // system
     exit: system.exit,
     log: system.log,
+
+    // generic tauri invoke (for third-party Tauri plugins)
+    tauri_invoke: tauri.tauri_invoke,
 };

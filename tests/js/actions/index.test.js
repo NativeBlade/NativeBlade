@@ -37,6 +37,7 @@ const EXPECTED_ACTIONS = [
     'shell',
     'exit',
     'log',
+    'tauri_invoke',
 ];
 
 describe('actions/index', () => {

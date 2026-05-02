@@ -25,7 +25,8 @@ This document lists every built-in bridge, what it does, and how to call it from
 - [Shell](#shell)
 - [Process](#process)
 - [Receiving Results in PHP](#receiving-results-in-php)
-- [Adding Your Own Bridge](#adding-your-own-bridge)
+- [Using Third-Party Tauri Plugins](#using-third-party-tauri-plugins)
+- [Composer plugin discovery](#composer-plugin-discovery)
 
 ---
 
@@ -999,41 +1000,114 @@ Event names are always `nb:<name>`. They are automatically dispatched from the J
 
 ---
 
-## Adding Your Own Bridge
+## Using Third-Party Tauri Plugins
 
-If none of the built-in bridges fit your use case, add a custom one:
+You don't have to fork NativeBlade to use Tauri plugins that aren't built in. There are two paths depending on how much glue you want to write.
 
-1. **Install the Rust crate** in `src-tauri/Cargo.toml`
-2. **Register it** in `src-tauri/src/lib.rs` with `.plugin(...)`
-3. **Grant capabilities** in `src-tauri/capabilities/default.json`
-4. **Add a case** in `js/wasm-app/bridge.js` that invokes the plugin
-5. **Use it from Blade/PHP** via `wire:nb-bridge="myAction"` or by extending `NativeResponse`
+### Quick path: `tauriInvoke` from PHP (recommended)
 
-A minimal custom bridge — appending a new case to the existing `handleNativeAction` switch:
+NativeBlade ships a generic action that calls **any** Tauri plugin command directly from PHP — no JS handler required.
 
-```javascript
-case 'myAction':
-    myPluginApi.doSomething(payload).then(result => {
-        appFrame?.contentWindow?.postMessage({
-            type: 'nativeblade-my-result',
-            result,
-        }, '*');
-    });
-    break;
-```
+**Example: using `tauri-plugin-fingerprint`** (a hypothetical third-party plugin)
 
-For a strongly-typed PHP API, add a method to `NativeResponse`:
+1. **Install the Rust crate.** Add it to `src-tauri/Cargo.toml` *outside* the `# nativeblade:plugins` markers (anything outside the markers is preserved across `nativeblade:config` runs):
+
+   ```toml
+   [dependencies]
+   tauri-plugin-fingerprint = "0.1"
+   ```
+
+2. **Initialize it** in `src-tauri/src/lib.rs` outside the `// nativeblade:plugins` markers:
+
+   ```rust
+   builder.plugin(tauri_plugin_fingerprint::init())
+   ```
+
+3. **Grant capabilities** in `src-tauri/capabilities/default.json` outside the entries managed by NativeBlade:
+
+   ```json
+   { "permissions": ["fingerprint:default"] }
+   ```
+
+4. **Call it from PHP**:
+
+   ```php
+   public function login()
+   {
+       return NativeBlade::tauriInvoke(
+           command: 'plugin:fingerprint|authenticate',
+           args: ['reason' => 'Confirm to log in'],
+           emit: 'fingerprint-result',
+       )->toResponse();
+   }
+
+   #[On('nb:fingerprint-result')]
+   public function onAuth($result = null, $error = null)
+   {
+       if ($error) { $this->message = $error; return; }
+       if ($result?->authenticated) { $this->redirect('/dashboard'); }
+   }
+   ```
+
+That's it. No JS file, no `bridge.js` patch, no extension to NativeResponse. Anything `invoke()`-able from `@tauri-apps/api/core` works through `tauriInvoke`.
+
+### Idiomatic path: extend the bridge
+
+If you want a strongly-typed PHP API like the built-ins (`NativeBlade::camera()`, `NativeBlade::scan()`, etc.), wrap your invocation in:
+
+1. A method on `NativeResponse` (or a Composer package — see [Composer plugin discovery](#composer-plugin-discovery))
+2. Optionally, a builder class in `src/Plugins/` for fluent configuration
+3. Optionally, a Blade component (`x-mypackage-fingerprint`) for declarative use
+
+Underneath, it can still call `tauriInvoke` — that's the supported escape hatch. You only need to add a case to the JS bridge if your plugin needs custom JS-side glue (e.g. compressing image data before passing it to PHP).
+
+### Custom Rust commands
+
+If your need isn't covered by an existing Tauri plugin, write a custom Rust command in `src-tauri/src/lib.rs` and register it in `tauri::generate_handler![...]`. Then from PHP:
 
 ```php
-public function myAction(array $payload): static
+NativeBlade::tauriInvoke(
+    command: 'my_custom_command',
+    args: [...],
+    emit: 'custom-result',
+)->toResponse();
+```
+
+For the full Tauri plugin tutorial, see the [Tauri 2 Plugin docs](https://v2.tauri.app/plugin/).
+
+## Composer plugin discovery
+
+You can publish a NativeBlade plugin as a regular Composer package. NativeBlade auto-discovers them via `composer.json`'s `extra.nativeblade` field — same pattern Laravel uses for its own packages.
+
+```json
 {
-    return $this->push('myAction', $payload);
+    "name": "myorg/my-nativeblade-plugin",
+    "description": "Toast notifications for NativeBlade",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.3",
+        "nativeblade/nativeblade": "*"
+    },
+    "extra": {
+        "nativeblade": {
+            "components": {
+                "toast": "MyOrg\\Plugin\\ToastComponent"
+            },
+            "views": "resources/views",
+            "js": "resources/js"
+        }
+    }
 }
 ```
 
-No Rust code is needed if the plugin exposes a JavaScript API directly (most official Tauri plugins do). Only write Rust commands for custom logic not covered by an existing plugin.
+After `composer require myorg/my-nativeblade-plugin`, the consumer can use:
 
-For the full Tauri plugin tutorial, see the [Tauri 2 Plugin docs](https://v2.tauri.app/plugin/).
+```blade
+<x-nativeblade-toast message="Saved!" />
+```
+
+No service provider registration needed. Components, views, and JS modules are picked up automatically from `vendor/composer/installed.json`.
 
 ---
 
