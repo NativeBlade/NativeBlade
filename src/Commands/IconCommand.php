@@ -184,32 +184,52 @@ class IconCommand extends Command
         $assetsDir = "{$genDir}/Assets.xcassets/AppIcon.appiconset";
         if (!is_dir($assetsDir)) mkdir($assetsDir, 0755, true);
 
-        $sizes = [
-            ['size' => 20, 'scales' => [2, 3]],
-            ['size' => 29, 'scales' => [2, 3]],
-            ['size' => 40, 'scales' => [2, 3]],
-            ['size' => 60, 'scales' => [2, 3]],
-            ['size' => 76, 'scales' => [1, 2]],
-            ['size' => 83.5, 'scales' => [2]],
-            ['size' => 1024, 'scales' => [1]],
+        // Wipe any stale icons from previous runs (avoids "unassigned children" warnings)
+        foreach (glob("{$assetsDir}/*.png") ?: [] as $f) @unlink($f);
+
+        // Apple's validation requires explicit idioms — `universal` alone is rejected
+        // by App Store Connect upload. Each entry below maps to a required slot.
+        $entries = [
+            ['idiom' => 'iphone', 'size' => '20x20',     'scale' => '2x', 'px' => 40],
+            ['idiom' => 'iphone', 'size' => '20x20',     'scale' => '3x', 'px' => 60],
+            ['idiom' => 'iphone', 'size' => '29x29',     'scale' => '2x', 'px' => 58],
+            ['idiom' => 'iphone', 'size' => '29x29',     'scale' => '3x', 'px' => 87],
+            ['idiom' => 'iphone', 'size' => '40x40',     'scale' => '2x', 'px' => 80],
+            ['idiom' => 'iphone', 'size' => '40x40',     'scale' => '3x', 'px' => 120],
+            ['idiom' => 'iphone', 'size' => '60x60',     'scale' => '2x', 'px' => 120],
+            ['idiom' => 'iphone', 'size' => '60x60',     'scale' => '3x', 'px' => 180],
+            ['idiom' => 'ipad',   'size' => '20x20',     'scale' => '1x', 'px' => 20],
+            ['idiom' => 'ipad',   'size' => '20x20',     'scale' => '2x', 'px' => 40],
+            ['idiom' => 'ipad',   'size' => '29x29',     'scale' => '1x', 'px' => 29],
+            ['idiom' => 'ipad',   'size' => '29x29',     'scale' => '2x', 'px' => 58],
+            ['idiom' => 'ipad',   'size' => '40x40',     'scale' => '1x', 'px' => 40],
+            ['idiom' => 'ipad',   'size' => '40x40',     'scale' => '2x', 'px' => 80],
+            ['idiom' => 'ipad',   'size' => '76x76',     'scale' => '1x', 'px' => 76],
+            ['idiom' => 'ipad',   'size' => '76x76',     'scale' => '2x', 'px' => 152],
+            ['idiom' => 'ipad',   'size' => '83.5x83.5', 'scale' => '2x', 'px' => 167],
+            ['idiom' => 'ios-marketing', 'size' => '1024x1024', 'scale' => '1x', 'px' => 1024],
         ];
 
+        $generated = [];
         $images = [];
 
-        foreach ($sizes as $entry) {
-            foreach ($entry['scales'] as $scale) {
-                $px = (int) ($entry['size'] * $scale);
-                $name = "icon_{$px}x{$px}.png";
+        foreach ($entries as $e) {
+            $name = "icon-{$e['idiom']}-{$e['size']}-{$e['scale']}.png";
 
-                $this->resizeWithBackground($source, "{$assetsDir}/{$name}", $px);
-
-                $images[] = [
-                    'size' => "{$entry['size']}x{$entry['size']}",
-                    'idiom' => 'universal',
-                    'filename' => $name,
-                    'scale' => "{$scale}x",
-                ];
+            // Avoid regenerating identical sizes
+            if (!isset($generated[$e['px']])) {
+                $this->resizeWithBackground($source, "{$assetsDir}/{$name}", $e['px']);
+                $generated[$e['px']] = $name;
+            } else {
+                copy("{$assetsDir}/{$generated[$e['px']]}", "{$assetsDir}/{$name}");
             }
+
+            $images[] = [
+                'idiom' => $e['idiom'],
+                'size' => $e['size'],
+                'scale' => $e['scale'],
+                'filename' => $name,
+            ];
         }
 
         file_put_contents("{$assetsDir}/Contents.json", json_encode([
@@ -217,7 +237,39 @@ class IconCommand extends Command
             'info' => ['version' => 1, 'author' => 'nativeblade'],
         ], JSON_PRETTY_PRINT));
 
-        $this->line("  <fg=green>✓</> iOS app icons + Contents.json");
+        $this->ensureCFBundleIconName($genDir);
+
+        $this->line("  <fg=green>✓</> iOS app icons + Contents.json (" . count($images) . " entries)");
+    }
+
+    /**
+     * Apple's App Store Connect validation rejects builds without
+     * `CFBundleIconName` in Info.plist. The value must match the asset
+     * catalog name — for our generated AppIcon.appiconset, that's "AppIcon".
+     */
+    private function ensureCFBundleIconName(string $genDir): void
+    {
+        $found = glob($genDir . '/*/Info.plist');
+        $plistPath = $found[0] ?? null;
+        if (!$plistPath) return;
+
+        $plist = file_get_contents($plistPath);
+
+        if (str_contains($plist, '<key>CFBundleIconName</key>')) {
+            $plist = preg_replace(
+                '/<key>CFBundleIconName<\/key>\s*<string>[^<]*<\/string>/',
+                "<key>CFBundleIconName</key>\n\t<string>AppIcon</string>",
+                $plist
+            );
+        } else {
+            $plist = str_replace(
+                '</dict>',
+                "<key>CFBundleIconName</key>\n\t<string>AppIcon</string>\n</dict>",
+                $plist
+            );
+        }
+
+        file_put_contents($plistPath, $plist);
     }
 
     private function resize($source, string $path, int $w, int $h): void
