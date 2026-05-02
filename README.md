@@ -287,16 +287,20 @@ $responses = NativeBlade::pool(fn ($pool) => [
 
 ## Laravel Compatibility
 
-| Works | Via Bridge | Not Available |
-|-------|-----------|---------------|
-| Routing, Blade, Livewire | `Http` facade | Queues, Mail (SMTP) |
-| Eloquent (SQLite) | External APIs | Redis, Memcached |
-| Middleware, Validation | Native Filesystem | WebSockets |
-| Collections, Carbon | | MySQL, Postgres |
-| Service Container | | Artisan CLI |
-| Localization | | File Storage (S3) |
-| Task Scheduling (via Rust) | | |
-| Migrations (auto on boot) | | |
+NativeBlade is a **client-side runtime**, so anything inherently server-side (sending email, processing queues, running cron daemons) is intentionally not built in — your Laravel server handles those, and the client talks to it.
+
+| Works natively | Via bridge | Via your Laravel server | Custom plugin / shell component |
+|----------------|-----------|-------------------------|----------------------------------|
+| Routing, Blade, Livewire | `Http` facade (REST/GraphQL) | Queues, jobs, dispatched tasks | WebSockets / Pusher / Reverb |
+| Eloquent on SQLite (local) | MySQL / PostgreSQL / MariaDB (remote, via Rust) | Mail (SMTP, Mailgun, SES) | BLE, Bluetooth Classic |
+| Middleware, Validation | Native Filesystem (Storage) | Redis, Memcached | Thermal printer (ESC/POS) |
+| Collections, Carbon, Eloquent relations | Camera, Gallery, Video, Barcode, NFC | File Storage (S3, R2, GCS) | Payment terminals (TEF) |
+| Service Container, Facades | Biometric, Push (FCM/APNS), Haptics | Heavy reports / aggregations | SAT / fiscal printers |
+| Localization, Validation rules | Geolocation, Clipboard, Notifications | Auth providers (OAuth, SSO) | Anything else with `tauriInvoke` |
+| Migrations (auto on boot) | Tauri/Rust commands, Upload streaming | | |
+| Task Scheduling (Rust timers) | Custom plugins via `tauriInvoke` | | |
+
+> **WebSockets specifically:** Livewire's `wire:poll` covers most "real-time" needs in business apps with zero infrastructure. For genuine real-time (chat with typing indicators, collaborative editing), build a shell component that lives outside the iframe, connects to your WS server, and dispatches Livewire events. See [PLUGINS.md → Composer plugin discovery](PLUGINS.md#composer-plugin-discovery).
 
 ## Documentation
 
