@@ -4,6 +4,7 @@ namespace NativeBlade\Commands;
 
 use Illuminate\Console\Command;
 use NativeBlade\Config\PluginRegistry;
+use NativeBlade\NativeBladeServiceProvider;
 use NativeBlade\ShellConfig;
 
 class BuildCommand extends Command
@@ -33,6 +34,15 @@ class BuildCommand extends Command
 
         $this->line('  Applying config...');
         $this->call('nativeblade:config');
+
+        $this->line('');
+        $this->line('  Bundling Laravel app...');
+        $bundleScript = NativeBladeServiceProvider::packagePath('js/scripts/bundle-laravel.js');
+        if (!$this->runProcess("node {$bundleScript} " . base_path())) {
+            $this->error('  Laravel bundle failed.');
+            return self::FAILURE;
+        }
+        $this->line("  <fg=green>✓</> Laravel bundle (public/laravel-bundle.json.gz)");
 
         $this->line('');
         $this->line('  Building frontend...');
