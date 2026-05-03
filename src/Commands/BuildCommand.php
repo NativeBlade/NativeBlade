@@ -36,6 +36,14 @@ class BuildCommand extends Command
         $this->call('nativeblade:config');
 
         $this->line('');
+        $this->line('  Building frontend...');
+        if (!$this->runProcess($this->npmCommand('run build'))) {
+            $this->error('  Frontend build failed.');
+            return self::FAILURE;
+        }
+        $this->line("  <fg=green>✓</> Frontend built (public/build/manifest.json)");
+
+        $this->line('');
         $this->line('  Bundling Laravel app...');
         $bundleScript = NativeBladeServiceProvider::packagePath('js/scripts/bundle-laravel.js');
         if (!$this->runProcess("node {$bundleScript} " . base_path())) {
@@ -43,14 +51,6 @@ class BuildCommand extends Command
             return self::FAILURE;
         }
         $this->line("  <fg=green>✓</> Laravel bundle (public/laravel-bundle.json.gz)");
-
-        $this->line('');
-        $this->line('  Building frontend...');
-        if (!$this->runProcess($this->npmCommand('run build'))) {
-            $this->error('  Frontend build failed.');
-            return self::FAILURE;
-        }
-        $this->line("  <fg=green>✓</> Frontend built");
 
         $this->line('');
         $this->line('  Building WASM frontend...');
