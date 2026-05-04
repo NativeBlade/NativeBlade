@@ -9,7 +9,10 @@ class SignCommand extends Command
     protected $signature = 'nativeblade:sign
         {platform : android or ios}
         {--alias=upload : Key alias (Android only)}
-        {--validity=10000 : Validity in days (Android only)}';
+        {--validity=10000 : Validity in days (Android only)}
+        {--keystore-path= : Existing keystore path (Android, CI mode)}
+        {--keystore-password= : Keystore password (Android, CI mode)}
+        {--key-password= : Key password, defaults to keystore password (Android, CI mode)}';
 
     protected $description = 'Configure release signing for Android (keystore) or iOS (ExportOptions.plist)';
 
@@ -26,23 +29,40 @@ class SignCommand extends Command
 
     private function signAndroid(): int
     {
-        if (!$this->commandExists('keytool')) {
-            $this->error('  keytool not found in PATH. Install JDK and try again.');
-            return self::FAILURE;
-        }
-
         $androidDir = base_path('src-tauri/gen/android');
         if (!is_dir($androidDir)) {
             $this->error("  Android project not found. Run `nativeblade:add android` first.");
             return self::FAILURE;
         }
 
+        $alias = $this->option('alias');
+        $validity = (int) $this->option('validity');
+
+        $optKeystorePath = $this->option('keystore-path');
+        $optKeystorePassword = $this->option('keystore-password');
+        $optKeyPassword = $this->option('key-password') ?: $optKeystorePassword;
+        $ciMode = $optKeystorePath && $optKeystorePassword;
+
+        if ($ciMode) {
+            if (!file_exists($optKeystorePath)) {
+                $this->error("  Keystore not found at {$optKeystorePath}");
+                return self::FAILURE;
+            }
+            $this->info("  Configuring signing for existing keystore: {$optKeystorePath}");
+            $this->writeKeystoreProperties($androidDir, $optKeystorePath, $optKeystorePassword, $optKeyPassword, $alias);
+            $this->patchAppGradle($androidDir);
+            $this->ensureGitignore($androidDir);
+            return self::SUCCESS;
+        }
+
+        if (!$this->commandExists('keytool')) {
+            $this->error('  keytool not found in PATH. Install JDK and try again.');
+            return self::FAILURE;
+        }
+
         $this->line('');
         $this->info('  Android Signing Setup');
         $this->line('');
-
-        $alias = $this->option('alias');
-        $validity = (int) $this->option('validity');
 
         $defaultKeystore = $androidDir . '/upload-keystore.jks';
         $keystorePath = $this->ask('  Keystore path', $defaultKeystore);
@@ -56,7 +76,7 @@ class SignCommand extends Command
         }
 
         if (!file_exists($keystorePath)) {
-            $password = $this->secret('  Password (min 6 chars, letters + numbers only — avoid special chars)');
+            $password = $this->secret('  Password (min 6 chars, letters + numbers only, avoid special chars)');
 
             if (strlen($password) < 6) {
                 $this->error('  Password must be at least 6 characters.');
