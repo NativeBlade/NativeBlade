@@ -52,13 +52,11 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
         super.load(webView)
         instance = this
 
-        if (FirebaseApp.getApps(activity.applicationContext).isEmpty()) {
-            Log.w(TAG, "Firebase not initialized — push plugin inert")
-            return
-        }
-
-        active = true
-
+        // Request POST_NOTIFICATIONS unconditionally, even when Firebase is not
+        // configured. Local notifications (tauri-plugin-notification) need this
+        // permission too, and their own requestPermission() flow is broken
+        // because the plugin's lateinit ActivityResultLauncher isn't always
+        // initialized in time. Using ActivityCompat directly avoids that bug.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(activity, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED
@@ -66,6 +64,13 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
                 ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
             }
         }
+
+        if (FirebaseApp.getApps(activity.applicationContext).isEmpty()) {
+            Log.w(TAG, "Firebase not initialized, push plugin inert")
+            return
+        }
+
+        active = true
 
         PendingPushes.latestToken?.let { emitToken(it) }
 
