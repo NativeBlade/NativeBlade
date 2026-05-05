@@ -1,0 +1,18 @@
+/*
+ * Safe-area absorption at the shell level.
+ *
+ * The Laravel app loads inside an <iframe>, but env(safe-area-inset-*)
+ * values do not propagate into iframes (they only apply to the top-level
+ * document). To prevent the iframe content from extending under the
+ * device notch / home indicator, we apply the insets to the shell body
+ * here. The iframe (flex: 1 child) then occupies the remaining safe area.
+ *
+ * This is loaded by app.js so every project picks it up automatically,
+ * regardless of when the project was generated.
+ */
+body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+}

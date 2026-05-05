@@ -1,3 +1,4 @@
+import './safe-area.css';
 import './components/bottom-nav/bottom-nav.css';
 import './components/top-bar/top-bar.css';
 import './components/camera/camera.css';
