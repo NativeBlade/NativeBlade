@@ -203,12 +203,22 @@ async function renderPage(text, path, options, version) {
     // document — only swap the body content.
     if (isFirstRender || !appFrame.contentDocument || !appFrame.contentDocument.body) {
         appFrame.srcdoc = html;
+        // Prime the buffer iframe with the same content. Without this, the
+        // buffer's first real srcdoc load (on user's first tab navigation)
+        // gives WKWebView a fresh iframe in a hidden state, and the
+        // resulting scroll-view configuration is broken — touch-drag scroll
+        // only works on interactive elements until the iframe has been
+        // navigated away from and back. Priming ensures WKWebView sets up
+        // the scroll-view while we're still in boot/splash, and subsequent
+        // srcdoc swaps reuse the already-configured scroll-view.
+        bufferFrame.srcdoc = html;
         return;
     }
 
     // First time the iframe has any content at all: full srcdoc swap.
     if (!appFrame.contentDocument || !appFrame.contentDocument.body) {
         appFrame.srcdoc = html;
+        bufferFrame.srcdoc = html;
         return;
     }
 
@@ -224,11 +234,61 @@ async function renderPage(text, path, options, version) {
     const container = appFrame.parentNode;
     if (container && newBg) container.style.backgroundColor = newBg;
 
-    // Dual-iframe approach for ALL transitions including 'none'. The buffer
-    // loads the new page off-screen so the visible iframe never goes blank.
-    // For 'none' we just skip the animation step (instant role swap).
+    // For transition='none' (tabbar navigation): instant dual-iframe swap.
+    // Same sequence as slide, but transforms snap immediately. The CSS Grid
+    // container (see setupFrameContainer) keeps the iframes overlapping
+    // without `position: relative`, which is what was breaking WKWebView's
+    // scroll handling on the new iframe.
+    if (noTransition) {
+        bufferFrame.style.transition = 'none';
+        bufferFrame.style.transform = 'translateX(100%)';
+        bufferFrame.style.opacity = '1';
+        bufferFrame.style.zIndex = '2';
+        bufferFrame.style.pointerEvents = 'none';
 
-    bufferFrame.style.display = 'block';
+        const loaded = new Promise((resolve) => {
+            const onLoad = () => {
+                bufferFrame.removeEventListener('load', onLoad);
+                resolve();
+            };
+            bufferFrame.addEventListener('load', onLoad);
+        });
+        bufferFrame.srcdoc = html;
+        await loaded;
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        // Snap transforms (no transition).
+        void bufferFrame.offsetWidth;
+        bufferFrame.style.transform = 'translateX(0)';
+        appFrame.style.transform = 'translateX(-100%)';
+        appFrame.style.opacity = '0';
+
+        // Role swap.
+        const oldFrame = appFrame;
+        appFrame = bufferFrame;
+        bufferFrame = oldFrame;
+        try { setBridgeFrame(appFrame); } catch {}
+        try { setPushFrame(appFrame); } catch {}
+
+        appFrame.style.transition = '';
+        appFrame.style.transform = 'translateX(0)';
+        appFrame.style.opacity = '1';
+        appFrame.style.zIndex = '1';
+        appFrame.style.pointerEvents = 'auto';
+
+        bufferFrame.style.transition = 'none';
+        bufferFrame.style.transform = 'translateX(100%)';
+        bufferFrame.style.opacity = '0';
+        bufferFrame.style.zIndex = '0';
+        bufferFrame.style.pointerEvents = 'none';
+        bufferFrame.srcdoc = '';
+        return;
+    }
+
+    // Dual-iframe approach for slide and fade transitions. The buffer loads
+    // the new page off-screen so the visible iframe never goes blank during
+    // the animation.
+
     bufferFrame.style.transition = 'none';
     bufferFrame.style.zIndex = '2';
     bufferFrame.style.pointerEvents = 'none';
@@ -237,8 +297,8 @@ async function renderPage(text, path, options, version) {
         bufferFrame.style.transform = direction === 'back' ? 'translateX(-100%)' : 'translateX(100%)';
         bufferFrame.style.opacity = '1';
     } else {
-        // For fade and 'none', the buffer overlays at translateX(0). It is
-        // hidden via opacity until the new content has fully loaded.
+        // Fade: buffer overlays at translateX(0), hidden via opacity until
+        // the new content has loaded.
         bufferFrame.style.transform = 'translateX(0)';
         bufferFrame.style.opacity = '0';
     }
@@ -256,31 +316,24 @@ async function renderPage(text, path, options, version) {
     // Give the new document a frame to settle (Livewire/Alpine scripts run).
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-    if (noTransition) {
-        // Instant: show buffer, hide old. No animation wait.
-        bufferFrame.style.opacity = '1';
-        appFrame.style.transition = 'none';
-        appFrame.style.opacity = '0';
+    void bufferFrame.offsetWidth;
+    bufferFrame.style.transition = slide
+        ? `transform ${duration}ms ${easing}`
+        : `opacity ${duration}ms ease`;
+    appFrame.style.transition = slide
+        ? `transform ${duration}ms ${easing}, opacity ${duration}ms ease`
+        : `opacity ${duration}ms ease`;
+
+    if (slide) {
+        bufferFrame.style.transform = 'translateX(0)';
+        appFrame.style.transform = direction === 'back' ? 'translateX(100%)' : 'translateX(-30%)';
+        appFrame.style.opacity = direction === 'back' ? '1' : '0.6';
     } else {
-        void bufferFrame.offsetWidth;
-        bufferFrame.style.transition = slide
-            ? `transform ${duration}ms ${easing}`
-            : `opacity ${duration}ms ease`;
-        appFrame.style.transition = slide
-            ? `transform ${duration}ms ${easing}, opacity ${duration}ms ease`
-            : `opacity ${duration}ms ease`;
-
-        if (slide) {
-            bufferFrame.style.transform = 'translateX(0)';
-            appFrame.style.transform = direction === 'back' ? 'translateX(100%)' : 'translateX(-30%)';
-            appFrame.style.opacity = direction === 'back' ? '1' : '0.6';
-        } else {
-            bufferFrame.style.opacity = '1';
-            appFrame.style.opacity = '0';
-        }
-
-        await wait(duration);
+        bufferFrame.style.opacity = '1';
+        appFrame.style.opacity = '0';
     }
+
+    await wait(duration);
 
     // Swap roles: bufferFrame becomes the new appFrame, old appFrame is reset
     // and becomes the buffer for next navigation.
@@ -299,13 +352,14 @@ async function renderPage(text, path, options, version) {
     appFrame.style.zIndex = '1';
     appFrame.style.pointerEvents = 'auto';
 
-    // Old frame goes back to the buffer pool: hidden, off-screen, blank.
+    // Old frame goes back to the buffer pool: off-screen, blank, but kept
+    // in the rendering tree (no display:none) so its scroll-view stays set
+    // up for next time it becomes active.
     bufferFrame.style.transition = 'none';
     bufferFrame.style.transform = 'translateX(100%)';
     bufferFrame.style.opacity = '0';
     bufferFrame.style.zIndex = '0';
     bufferFrame.style.pointerEvents = 'none';
-    bufferFrame.style.display = 'none';
     bufferFrame.srcdoc = '';
 }
 
@@ -357,24 +411,28 @@ function sampleBodyBg(html) {
     return '#ffffff';
 }
 
-// Wrap the original iframe in a positioned container, then add a second
-// (buffer) iframe used to load the next page in parallel. The buffer is
-// hidden and off-screen until needed.
+// Wrap the original iframe in a CSS-grid container so both iframes can
+// occupy the same cell (overlapping for slide animations) without using
+// position:absolute. Avoiding `position: relative` on the container is
+// critical for WKWebView — having the iframes inside a positioned ancestor
+// breaks scroll-view ownership transfer when the active iframe changes,
+// causing touch-drag scroll to be intercepted by the wrong (invisible)
+// iframe. Grid gives us the same overlap visual without that side effect.
 function setupFrameContainer() {
     if (!appFrame || !appFrame.parentNode) return;
     if (appFrame.parentNode.id === 'nb-frame-container') return;
 
     const container = document.createElement('div');
     container.id = 'nb-frame-container';
-    container.style.cssText = 'position: relative; flex: 1; overflow: hidden; width: 100%;';
+    container.style.cssText = 'display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr; flex: 1; overflow: hidden; width: 100%; min-height: 0;';
 
     appFrame.parentNode.insertBefore(container, appFrame);
     container.appendChild(appFrame);
 
-    // Current frame: absolute, full-bleed, on-screen, interactive.
+    // Current frame: occupies the single grid cell, full-bleed, interactive.
     Object.assign(appFrame.style, {
-        position: 'absolute',
-        inset: '0',
+        gridColumn: '1',
+        gridRow: '1',
         width: '100%',
         height: '100%',
         border: 'none',
@@ -385,11 +443,17 @@ function setupFrameContainer() {
         willChange: 'transform, opacity',
     });
 
-    // Buffer frame: same shape, parked off-screen and hidden.
+    // Buffer frame: same grid cell, parked off-screen via transform.
+    // CRITICAL: never display:none. The buffer must stay in the rendering
+    // tree at all times so WKWebView's compositor sets up its scroll-view
+    // from the start. Toggling display:none↔block on first use leaves the
+    // iframe without scroll handling — the user has to navigate elsewhere
+    // and back before scroll starts working. Hidden via opacity:0 +
+    // pointerEvents:none + transform offscreen instead.
     bufferFrame = document.createElement('iframe');
     Object.assign(bufferFrame.style, {
-        position: 'absolute',
-        inset: '0',
+        gridColumn: '1',
+        gridRow: '1',
         width: '100%',
         height: '100%',
         border: 'none',
@@ -397,7 +461,6 @@ function setupFrameContainer() {
         transform: 'translateX(100%)',
         opacity: '0',
         pointerEvents: 'none',
-        display: 'none',
         willChange: 'transform, opacity',
     });
     container.appendChild(bufferFrame);
