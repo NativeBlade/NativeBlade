@@ -166,6 +166,7 @@ async function renderPage(text, path, options, version) {
     const pageTransition = options.transition || config.transition || transition;
     html = inject(html);
 
+    const isFirstRender = appFrame.style.display !== 'block';
     splash.style.display = 'none';
     appFrame.style.display = 'block';
     await applyConfig(config, path);
@@ -179,6 +180,37 @@ async function renderPage(text, path, options, version) {
         initScheduler(config.schedules);
     }
 
+    // First navigation: full srcdoc swap so the iframe boots up Alpine,
+    // Livewire, all the CSS, etc. After that, we never re-create the
+    // document — only swap the body content.
+    if (isFirstRender || !appFrame.contentDocument || !appFrame.contentDocument.body) {
+        appFrame.srcdoc = html;
+        return;
+    }
+
+    // SPA-style swap: parse the new HTML, replace ONLY the body content.
+    // The iframe's <head> (CSS, scripts), Alpine state, Livewire connection,
+    // Tauri bridges all stay alive. No re-parse, no flash.
+    const newDoc = new DOMParser().parseFromString(html, 'text/html');
+    const newBody = newDoc.body;
+
+    if (!newBody) {
+        // Malformed response, fall back to full swap.
+        appFrame.srcdoc = html;
+        return;
+    }
+
+    const doc = appFrame.contentDocument;
+    const win = appFrame.contentWindow;
+    const oldBody = doc.body;
+
+    // Update <title> so back-button history shows the right page title.
+    if (newDoc.title && doc.title !== newDoc.title) {
+        doc.title = newDoc.title;
+    }
+
+    // Honour transition: animate the new body in. The animate.css classes
+    // were already loaded by the first render so they're cached in <head>.
     const transitionMap = {
         'fade': 'fadeIn',
         'slide': 'slideFadeInRight',
@@ -194,9 +226,61 @@ async function renderPage(text, path, options, version) {
     };
     const animClass = transitionMap[pageTransition] || (pageTransition !== 'none' ? pageTransition : null);
 
+    // Strip any animate__* classes from the new body's incoming class so we
+    // start from a clean state before adding fresh ones below.
+    const baseClass = (newBody.getAttribute('class') || '').replace(/animate__\S+/g, '').trim();
+    oldBody.setAttribute('class', baseClass);
+
+    // Copy any inline body style (rare but possible).
+    const newStyle = newBody.getAttribute('style');
+    if (newStyle) oldBody.setAttribute('style', newStyle); else oldBody.removeAttribute('style');
+
+    // Replace body content. innerHTML is fast and resets all event listeners
+    // attached to children; Alpine/Livewire re-bind below.
+    oldBody.innerHTML = newBody.innerHTML;
+
+    // Browsers don't execute <script> tags inserted via innerHTML. Re-create
+    // each one so they actually run.
+    oldBody.querySelectorAll('script').forEach((stale) => {
+        const fresh = doc.createElement('script');
+        for (const attr of stale.attributes) fresh.setAttribute(attr.name, attr.value);
+        fresh.textContent = stale.textContent;
+        stale.parentNode.replaceChild(fresh, stale);
+    });
+
+    // Trigger entrance animation. We had to remove animate__ classes above and
+    // are adding them now so the browser sees them as a fresh change and the
+    // CSS @keyframes actually re-run. A reflow read forces the style recalc
+    // between the remove and the add.
     if (animClass) {
-        html = html.replace(/<body([^>]*)>/, '<body$1 class="animate__animated animate__' + animClass + ' animate__faster">');
+        void oldBody.offsetWidth;
+        const animClasses = ['animate__animated', 'animate__' + animClass, 'animate__faster'];
+        oldBody.classList.add(...animClasses);
+        // Clean up after the animation finishes so the next navigation starts
+        // from a clean class list.
+        setTimeout(() => {
+            oldBody.classList.remove(...animClasses);
+        }, 500);
     }
 
-    appFrame.srcdoc = html;
+    // Re-scan with Alpine for new x-data / x-show / etc.
+    if (win.Alpine && typeof win.Alpine.initTree === 'function') {
+        win.Alpine.initTree(oldBody);
+    }
+
+    // Tell Livewire to rescan and bind to the freshly inserted components.
+    if (win.Livewire) {
+        try {
+            if (typeof win.Livewire.rescan === 'function') {
+                win.Livewire.rescan();
+            } else if (typeof win.Livewire.start === 'function') {
+                // Livewire 3: components auto-discover. Trigger a manual init.
+                win.Livewire.start();
+            }
+        } catch {}
+    }
+
+    // Reset scroll to the top, like a normal page navigation.
+    if (doc.documentElement) doc.documentElement.scrollTop = 0;
+    if (doc.body) doc.body.scrollTop = 0;
 }
