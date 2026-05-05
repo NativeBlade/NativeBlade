@@ -1,5 +1,10 @@
 /* NativeBlade: Tailwind safelist - pregenerate all common utilities */
 
+/* Class-based dark mode. Without this, Tailwind 4 uses prefers-color-scheme,
+   which auto-flips based on OS theme. Apps with a manual dark mode toggle
+   want it controlled by a class on <html> instead. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Spacing */
 @source inline("{m,p,mx,my,mt,mb,ml,mr,px,py,pt,pb,pl,pr}-{0,0.5,1,1.5,2,2.5,3,3.5,4,5,6,7,8,9,10,11,12,14,16,20,24,28,32,36,40,44,48,52,56,60,64,72,80,96,auto}");
 @source inline("{-m,-mx,-my,-mt,-mb,-ml,-mr}-{0.5,1,1.5,2,2.5,3,3.5,4,5,6,7,8,9,10,11,12,14,16,20,24}");
@@ -67,6 +72,30 @@
 @source inline("{opacity-{0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100}}");
 @source inline("{shadow-xs,shadow-sm,shadow,shadow-md,shadow-lg,shadow-xl,shadow-2xl,shadow-inner,shadow-none}");
 @source inline("{blur-none,blur-sm,blur,blur-md,blur-lg,blur-xl,blur-2xl,blur-3xl}");
+
+/* Opacity modifiers on colors (used for overlays, tints, frosted glass) */
+@source inline("bg-black/{5,10,15,20,25,30,40,50,60,70,80,90}");
+@source inline("bg-white/{5,10,15,20,25,30,40,50,60,70,75,80,85,90,95}");
+@source inline("text-white/{5,10,20,30,40,50,60,70,80,90}");
+@source inline("{bg,text,border}-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{500,600}/{5,10,15,20,30,40,50}");
+
+/* Arbitrary font sizes used by ui-mobile components */
+@source inline("text-[10px]");
+@source inline("text-[11px]");
+@source inline("text-[13px]");
+@source inline("text-[15px]");
+@source inline("text-[17px]");
+
+/* Backdrop blur (for translucent navbars, tabbars, sheets) */
+@source inline("{backdrop-blur-none,backdrop-blur-sm,backdrop-blur,backdrop-blur-md,backdrop-blur-lg,backdrop-blur-xl,backdrop-blur-2xl,backdrop-blur-3xl}");
+
+/* Dark mode variants used by ui-mobile components */
+@source inline("dark:bg-{black,white}");
+@source inline("dark:bg-{slate,gray,zinc,neutral,stone}-{700,800,900,950}");
+@source inline("dark:text-{black,white}");
+@source inline("dark:text-{slate,gray,zinc,neutral,stone}-{50,100,200,300,400,500}");
+@source inline("dark:border-{slate,gray,zinc,neutral,stone}-{600,700,800,900}");
+@source inline("dark:active:bg-{slate,gray,zinc,neutral,stone}-{700,800}");
 
 /* Transitions & Transforms */
 @source inline("{transition-none,transition-all,transition,transition-colors,transition-opacity,transition-shadow,transition-transform}");
