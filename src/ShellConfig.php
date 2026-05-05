@@ -309,7 +309,20 @@ class ShellConfig
      */
     public function platform(): string
     {
-        return $_SERVER['NATIVEBLADE_PLATFORM'] ?? 'web';
+        if (isset($_SERVER['NATIVEBLADE_PLATFORM'])) {
+            return $_SERVER['NATIVEBLADE_PLATFORM'];
+        }
+
+        $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        if ($ua) {
+            if (preg_match('/Android/i', $ua)) return 'android';
+            if (preg_match('/iPhone|iPad|iPod/i', $ua)) return 'ios';
+            if (preg_match('/Macintosh|Mac OS X/i', $ua)) return 'macos';
+            if (preg_match('/Windows/i', $ua)) return 'windows';
+            if (preg_match('/Linux/i', $ua)) return 'linux';
+        }
+
+        return 'web';
     }
 
     /** True on Windows, macOS or Linux. */
