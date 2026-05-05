@@ -12,7 +12,7 @@ import { setFrame as setPushFrame } from './push.js';
 let appFrame = null;     // currently visible iframe
 let bufferFrame = null;  // hidden buffer that loads the next page in parallel
 let splash = null;
-let currentPath = '/';
+let currentPath = null;
 let historyStack = [];
 let navigationVersion = 0;
 let pendingMessageId = null;
@@ -32,7 +32,7 @@ export function canGoBack() {
 }
 
 export function getCurrentPath() {
-    return currentPath;
+    return currentPath || '/';
 }
 
 export function getPreviousPath() {
