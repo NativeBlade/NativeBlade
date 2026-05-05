@@ -32,6 +32,13 @@ const apis = {
     shellApi: null,
 };
 
+// Update the active iframe reference. Called by the router when it swaps the
+// visible frame for a buffer frame during a SPA-style navigation.
+export function setFrame(appFrame) {
+    appFrameRef = appFrame;
+    cameraModule.init(appFrame);
+}
+
 export async function init(appFrame) {
     appFrameRef = appFrame;
     cameraModule.init(appFrame);

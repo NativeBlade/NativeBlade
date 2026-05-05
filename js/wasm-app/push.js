@@ -42,6 +42,10 @@ function normalizePayload(raw) {
     return raw;
 }
 
+export function setFrame(appFrame) {
+    appFrameRef = appFrame;
+}
+
 export async function init(appFrame, handleNativeAction) {
     appFrameRef = appFrame;
     handleAction = handleNativeAction;

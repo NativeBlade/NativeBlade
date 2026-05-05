@@ -1,14 +1,16 @@
 import { request } from '../runtime/wasm-server.js';
 import { schedulePersist } from './state-store.js';
 import { applyConfig } from './shell.js';
-import { handleNativeAction } from './bridge.js';
+import { handleNativeAction, setFrame as setBridgeFrame } from './bridge.js';
 import { extractShellConfig, inject } from './interceptor.js';
 import { abort as abortHttpBridge } from '../runtime/http-bridge.js';
 import { setOnBridgeComplete } from '../runtime/request-handler.js';
 import { init as initAutoUpdate } from './auto-update.js';
 import { init as initScheduler } from './scheduler.js';
+import { setFrame as setPushFrame } from './push.js';
 
-let appFrame = null;
+let appFrame = null;     // currently visible iframe
+let bufferFrame = null;  // hidden buffer that loads the next page in parallel
 let splash = null;
 let currentPath = '/';
 let historyStack = [];
@@ -21,7 +23,7 @@ let defaultBridgeCallback = null;
 export function goBack() {
     if (historyStack.length > 0) {
         const prev = historyStack.pop();
-        navigateInternal(prev);
+        navigateInternal(prev, { direction: 'back' });
     }
 }
 
@@ -45,22 +47,35 @@ export function init(frame, splashEl) {
     appFrame = frame;
     splash = splashEl;
 
+    // Wrap the iframe in a positioned container with overflow:hidden so the
+    // slide animation can move the iframe past the viewport edges without
+    // exposing the shell body background. Idempotent.
+    setupFrameContainer();
+
+    let pendingSource = null;
+
     defaultBridgeCallback = (result) => {
         if (pendingMessageId !== null && !result.bridgePending) {
             try {
-                appFrame.contentWindow.postMessage({
+                const target = pendingSource || appFrame.contentWindow;
+                target.postMessage({
                     type: 'nativeblade-response',
                     id: pendingMessageId,
                     result: { text: result.text, httpStatusCode: result.httpStatusCode }
                 }, '*');
             } catch {}
             pendingMessageId = null;
+            pendingSource = null;
         }
     };
     setOnBridgeComplete(defaultBridgeCallback);
 
     window.addEventListener('message', async (event) => {
         const { type } = event.data || {};
+        // Reply to whichever iframe asked. During navigation animations both
+        // appFrame and bufferFrame may post messages; using event.source
+        // routes the response back correctly.
+        const source = event.source || appFrame.contentWindow;
 
         if (type === 'nativeblade-request') {
             const { id, path, options } = event.data;
@@ -68,15 +83,16 @@ export function init(frame, splashEl) {
                 const result = await request(path, options);
                 if (result.bridgePending) {
                     pendingMessageId = id;
+                    pendingSource = source;
                     return;
                 }
-                appFrame.contentWindow.postMessage({
+                source.postMessage({
                     type: 'nativeblade-response', id,
                     result: { text: result.text, httpStatusCode: result.httpStatusCode }
                 }, '*');
                 if (options.method && options.method !== 'GET') schedulePersist();
             } catch (err) {
-                appFrame.contentWindow.postMessage({
+                source.postMessage({
                     type: 'nativeblade-response', id,
                     result: { text: err.message, httpStatusCode: 500 }
                 }, '*');
@@ -188,99 +204,199 @@ async function renderPage(text, path, options, version) {
         return;
     }
 
-    // SPA-style swap: parse the new HTML, replace ONLY the body content.
-    // The iframe's <head> (CSS, scripts), Alpine state, Livewire connection,
-    // Tauri bridges all stay alive. No re-parse, no flash.
-    const newDoc = new DOMParser().parseFromString(html, 'text/html');
-    const newBody = newDoc.body;
-
-    if (!newBody) {
-        // Malformed response, fall back to full swap.
+    // First time the iframe has any content at all: full srcdoc swap.
+    if (!appFrame.contentDocument || !appFrame.contentDocument.body) {
         appFrame.srcdoc = html;
         return;
     }
 
-    const doc = appFrame.contentDocument;
-    const win = appFrame.contentWindow;
-    const oldBody = doc.body;
+    const direction = options.direction || 'forward';
+    const duration = 320;
+    const easing = 'cubic-bezier(0.32, 0.72, 0, 1)';
+    const slide = pageTransition === 'slide' || pageTransition === 'slide-left';
+    const noTransition = pageTransition === 'none';
 
-    // Update <title> so back-button history shows the right page title.
-    if (newDoc.title && doc.title !== newDoc.title) {
-        doc.title = newDoc.title;
+    // Paint the container with the new page's bg so the gap during animation
+    // (if any) does not flash the shell colour.
+    const newBg = sampleBodyBg(html);
+    const container = appFrame.parentNode;
+    if (container && newBg) container.style.backgroundColor = newBg;
+
+    // Dual-iframe approach for ALL transitions including 'none'. The buffer
+    // loads the new page off-screen so the visible iframe never goes blank.
+    // For 'none' we just skip the animation step (instant role swap).
+
+    bufferFrame.style.display = 'block';
+    bufferFrame.style.transition = 'none';
+    bufferFrame.style.zIndex = '2';
+    bufferFrame.style.pointerEvents = 'none';
+
+    if (slide) {
+        bufferFrame.style.transform = direction === 'back' ? 'translateX(-100%)' : 'translateX(100%)';
+        bufferFrame.style.opacity = '1';
+    } else {
+        // For fade and 'none', the buffer overlays at translateX(0). It is
+        // hidden via opacity until the new content has fully loaded.
+        bufferFrame.style.transform = 'translateX(0)';
+        bufferFrame.style.opacity = '0';
     }
 
-    // Honour transition: animate the new body in. The animate.css classes
-    // were already loaded by the first render so they're cached in <head>.
-    const transitionMap = {
-        'fade': 'fadeIn',
-        'slide': 'slideFadeInRight',
-        'slide-left': 'slideFadeInLeft',
-        'slide-up': 'slideFadeInUp',
-        'slide-down': 'slideFadeInDown',
-        'zoom': 'zoomIn',
-        'flip': 'flipInY',
-        'bounce': 'bounceIn',
-        'back': 'backInRight',
-        'blur': 'blurIn',
-        'pop': 'popIn',
-    };
-    const animClass = transitionMap[pageTransition] || (pageTransition !== 'none' ? pageTransition : null);
+    const loaded = new Promise((resolve) => {
+        const onLoad = () => {
+            bufferFrame.removeEventListener('load', onLoad);
+            resolve();
+        };
+        bufferFrame.addEventListener('load', onLoad);
+    });
+    bufferFrame.srcdoc = html;
+    await loaded;
 
-    // Strip any animate__* classes from the new body's incoming class so we
-    // start from a clean state before adding fresh ones below.
-    const baseClass = (newBody.getAttribute('class') || '').replace(/animate__\S+/g, '').trim();
-    oldBody.setAttribute('class', baseClass);
+    // Give the new document a frame to settle (Livewire/Alpine scripts run).
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-    // Copy any inline body style (rare but possible).
-    const newStyle = newBody.getAttribute('style');
-    if (newStyle) oldBody.setAttribute('style', newStyle); else oldBody.removeAttribute('style');
+    if (noTransition) {
+        // Instant: show buffer, hide old. No animation wait.
+        bufferFrame.style.opacity = '1';
+        appFrame.style.transition = 'none';
+        appFrame.style.opacity = '0';
+    } else {
+        void bufferFrame.offsetWidth;
+        bufferFrame.style.transition = slide
+            ? `transform ${duration}ms ${easing}`
+            : `opacity ${duration}ms ease`;
+        appFrame.style.transition = slide
+            ? `transform ${duration}ms ${easing}, opacity ${duration}ms ease`
+            : `opacity ${duration}ms ease`;
 
-    // Replace body content. innerHTML is fast and resets all event listeners
-    // attached to children; Alpine/Livewire re-bind below.
-    oldBody.innerHTML = newBody.innerHTML;
+        if (slide) {
+            bufferFrame.style.transform = 'translateX(0)';
+            appFrame.style.transform = direction === 'back' ? 'translateX(100%)' : 'translateX(-30%)';
+            appFrame.style.opacity = direction === 'back' ? '1' : '0.6';
+        } else {
+            bufferFrame.style.opacity = '1';
+            appFrame.style.opacity = '0';
+        }
 
-    // Browsers don't execute <script> tags inserted via innerHTML. Re-create
-    // each one so they actually run.
-    oldBody.querySelectorAll('script').forEach((stale) => {
-        const fresh = doc.createElement('script');
-        for (const attr of stale.attributes) fresh.setAttribute(attr.name, attr.value);
-        fresh.textContent = stale.textContent;
-        stale.parentNode.replaceChild(fresh, stale);
+        await wait(duration);
+    }
+
+    // Swap roles: bufferFrame becomes the new appFrame, old appFrame is reset
+    // and becomes the buffer for next navigation.
+    const oldFrame = appFrame;
+    appFrame = bufferFrame;
+    bufferFrame = oldFrame;
+
+    // Tell the bridges which iframe is now active.
+    try { setBridgeFrame(appFrame); } catch {}
+    try { setPushFrame(appFrame); } catch {}
+
+    // New current frame settles to clean state.
+    appFrame.style.transition = '';
+    appFrame.style.transform = 'translateX(0)';
+    appFrame.style.opacity = '1';
+    appFrame.style.zIndex = '1';
+    appFrame.style.pointerEvents = 'auto';
+
+    // Old frame goes back to the buffer pool: hidden, off-screen, blank.
+    bufferFrame.style.transition = 'none';
+    bufferFrame.style.transform = 'translateX(100%)';
+    bufferFrame.style.opacity = '0';
+    bufferFrame.style.zIndex = '0';
+    bufferFrame.style.pointerEvents = 'none';
+    bufferFrame.style.display = 'none';
+    bufferFrame.srcdoc = '';
+}
+
+function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Pull the body background colour out of an HTML string so we can paint the
+// iframe container with the new page's bg, hiding the shell during slide.
+const KNOWN_BG_COLORS = {
+    'bg-white':     '#ffffff',
+    'bg-black':     '#000000',
+    'bg-gray-50':   '#f9fafb',
+    'bg-gray-100':  '#f3f4f6',
+    'bg-gray-200':  '#e5e7eb',
+    'bg-gray-800':  '#1f2937',
+    'bg-gray-900':  '#111827',
+    'bg-gray-950':  '#030712',
+    'bg-zinc-50':   '#fafafa',
+    'bg-zinc-100':  '#f4f4f5',
+    'bg-zinc-800':  '#27272a',
+    'bg-zinc-900':  '#18181b',
+    'bg-zinc-950':  '#09090b',
+    'bg-slate-50':  '#f8fafc',
+    'bg-slate-100': '#f1f5f9',
+    'bg-slate-900': '#0f172a',
+    'bg-neutral-50':  '#fafafa',
+    'bg-neutral-100': '#f5f5f5',
+    'bg-neutral-900': '#171717',
+};
+
+function sampleBodyBg(html) {
+    // Try inline style first.
+    const styleMatch = html.match(/<body[^>]*style="([^"]*)"/i);
+    if (styleMatch) {
+        const m = styleMatch[1].match(/background(?:-color)?\s*:\s*([^;]+)/i);
+        if (m) return m[1].trim();
+    }
+
+    // Fall back to known Tailwind bg classes on the body.
+    const classMatch = html.match(/<body[^>]*class="([^"]*)"/i);
+    if (classMatch) {
+        const cls = classMatch[1];
+        for (const [name, hex] of Object.entries(KNOWN_BG_COLORS)) {
+            if (new RegExp('(?:^|\\s)' + name + '(?:\\s|$)').test(cls)) return hex;
+        }
+    }
+
+    return '#ffffff';
+}
+
+// Wrap the original iframe in a positioned container, then add a second
+// (buffer) iframe used to load the next page in parallel. The buffer is
+// hidden and off-screen until needed.
+function setupFrameContainer() {
+    if (!appFrame || !appFrame.parentNode) return;
+    if (appFrame.parentNode.id === 'nb-frame-container') return;
+
+    const container = document.createElement('div');
+    container.id = 'nb-frame-container';
+    container.style.cssText = 'position: relative; flex: 1; overflow: hidden; width: 100%;';
+
+    appFrame.parentNode.insertBefore(container, appFrame);
+    container.appendChild(appFrame);
+
+    // Current frame: absolute, full-bleed, on-screen, interactive.
+    Object.assign(appFrame.style, {
+        position: 'absolute',
+        inset: '0',
+        width: '100%',
+        height: '100%',
+        border: 'none',
+        flex: '',
+        zIndex: '1',
+        transform: 'translateX(0)',
+        opacity: '1',
+        willChange: 'transform, opacity',
     });
 
-    // Trigger entrance animation. We had to remove animate__ classes above and
-    // are adding them now so the browser sees them as a fresh change and the
-    // CSS @keyframes actually re-run. A reflow read forces the style recalc
-    // between the remove and the add.
-    if (animClass) {
-        void oldBody.offsetWidth;
-        const animClasses = ['animate__animated', 'animate__' + animClass, 'animate__faster'];
-        oldBody.classList.add(...animClasses);
-        // Clean up after the animation finishes so the next navigation starts
-        // from a clean class list.
-        setTimeout(() => {
-            oldBody.classList.remove(...animClasses);
-        }, 500);
-    }
-
-    // Re-scan with Alpine for new x-data / x-show / etc.
-    if (win.Alpine && typeof win.Alpine.initTree === 'function') {
-        win.Alpine.initTree(oldBody);
-    }
-
-    // Tell Livewire to rescan and bind to the freshly inserted components.
-    if (win.Livewire) {
-        try {
-            if (typeof win.Livewire.rescan === 'function') {
-                win.Livewire.rescan();
-            } else if (typeof win.Livewire.start === 'function') {
-                // Livewire 3: components auto-discover. Trigger a manual init.
-                win.Livewire.start();
-            }
-        } catch {}
-    }
-
-    // Reset scroll to the top, like a normal page navigation.
-    if (doc.documentElement) doc.documentElement.scrollTop = 0;
-    if (doc.body) doc.body.scrollTop = 0;
+    // Buffer frame: same shape, parked off-screen and hidden.
+    bufferFrame = document.createElement('iframe');
+    Object.assign(bufferFrame.style, {
+        position: 'absolute',
+        inset: '0',
+        width: '100%',
+        height: '100%',
+        border: 'none',
+        zIndex: '0',
+        transform: 'translateX(100%)',
+        opacity: '0',
+        pointerEvents: 'none',
+        display: 'none',
+        willChange: 'transform, opacity',
+    });
+    container.appendChild(bufferFrame);
 }
