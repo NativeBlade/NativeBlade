@@ -131,6 +131,7 @@ export async function runBoot() {
 }
 
 export async function navigate(path, options = {}) {
+    if (currentPath === path && !options.force) return;
     abortHttpBridge();
     pendingMessageId = null;
     if (currentPath !== path) {
@@ -140,6 +141,7 @@ export async function navigate(path, options = {}) {
 }
 
 export async function navigateReplace(path, options = {}) {
+    if (currentPath === path && !options.force) return;
     abortHttpBridge();
     pendingMessageId = null;
     return navigateInternal(path, options);
