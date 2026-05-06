@@ -114,6 +114,17 @@ php artisan nativeblade:dev --platform=ios --build
 
 Builds the frontend once, points Tauri at `dist-wasm/`, and launches the app. Ideal for validating the real production payload or iterating on Rust/native shell without HMR in the way. See [BUILD.md](BUILD.md#production-preview---build).
 
+## UI Components
+
+NativeBlade ships only the shell + runtime, not a styled component library. Pick a UI kit that fits the form factor:
+
+| Form factor | Recommended kit | Install |
+|-------------|-----------------|---------|
+| **Mobile** (iOS + Android) | [`nativeblade/ui-mobile`](https://github.com/NativeBlade/ui-mobile) — Konsta-inspired Blade components with iOS and Material themes auto-detected per platform | `composer require nativeblade/ui-mobile` |
+| **Desktop** (Windows, macOS, Linux) | [Flux UI](https://fluxui.dev) — official Livewire UI kit by Caleb Porzio. Free core + paid Pro | `composer require livewire/flux` |
+
+Any Livewire-compatible Blade UI library works (Filament, mary-ui, TallStackUI, Wireui, etc.). The shell, router, and bridges are component-agnostic.
+
 ## How It Works
 
 ```
