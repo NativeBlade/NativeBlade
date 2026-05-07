@@ -170,7 +170,7 @@ class DevCommand extends Command
      */
     private function waitForAndroidDevice(): bool
     {
-        $devices = $this->listAndroidDevices();
+        [$devices, $raw] = $this->listAndroidDevices();
         if (!empty($devices)) {
             $this->line("  <fg=green>✓</> Android device ready: <info>" . $devices[0] . "</info>");
             return true;
@@ -180,12 +180,19 @@ class DevCommand extends Command
         $this->line('  <fg=yellow>Waiting for an Android device or emulator...</>');
         $this->line('  Connect via USB (with USB debugging enabled) or start an emulator.');
         $this->line('  <fg=gray>Press Ctrl+C to abort.</>');
+        if ($raw !== '') {
+            $this->newLine();
+            $this->line('  <fg=gray>adb devices output:</>');
+            foreach (preg_split('/\r?\n/', trim($raw)) as $line) {
+                $this->line('    <fg=gray>' . $line . '</>');
+            }
+        }
         $this->newLine();
 
         $spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
         $i = 0;
         while (true) {
-            $devices = $this->listAndroidDevices();
+            [$devices] = $this->listAndroidDevices();
             if (!empty($devices)) {
                 $this->output->write("\r\033[K");
                 $this->line("  <fg=green>✓</> Android device ready: <info>" . $devices[0] . "</info>");
@@ -199,20 +206,32 @@ class DevCommand extends Command
     }
 
     /**
-     * @return string[] device serial numbers in "device" state
+     * Run `adb devices` and parse the output.
+     *
+     * @return array{0: string[], 1: string} [device serials in "device" state, raw stdout for debugging]
      */
     private function listAndroidDevices(): array
     {
-        $output = [];
-        @exec('adb devices 2>&1', $output);
+        $process = Process::fromShellCommandline('adb devices', base_path());
+        $process->setTimeout(10);
+        try {
+            $process->run();
+        } catch (\Throwable $e) {
+            return [[], ''];
+        }
+        $raw = $process->getOutput() . $process->getErrorOutput();
+
         $devices = [];
-        foreach ($output as $line) {
+        foreach (preg_split('/\r?\n/', $raw) as $line) {
             $line = trim($line);
-            if (preg_match('/^(\S+)\s+device(\s|$)/', $line, $m)) {
+            if ($line === '') continue;
+            if (str_starts_with($line, 'List of devices')) continue;
+            if (str_starts_with($line, '*')) continue; // daemon messages
+            if (preg_match('/^(\S+)\s+device\b/', $line, $m)) {
                 $devices[] = $m[1];
             }
         }
-        return $devices;
+        return [$devices, $raw];
     }
 
     private function detectAndroidTarget(): ?string
