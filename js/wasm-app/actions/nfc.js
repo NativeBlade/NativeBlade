@@ -8,5 +8,7 @@ export async function nfc_read(payload, ctx) {
         if (!available) return;
         const tag = await ctx.nfcApi.scan({ type: 'ndef' });
         ctx.post('nativeblade-nfc', { tag, id: payload.id || null });
-    } catch {}
+    } catch (e) {
+        console.warn('[NB Nfc] read failed:', e);
+    }
 }

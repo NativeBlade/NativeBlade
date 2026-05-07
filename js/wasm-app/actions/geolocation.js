@@ -11,5 +11,7 @@ export async function geolocation(payload, ctx) {
         if (state.location !== 'granted') return;
         const pos = await ctx.geolocationApi.getCurrentPosition();
         ctx.post('nativeblade-geolocation', { position: pos, id: payload.id || null });
-    } catch {}
+    } catch (e) {
+        console.warn('[NB Geolocation] failed:', e);
+    }
 }
