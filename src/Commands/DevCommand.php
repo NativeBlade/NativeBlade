@@ -80,12 +80,18 @@ class DevCommand extends Command
 
     private function runBuiltAndroid(): void
     {
+        if (!$this->waitForAndroidDevice()) {
+            return;
+        }
         $this->info('Starting Tauri Android dev (built assets, no HMR)...');
         $this->exec("npx tauri android dev " . $this->cargoFeaturesArg() . " --config " . $this->builtConfigArg(), $this->androidEnv());
     }
 
     private function runBuiltIos(): void
     {
+        if (!$this->waitForIosDevice()) {
+            return;
+        }
         $this->info('Starting Tauri iOS dev (built assets, no HMR)...');
         $this->exec('npx tauri ios dev ' . $this->cargoFeaturesArg() . ' --config ' . $this->builtConfigArg());
     }
@@ -127,6 +133,10 @@ class DevCommand extends Command
 
     private function runAndroid(string $host, string $port): void
     {
+        if (!$this->waitForAndroidDevice()) {
+            return;
+        }
+
         $this->info("Starting Vite dev server at http://{$host}:{$port} ...");
         $vite = $this->background(
             "npx vite --config vite.wasm.config.js --host --port {$port}",
@@ -152,6 +162,62 @@ class DevCommand extends Command
         $vite->stop(0);
     }
 
+    /**
+     * Block until at least one Android device or running emulator is detected
+     * via `adb devices`. Without this, Tauri's android dev command opens
+     * Android Studio whenever no target is connected — slow and unwanted in
+     * the common case (developer just hadn't plugged in their phone yet).
+     */
+    private function waitForAndroidDevice(): bool
+    {
+        $devices = $this->listAndroidDevices();
+        if (!empty($devices)) {
+            $this->line("  <fg=green>✓</> Android device ready: <info>" . $devices[0] . "</info>");
+            return true;
+        }
+
+        $this->newLine();
+        $this->line('  <fg=yellow>Waiting for an Android device or emulator...</>');
+        $this->line('  Connect via USB (with USB debugging enabled) or start an emulator.');
+        $this->line('  <fg=gray>Press Ctrl+C to abort.</>');
+        $this->newLine();
+
+        $spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+        $i = 0;
+        while (true) {
+            $devices = $this->listAndroidDevices();
+            if (!empty($devices)) {
+                $this->output->write("\r\033[K");
+                $this->line("  <fg=green>✓</> Android device ready: <info>" . $devices[0] . "</info>");
+                $this->newLine();
+                return true;
+            }
+            $this->output->write("\r  " . $spinner[$i % count($spinner)] . ' polling adb...');
+            $i++;
+            sleep(1);
+        }
+    }
+
+    /**
+     * @return string[] device serial numbers in "device" state
+     */
+    private function listAndroidDevices(): array
+    {
+        $output = [];
+        @exec('adb devices 2>&1', $output, $code);
+        if ($code !== 0) return [];
+
+        $devices = [];
+        foreach ($output as $line) {
+            $line = trim($line);
+            if (str_starts_with($line, 'List of devices') || $line === '') continue;
+            if (preg_match('/^([^\s]+)\s+device(\s|$)/', $line, $m)) {
+                $devices[] = $m[1];
+            }
+        }
+        return $devices;
+    }
+
     private function detectAndroidTarget(): ?string
     {
         $output = [];
@@ -170,6 +236,10 @@ class DevCommand extends Command
 
     private function runIos(string $host, string $port): void
     {
+        if (!$this->waitForIosDevice()) {
+            return;
+        }
+
         $this->info("Starting Vite dev server at http://{$host}:{$port} ...");
         $vite = $this->background(
             "npx vite --config vite.wasm.config.js --host --port {$port}",
@@ -187,6 +257,67 @@ class DevCommand extends Command
         ])));
 
         $vite->stop(0);
+    }
+
+    /**
+     * Block until at least one iOS simulator is booted or a physical device is
+     * connected. Without this, `tauri ios dev` opens Xcode and waits there.
+     */
+    private function waitForIosDevice(): bool
+    {
+        $found = $this->detectIosDevice();
+        if ($found !== null) {
+            $this->line("  <fg=green>✓</> iOS target ready: <info>{$found}</info>");
+            return true;
+        }
+
+        $this->newLine();
+        $this->line('  <fg=yellow>Waiting for an iOS simulator or device...</>');
+        $this->line('  Boot a simulator (open Simulator.app) or plug in a device.');
+        $this->line('  <fg=gray>Press Ctrl+C to abort.</>');
+        $this->newLine();
+
+        $spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+        $i = 0;
+        while (true) {
+            $found = $this->detectIosDevice();
+            if ($found !== null) {
+                $this->output->write("\r\033[K");
+                $this->line("  <fg=green>✓</> iOS target ready: <info>{$found}</info>");
+                $this->newLine();
+                return true;
+            }
+            $this->output->write("\r  " . $spinner[$i % count($spinner)] . ' polling xcrun...');
+            $i++;
+            sleep(1);
+        }
+    }
+
+    /**
+     * Returns a human-readable label for the first available iOS target,
+     * or null if none is booted/connected.
+     */
+    private function detectIosDevice(): ?string
+    {
+        $output = [];
+        @exec('xcrun simctl list devices booted 2>&1', $output);
+        foreach ($output as $line) {
+            if (preg_match('/^\s+(.+?)\s+\([A-F0-9-]+\)\s+\(Booted\)/', $line, $m)) {
+                return trim($m[1]) . ' (simulator)';
+            }
+        }
+
+        $output = [];
+        @exec('xcrun devicectl list devices 2>&1', $output, $code);
+        if ($code === 0) {
+            foreach ($output as $line) {
+                if (preg_match('/connected/i', $line) && preg_match('/iPhone|iPad/i', $line)) {
+                    return trim($line);
+                }
+            }
+        }
+
+        return null;
     }
 
     private function runPortal(string $host, string $port): void
