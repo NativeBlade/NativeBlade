@@ -49,6 +49,7 @@ export const actions = {
 
     // barcode
     scan: barcode.scan,
+    scan_cancel: barcode.scan_cancel,
 
     // nfc
     nfc_read: nfc.nfc_read,

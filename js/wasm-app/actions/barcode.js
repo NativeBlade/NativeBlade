@@ -38,5 +38,15 @@ export async function scan(payload, ctx) {
         ctx.post('nativeblade-scan', { result, id: payload.id || null });
     } catch (e) {
         console.warn('[NB Scan] failed:', e);
+        ctx.post('nativeblade-scan', { result: null, id: payload.id || null });
+    }
+}
+
+export async function scan_cancel(_payload, ctx) {
+    if (!ctx.barcodeApi || !ctx.barcodeApi.cancel) return;
+    try {
+        await ctx.barcodeApi.cancel();
+    } catch (e) {
+        console.warn('[NB Scan] cancel failed:', e);
     }
 }

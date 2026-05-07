@@ -87,6 +87,8 @@ class PluginRegistry
                     'barcode-scanner:allow-cancel',
                     'barcode-scanner:allow-check-permissions',
                     'barcode-scanner:allow-request-permissions',
+                    'barcode-scanner:allow-vibrate',
+                    'barcode-scanner:allow-open-app-settings',
                 ],
                 'npm' => ['@tauri-apps/plugin-barcode-scanner' => '^2'],
                 'android_permissions' => ['CAMERA'],
