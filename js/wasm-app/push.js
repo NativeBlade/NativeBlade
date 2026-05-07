@@ -77,28 +77,41 @@ export async function init(appFrame, handleNativeAction) {
         return;
     }
 
-    try {
-        const result = await invoke('plugin:nativeblade-push|drain_pending');
-        const pending = result?.pending || [];
-        for (const payload of pending) {
-            await postToPhp(PUSH_ROUTE, payload);
-        }
-    } catch (e) {
-        console.warn('[NB Push] drain_pending failed:', e);
-    }
-
-    for (let i = 0; i < 10; i++) {
+    const drainAfterReady = async () => {
         try {
-            const tokenResult = await invoke('plugin:nativeblade-push|get_token');
-            const token = tokenResult?.token;
-            if (token) {
-                postToPhp(TOKEN_ROUTE, { token });
-                break;
+            const result = await invoke('plugin:nativeblade-push|drain_pending');
+            const pending = result?.pending || [];
+            for (const payload of pending) {
+                await postToPhp(PUSH_ROUTE, payload);
             }
         } catch (e) {
-            console.warn('[NB Push] get_token failed:', e);
-            break;
+            console.warn('[NB Push] drain_pending failed:', e);
         }
-        await new Promise(r => setTimeout(r, 500));
+
+        for (let i = 0; i < 10; i++) {
+            try {
+                const tokenResult = await invoke('plugin:nativeblade-push|get_token');
+                const token = tokenResult?.token;
+                if (token) {
+                    postToPhp(TOKEN_ROUTE, { token });
+                    break;
+                }
+            } catch (e) {
+                console.warn('[NB Push] get_token failed:', e);
+                break;
+            }
+            await new Promise(r => setTimeout(r, 500));
+        }
+    };
+
+    if (appFrame.contentDocument?.body?.firstChild) {
+        // Iframe already has content — first load already happened.
+        drainAfterReady();
+    } else {
+        const onLoad = () => {
+            appFrame.removeEventListener('load', onLoad);
+            drainAfterReady();
+        };
+        appFrame.addEventListener('load', onLoad);
     }
 }
