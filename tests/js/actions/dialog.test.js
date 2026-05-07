@@ -19,7 +19,7 @@ describe('actions/dialog', () => {
         });
 
         it('uses dialogApi.message when in Tauri with the supplied title and kind', () => {
-            const msg = spy();
+            const msg = spy(() => Promise.resolve());
             const ctx = makeCtx({ isTauri: true, dialogApi: { message: msg } });
             alert({ message: 'hello', title: 'T', kind: 'warning' }, ctx);
 
@@ -29,7 +29,7 @@ describe('actions/dialog', () => {
         });
 
         it('defaults title to "NativeBlade" and kind to "info"', () => {
-            const msg = spy();
+            const msg = spy(() => Promise.resolve());
             const ctx = makeCtx({ isTauri: true, dialogApi: { message: msg } });
             alert({ message: 'x' }, ctx);
 
