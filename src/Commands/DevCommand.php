@@ -155,9 +155,7 @@ class DevCommand extends Command
         $escaped = PHP_OS_FAMILY === 'Windows'
             ? '"' . str_replace('"', '\\"', $configJson) . '"'
             : escapeshellarg($configJson);
-        $target = $this->detectAndroidTarget();
-        $targetArg = $target ? "--target {$target} " : '';
-        $this->exec("npx tauri android dev {$targetArg}" . $this->cargoFeaturesArg() . " --config {$escaped}", $this->androidEnv());
+        $this->exec("npx tauri android dev " . $this->cargoFeaturesArg() . " --config {$escaped}", $this->androidEnv());
 
         $vite->stop(0);
     }
