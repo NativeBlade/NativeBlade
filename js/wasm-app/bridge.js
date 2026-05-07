@@ -129,7 +129,19 @@ function buildCtx(appFrame) {
     };
 }
 
-export function handleNativeAction(action, payload, appFrame) {
+let isAppReady = false;
+const pendingActions = [];
+
+export function markAppReady() {
+    if (isAppReady) return;
+    isAppReady = true;
+    while (pendingActions.length > 0) {
+        const { action, payload, appFrame } = pendingActions.shift();
+        dispatchAction(action, payload, appFrame);
+    }
+}
+
+function dispatchAction(action, payload, appFrame) {
     const handler = actions[action];
     if (handler) {
         try {
@@ -143,7 +155,6 @@ export function handleNativeAction(action, payload, appFrame) {
         return;
     }
 
-    // Fallback — treat unknown action as a component name and try to render it.
     const comp = getComponent(action);
     if (comp?.render) {
         comp.render(payload);
@@ -152,4 +163,12 @@ export function handleNativeAction(action, payload, appFrame) {
     import(`@components/${action}/${action}.js`)
         .then(mod => { if (mod.render) mod.render(payload); })
         .catch(() => {});
+}
+
+export function handleNativeAction(action, payload, appFrame) {
+    if (!isAppReady) {
+        pendingActions.push({ action, payload, appFrame });
+        return;
+    }
+    dispatchAction(action, payload, appFrame);
 }

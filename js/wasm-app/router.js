@@ -1,7 +1,7 @@
 import { request } from '../runtime/wasm-server.js';
 import { schedulePersist } from './state-store.js';
 import { applyConfig } from './shell.js';
-import { handleNativeAction, setFrame as setBridgeFrame } from './bridge.js';
+import { handleNativeAction, markAppReady, setFrame as setBridgeFrame } from './bridge.js';
 import { extractShellConfig, inject } from './interceptor.js';
 import { abort as abortHttpBridge } from '../runtime/http-bridge.js';
 import { setOnBridgeComplete } from '../runtime/request-handler.js';
@@ -51,6 +51,15 @@ export function init(frame, splashEl) {
     // slide animation can move the iframe past the viewport edges without
     // exposing the shell body background. Idempotent.
     setupFrameContainer();
+
+    // Mark the app as ready once the iframe loads its first real page. Until
+    // then, native actions are queued in the bridge to avoid hitting the
+    // Tauri capability check while the webview is still at about:blank.
+    const onFirstLoad = () => {
+        appFrame.removeEventListener('load', onFirstLoad);
+        markAppReady();
+    };
+    appFrame.addEventListener('load', onFirstLoad);
 
     let pendingSource = null;
 

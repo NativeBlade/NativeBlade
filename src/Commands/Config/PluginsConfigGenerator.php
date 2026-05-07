@@ -157,6 +157,7 @@ class PluginsConfigGenerator
         $desktopPerms = ['core:default', 'core:event:default'];
         $mobilePerms = [];
         $allowedPrefixes = ['core', 'fs'];
+        $allowedMobilePrefixes = [];
 
         foreach ($plugins as $plugin) {
             $d = PluginRegistry::descriptor($plugin);
@@ -167,7 +168,13 @@ class PluginsConfigGenerator
                     $allowedPrefixes[] = $prefix;
                 }
             }
-            foreach ($d['mobile_capabilities'] ?? [] as $perm) $mobilePerms[] = $perm;
+            foreach ($d['mobile_capabilities'] ?? [] as $perm) {
+                $mobilePerms[] = $perm;
+                $prefix = strtok($perm, ':');
+                if ($prefix !== false && !in_array($prefix, $allowedMobilePrefixes, true)) {
+                    $allowedMobilePrefixes[] = $prefix;
+                }
+            }
         }
 
         if (file_exists($defaultPath)) {
@@ -183,7 +190,11 @@ class PluginsConfigGenerator
 
         if (file_exists($mobilePath)) {
             $cap = json_decode(file_get_contents($mobilePath), true);
-            $cap['permissions'] = array_values(array_unique($mobilePerms));
+            $extras = $this->filterNonStringPerms($cap['permissions'] ?? [], $allowedMobilePrefixes);
+            $cap['permissions'] = array_values(array_unique([
+                ...array_filter($mobilePerms),
+                ...$extras,
+            ], SORT_REGULAR));
             file_put_contents($mobilePath, json_encode($cap, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
             $this->cmd->line("  <fg=green>✓</> capabilities/mobile.json");
         }

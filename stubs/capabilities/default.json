@@ -3,9 +3,6 @@
     "identifier": "default",
     "description": "Capability for the main window",
     "windows": ["main"],
-    "remote": {
-        "urls": ["about:blank"]
-    },
     "permissions": [
         "core:default",
         "core:event:default",

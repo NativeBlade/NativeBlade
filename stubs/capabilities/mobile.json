@@ -3,9 +3,6 @@
     "description": "Additional capabilities for mobile platforms",
     "platforms": ["android", "iOS"],
     "windows": ["main"],
-    "remote": {
-        "urls": ["about:blank"]
-    },
     "permissions": [
         "barcode-scanner:allow-scan",
         "barcode-scanner:allow-cancel",
