@@ -18,8 +18,20 @@ export function render(data, activePath, appFrame) {
     if (!el) {
         el = document.createElement('header');
         el.id = 'top-bar';
+        // Insert above the iframe area. After router.js wraps the iframe in
+        // #nb-frame-container, the iframe is no longer a direct child of
+        // <body> — we have to reference the container (or whichever direct
+        // child of body holds the iframe).
         const app = document.getElementById('app');
-        document.body.insertBefore(el, app);
+        let ref = document.getElementById('nb-frame-container') || app;
+        while (ref && ref.parentNode !== document.body) {
+            ref = ref.parentNode;
+        }
+        if (ref) {
+            document.body.insertBefore(el, ref);
+        } else {
+            document.body.insertBefore(el, document.body.firstChild);
+        }
     }
 
     if (data.bg) el.style.setProperty('background', data.bg);
