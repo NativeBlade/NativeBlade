@@ -170,7 +170,14 @@ class DevCommand extends Command
      */
     private function waitForAndroidDevice(): bool
     {
-        $devices = $this->listAndroidDevices();
+        $adb = $this->resolveAdbBinary();
+        if ($adb === null) {
+            $this->warn('  adb binary not found. Set ANDROID_HOME or add platform-tools to PATH.');
+            $this->warn('  Skipping device polling — Tauri will run anyway.');
+            return true;
+        }
+
+        $devices = $this->listAndroidDevices($adb);
         if (!empty($devices)) {
             $this->line("  <fg=green>✓</> Android device ready: <info>" . $devices[0] . "</info>");
             return true;
@@ -185,7 +192,7 @@ class DevCommand extends Command
         $spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
         $i = 0;
         while (true) {
-            $devices = $this->listAndroidDevices();
+            $devices = $this->listAndroidDevices($adb);
             if (!empty($devices)) {
                 $this->output->write("\r\033[K");
                 $this->line("  <fg=green>✓</> Android device ready: <info>" . $devices[0] . "</info>");
@@ -199,19 +206,64 @@ class DevCommand extends Command
     }
 
     /**
+     * Locate the adb binary. PHP's PATH typically doesn't include
+     * platform-tools the way an interactive shell does, so we resolve via
+     * ANDROID_HOME / ANDROID_SDK_ROOT first and fall back to common paths.
+     */
+    private function resolveAdbBinary(): ?string
+    {
+        $bin = PHP_OS_FAMILY === 'Windows' ? 'adb.exe' : 'adb';
+
+        $home = env('ANDROID_HOME') ?: env('ANDROID_SDK_ROOT');
+        if ($home) {
+            $candidate = rtrim($home, '/\\') . DIRECTORY_SEPARATOR . 'platform-tools' . DIRECTORY_SEPARATOR . $bin;
+            if (is_file($candidate)) return $candidate;
+        }
+
+        $candidates = PHP_OS_FAMILY === 'Windows'
+            ? [
+                ($_SERVER['LOCALAPPDATA'] ?? '') . '\\Android\\Sdk\\platform-tools\\adb.exe',
+                ($_SERVER['USERPROFILE'] ?? '') . '\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe',
+                'C:\\Android\\Sdk\\platform-tools\\adb.exe',
+            ]
+            : [
+                ($_SERVER['HOME'] ?? '') . '/Library/Android/sdk/platform-tools/adb',
+                ($_SERVER['HOME'] ?? '') . '/Android/Sdk/platform-tools/adb',
+                '/usr/local/bin/adb',
+                '/opt/android-sdk/platform-tools/adb',
+            ];
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate)) return $candidate;
+        }
+
+        // Last resort: try `adb` on PATH.
+        $output = [];
+        $check = PHP_OS_FAMILY === 'Windows' ? 'where adb 2>nul' : 'command -v adb 2>/dev/null';
+        @exec($check, $output, $code);
+        if ($code === 0 && !empty($output[0])) {
+            return trim($output[0]);
+        }
+
+        return null;
+    }
+
+    /**
      * @return string[] device serial numbers in "device" state
      */
-    private function listAndroidDevices(): array
+    private function listAndroidDevices(string $adb): array
     {
         $output = [];
-        @exec('adb devices 2>&1', $output, $code);
+        @exec(escapeshellarg($adb) . ' devices 2>&1', $output, $code);
         if ($code !== 0) return [];
 
         $devices = [];
         foreach ($output as $line) {
             $line = trim($line);
-            if (str_starts_with($line, 'List of devices') || $line === '') continue;
-            if (preg_match('/^([^\s]+)\s+device(\s|$)/', $line, $m)) {
+            if ($line === '') continue;
+            if (str_starts_with($line, 'List of devices')) continue;
+            if (str_starts_with($line, '*')) continue; // daemon messages
+            if (str_starts_with($line, 'adb server')) continue;
+            if (preg_match('/^(\S+)\s+device(\s|$)/', $line, $m)) {
                 $devices[] = $m[1];
             }
         }
@@ -220,8 +272,11 @@ class DevCommand extends Command
 
     private function detectAndroidTarget(): ?string
     {
+        $adb = $this->resolveAdbBinary();
+        if ($adb === null) return null;
+
         $output = [];
-        @exec('adb shell getprop ro.product.cpu.abi 2>&1', $output, $code);
+        @exec(escapeshellarg($adb) . ' shell getprop ro.product.cpu.abi 2>&1', $output, $code);
         if ($code !== 0 || empty($output)) return null;
 
         $abi = trim($output[0]);
