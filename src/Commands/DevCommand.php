@@ -212,7 +212,10 @@ class DevCommand extends Command
      */
     private function listAndroidDevices(): array
     {
-        $process = Process::fromShellCommandline('adb devices', base_path());
+        $adb = $this->resolveAdbPath();
+        $cmd = $adb !== null ? escapeshellarg($adb) . ' devices' : 'adb devices';
+
+        $process = Process::fromShellCommandline($cmd, base_path());
         $process->setTimeout(10);
         try {
             $process->run();
@@ -234,10 +237,42 @@ class DevCommand extends Command
         return [$devices, $raw];
     }
 
+    /**
+     * Resolve the absolute path to adb. PHP's PATH typically does not match
+     * the user's shell PATH — Tauri picks up adb because Cargo's build
+     * environment is enriched with ANDROID_HOME, but our `exec`/`Process`
+     * calls aren't. Use the system env (NOT Laravel's `env()`, which only
+     * reads .env files) and fall back to the standard SDK install location.
+     */
+    private function resolveAdbPath(): ?string
+    {
+        $bin = PHP_OS_FAMILY === 'Windows' ? 'adb.exe' : 'adb';
+
+        $home = getenv('ANDROID_HOME') ?: getenv('ANDROID_SDK_ROOT');
+        if ($home && is_file($home . DIRECTORY_SEPARATOR . 'platform-tools' . DIRECTORY_SEPARATOR . $bin)) {
+            return $home . DIRECTORY_SEPARATOR . 'platform-tools' . DIRECTORY_SEPARATOR . $bin;
+        }
+
+        $defaults = PHP_OS_FAMILY === 'Windows'
+            ? [(getenv('LOCALAPPDATA') ?: '') . '\\Android\\Sdk\\platform-tools\\adb.exe']
+            : [
+                (getenv('HOME') ?: '') . '/Library/Android/sdk/platform-tools/adb',
+                (getenv('HOME') ?: '') . '/Android/Sdk/platform-tools/adb',
+            ];
+        foreach ($defaults as $candidate) {
+            if (is_file($candidate)) return $candidate;
+        }
+
+        return null;
+    }
+
     private function detectAndroidTarget(): ?string
     {
+        $adb = $this->resolveAdbPath();
+        $cmd = $adb !== null ? escapeshellarg($adb) : 'adb';
+
         $output = [];
-        @exec('adb shell getprop ro.product.cpu.abi 2>&1', $output, $code);
+        @exec("$cmd shell getprop ro.product.cpu.abi 2>&1", $output, $code);
         if ($code !== 0 || empty($output)) return null;
 
         $abi = trim($output[0]);
