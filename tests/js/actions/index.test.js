@@ -17,6 +17,7 @@ const EXPECTED_ACTIONS = [
     'selection',
     'biometric',
     'scan',
+    'scan_cancel',
     'nfc_read',
     'open_url',
     'open_file',
