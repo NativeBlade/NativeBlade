@@ -15,6 +15,7 @@ class AndroidConfigGenerator
     {
         $this->generateTheme($config);
         $this->generateOrientation($config);
+        $this->generateEdgeToEdge();
         $this->generateVersion($config);
         $this->generateSdk($config);
         $this->generateProguard();
@@ -129,20 +130,29 @@ RULES;
         $this->cmd->line("  <fg=green>✓</> Android theme: " . count($items) . " items");
     }
 
+    /**
+     * `android:statusBarColor` and `android:navigationBarColor` map to
+     * `Window.setStatusBarColor` / `setNavigationBarColor`, both deprecated
+     * in Android 15 and ignored under edge-to-edge. We only emit the light
+     * icon flags here; the bars are made transparent by `enableEdgeToEdge()`
+     * in MainActivity (see generateEdgeToEdge). Devs who still want a
+     * visible color paint it inside the WebView via CSS using safe-area
+     * insets, since the system bars sit over the content.
+     */
     private function buildThemeItems(array $config): array
     {
         $items = [];
 
         if (isset($config['statusBar'])) {
-            $color = $this->normalizeArgb($config['statusBar']['color'] ?? '#FF0A0A0A');
             $light = ($config['statusBar']['style'] ?? 'dark') === 'light' ? 'true' : 'false';
-            $items[] = '<item name="android:statusBarColor">' . $color . '</item>';
             $items[] = '<item name="android:windowLightStatusBar" tools:targetApi="23">' . $light . '</item>';
         }
 
         if (isset($config['navigationBar'])) {
-            $navColor = $this->normalizeArgb($config['navigationBar']['color'] ?? '#FF0A0A0A');
-            $items[] = '<item name="android:navigationBarColor">' . $navColor . '</item>';
+            $navStyle = $config['navigationBar']['style']
+                ?? ($config['statusBar']['style'] ?? 'dark');
+            $light = $navStyle === 'light' ? 'true' : 'false';
+            $items[] = '<item name="android:windowLightNavigationBar" tools:targetApi="27">' . $light . '</item>';
         }
 
         if (isset($config['fullscreen'])) {
@@ -190,7 +200,7 @@ XML;
             return preg_replace($pattern, $newBlock, $xml);
         }
 
-        $itemPattern = '/<item name="android:(statusBarColor|navigationBarColor|windowLightStatusBar|windowFullscreen|windowSplashScreenBackground)"[^>]*>[^<]*<\/item>\s*/';
+        $itemPattern = '/<item name="android:(statusBarColor|navigationBarColor|windowLightStatusBar|windowLightNavigationBar|windowFullscreen|windowSplashScreenBackground)"[^>]*>[^<]*<\/item>\s*/';
         $xml = preg_replace($itemPattern, '', $xml);
 
         if (preg_match('/<style name="' . preg_quote($themeName, '/') . '"[^>]*>/', $xml)) {
@@ -270,6 +280,85 @@ XML;
 
         file_put_contents($manifestPath, $manifest);
         $this->cmd->line("  <fg=green>✓</> Android orientation: {$androidOrientation}");
+
+        if ($androidOrientation !== 'unspecified') {
+            $this->cmd->line("  <fg=yellow>→</> Android 16+ ignores screenOrientation on foldables and large-screen devices, test layout responsively");
+        }
+    }
+
+    /**
+     * Safety net for the Play Console "edge-to-edge may not be available"
+     * warning. Recent Tauri scaffolds already inject `enableEdgeToEdge()`
+     * in MainActivity.kt; this patch covers older scaffolds (e.g. apps
+     * shipped before that template change) and projects where the dev
+     * removed the call.
+     *
+     * Skip silently when an existing `enableEdgeToEdge()` or
+     * `setDecorFitsSystemWindows` call is detected so we don't fight a
+     * dev who customized the activity.
+     */
+    private function generateEdgeToEdge(): void
+    {
+        $mainActivity = $this->findMainActivity();
+        if (!$mainActivity) return;
+
+        $content = file_get_contents($mainActivity);
+
+        if (preg_match('/\benableEdgeToEdge\s*\(/', $content)
+            || preg_match('/\bsetDecorFitsSystemWindows\s*\(/', $content)) {
+            return;
+        }
+
+        $startMarker = '// nativeblade:edgetoedge:start';
+        $endMarker = '// nativeblade:edgetoedge:end';
+
+        $block = "    {$startMarker}\n"
+            . "    override fun onCreate(savedInstanceState: android.os.Bundle?) {\n"
+            . "        super.onCreate(savedInstanceState)\n"
+            . "        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)\n"
+            . "    }\n"
+            . "    {$endMarker}";
+
+        $startQ = preg_quote($startMarker, '/');
+        $endQ = preg_quote($endMarker, '/');
+
+        if (preg_match("/[ \t]*{$startQ}.*?{$endQ}/s", $content)) {
+            $content = preg_replace("/[ \t]*{$startQ}.*?{$endQ}/s", ltrim($block), $content);
+        } elseif (preg_match('/class\s+MainActivity\s*:\s*TauriActivity\s*\(\s*\)\s*$/m', $content)) {
+            $content = preg_replace(
+                '/(class\s+MainActivity\s*:\s*TauriActivity\s*\(\s*\))(\s*)$/m',
+                "$1 {\n{$block}\n}\n",
+                $content,
+                1
+            );
+        } elseif (preg_match('/class\s+MainActivity\s*:\s*TauriActivity\s*\(\s*\)\s*\{/', $content)) {
+            $content = preg_replace(
+                '/(class\s+MainActivity\s*:\s*TauriActivity\s*\(\s*\)\s*\{)/',
+                "$1\n{$block}\n",
+                $content,
+                1
+            );
+        } else {
+            $this->cmd->line("  <fg=yellow>→</> MainActivity.kt has unexpected shape, skip edge-to-edge patch");
+            return;
+        }
+
+        file_put_contents($mainActivity, $content);
+        $this->cmd->line("  <fg=green>✓</> MainActivity.kt: edge-to-edge enabled");
+    }
+
+    private function findMainActivity(): ?string
+    {
+        $base = base_path('src-tauri/gen/android/app/src/main/java');
+        if (!is_dir($base)) return null;
+
+        $iter = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($base));
+        foreach ($iter as $file) {
+            if ($file->isFile() && $file->getFilename() === 'MainActivity.kt') {
+                return $file->getPathname();
+            }
+        }
+        return null;
     }
 
     private function generateVersion(array $config): void
