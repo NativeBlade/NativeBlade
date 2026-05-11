@@ -135,7 +135,14 @@ class NativeBladePushPlugin: Plugin {
     // was still at about:blank.
 
     @objc public func notify(_ invoke: Invoke) {
-        let args = invoke.parseArgs(NotifyArgs.self)
+        let args: NotifyArgs
+        do {
+            args = try invoke.parseArgs(NotifyArgs.self)
+        } catch {
+            invoke.reject("Invalid notify args: \(error.localizedDescription)")
+            return
+        }
+
         let userId = args.id ?? UUID().uuidString
         let identifier = "nb:" + userId
 
@@ -169,7 +176,13 @@ class NativeBladePushPlugin: Plugin {
     }
 
     @objc public func cancel(_ invoke: Invoke) {
-        let args = invoke.parseArgs(CancelArgs.self)
+        let args: CancelArgs
+        do {
+            args = try invoke.parseArgs(CancelArgs.self)
+        } catch {
+            invoke.reject("Invalid cancel args: \(error.localizedDescription)")
+            return
+        }
         guard let userId = args.id else {
             invoke.reject("Missing notification id")
             return
@@ -223,10 +236,10 @@ class NativeBladePushPlugin: Plugin {
                 repeats: true
             )
         case "dailyAt":
-            let parts = (schedule.time ?? "09:00").split(separator: ":")
+            let parts = (schedule.time ?? "09:00").components(separatedBy: ":")
             var comps = DateComponents()
-            comps.hour = Int(parts.first ?? "9") ?? 9
-            comps.minute = parts.count > 1 ? (Int(parts[1]) ?? 0) : 0
+            comps.hour = parts.indices.contains(0) ? (Int(parts[0]) ?? 9) : 9
+            comps.minute = parts.indices.contains(1) ? (Int(parts[1]) ?? 0) : 0
             return UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
         default:
             return UNTimeIntervalNotificationTrigger(timeInterval: 0.1, repeats: false)
