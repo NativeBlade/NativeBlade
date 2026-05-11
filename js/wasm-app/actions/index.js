@@ -31,6 +31,8 @@ export const actions = {
 
     // notification
     notification: notificationMod.notification,
+    cancel_notification: notificationMod.cancel_notification,
+    cancel_all_notifications: notificationMod.cancel_all_notifications,
 
     // clipboard
     clipboard_read: clipboard.clipboard_read,

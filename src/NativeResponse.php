@@ -96,6 +96,26 @@ class NativeResponse
         return $this->push('notification', $notification->toArray());
     }
 
+    /**
+     * Cancel a previously scheduled or active notification by its id.
+     *
+     * The id is the one passed to `Notification::id($id)` when the
+     * notification was created. Cancelling an id that doesn't exist is
+     * a no-op.
+     */
+    public function cancelNotification(string $id): static
+    {
+        return $this->push('cancel_notification', ['id' => $id]);
+    }
+
+    /**
+     * Cancel every pending and active notification posted by this app.
+     */
+    public function cancelAllNotifications(): static
+    {
+        return $this->push('cancel_all_notifications', []);
+    }
+
     // ------------------------------------------------------------------
     // Clipboard
     // ------------------------------------------------------------------

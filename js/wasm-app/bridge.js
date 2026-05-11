@@ -19,7 +19,6 @@ let isAndroid = false;
 // spread it into the ctx without listing each one.
 const apis = {
     dialogApi: null,
-    notificationApi: null,
     clipboardApi: null,
     geolocationApi: null,
     hapticsApi: null,
@@ -30,6 +29,7 @@ const apis = {
     osApi: null,
     uploadApi: null,
     shellApi: null,
+    invokeTauri: null,
 };
 
 // Update the active iframe reference. Called by the router when it swaps the
@@ -45,8 +45,12 @@ export async function init(appFrame) {
 
     try {
         apis.dialogApi = await import('@tauri-apps/plugin-dialog');
-        apis.notificationApi = await import('@tauri-apps/plugin-notification');
         isTauri = true;
+    } catch {}
+
+    try {
+        const core = await import('@tauri-apps/api/core');
+        apis.invokeTauri = core.invoke;
     } catch {}
 
     if (!isTauri) return;
@@ -78,23 +82,6 @@ export function hapticSelection() {
 
 // --- helpers shared by multiple actions ---
 
-const __nbCreatedChannels = new Set();
-
-async function ensureChannel(channelId) {
-    if (!channelId || !apis.notificationApi || __nbCreatedChannels.has(channelId)) return;
-    __nbCreatedChannels.add(channelId);
-    try {
-        await apis.notificationApi.createChannel({
-            id: channelId,
-            name: channelId,
-            importance: 3,
-            visibility: 0,
-            lights: true,
-            vibration: true,
-        });
-    } catch {}
-}
-
 async function resolveFileDest(pathApi, relativePath, purpose) {
     const purposeMap = {
         app: () => pathApi.appDataDir(),
@@ -124,7 +111,6 @@ function buildCtx(appFrame) {
         post: (type, data = {}) => appFrame?.contentWindow?.postMessage({ type, ...data }, '*'),
         // shared modules + helpers
         camera: cameraModule,
-        ensureChannel,
         resolveFileDest,
     };
 }

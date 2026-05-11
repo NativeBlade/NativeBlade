@@ -2,6 +2,9 @@ const COMMANDS: &[&str] = &[
     "get_token",
     "request_permission",
     "drain_pending",
+    "notify",
+    "cancel",
+    "cancel_all",
 ];
 
 fn main() {

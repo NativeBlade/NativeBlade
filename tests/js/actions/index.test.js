@@ -9,6 +9,8 @@ const EXPECTED_ACTIONS = [
     'alert',
     'confirm',
     'notification',
+    'cancel_notification',
+    'cancel_all_notifications',
     'clipboard_read',
     'clipboard_write',
     'geolocation',

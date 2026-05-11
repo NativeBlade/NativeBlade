@@ -84,6 +84,26 @@ final class NativeResponseTest extends TestCase
         ], $r->toArray());
     }
 
+    #[Test]
+    public function cancel_notification_pushes_a_cancel_action_with_the_id(): void
+    {
+        $r = (new NativeResponse())->cancelNotification('reminder-1');
+
+        self::assertSame([
+            ['action' => 'cancel_notification', 'data' => ['id' => 'reminder-1']],
+        ], $r->toArray());
+    }
+
+    #[Test]
+    public function cancel_all_notifications_pushes_a_cancel_all_action(): void
+    {
+        $r = (new NativeResponse())->cancelAllNotifications();
+
+        self::assertSame([
+            ['action' => 'cancel_all_notifications', 'data' => []],
+        ], $r->toArray());
+    }
+
     // -- Clipboard -----------------------------------------------------
 
     #[Test]

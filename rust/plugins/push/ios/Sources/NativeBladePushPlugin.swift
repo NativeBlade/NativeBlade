@@ -5,6 +5,30 @@ import UIKit
 import UserNotifications
 import WebKit
 
+// MARK: - Command arg structs
+
+struct NotifyArgs: Decodable {
+    let id: String?
+    let title: String?
+    let body: String?
+    let sound: String?
+    let icon: String?
+    let channel: String?
+    let schedule: NotifySchedule?
+}
+
+struct NotifySchedule: Decodable {
+    let type: String
+    let at: String?
+    let kind: String?
+    let count: Int?
+    let time: String?
+}
+
+struct CancelArgs: Decodable {
+    let id: String?
+}
+
 /// NativeBlade push notifications plugin for iOS.
 ///
 /// Wires APNS (Apple Push Notification Service) into Tauri events that
@@ -100,6 +124,113 @@ class NativeBladePushPlugin: Plugin {
 
     @objc public func drainPending(_ invoke: Invoke) {
         invoke.resolve(["pending": PendingPushes.drain()])
+    }
+
+    // MARK: - Local notifications
+    //
+    // The notify/cancel commands route through UNUserNotificationCenter
+    // directly. Replacing tauri-plugin-notification on iOS avoids the
+    // wake-up-from-cold bug where scheduled local notifications would
+    // re-launch the app process and dispatch actions while the webview
+    // was still at about:blank.
+
+    @objc public func notify(_ invoke: Invoke) {
+        let args = invoke.parseArgs(NotifyArgs.self)
+        let userId = args.id ?? UUID().uuidString
+        let identifier = "nb:" + userId
+
+        let content = UNMutableNotificationContent()
+        content.title = args.title ?? "NativeBlade"
+        content.body = args.body ?? ""
+        if let sound = args.sound {
+            content.sound = sound == "default"
+                ? .default
+                : UNNotificationSound(named: UNNotificationSoundName(sound))
+        } else {
+            content.sound = .default
+        }
+        content.userInfo = ["nb_id": userId]
+
+        let trigger = makeTrigger(args.schedule)
+
+        let request = UNNotificationRequest(
+            identifier: identifier,
+            content: content,
+            trigger: trigger
+        )
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                invoke.reject("Failed to schedule notification: \(error.localizedDescription)")
+                return
+            }
+            invoke.resolve(["id": userId])
+        }
+    }
+
+    @objc public func cancel(_ invoke: Invoke) {
+        let args = invoke.parseArgs(CancelArgs.self)
+        guard let userId = args.id else {
+            invoke.reject("Missing notification id")
+            return
+        }
+        let identifier = "nb:" + userId
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        center.removeDeliveredNotifications(withIdentifiers: [identifier])
+        invoke.resolve()
+    }
+
+    @objc public func cancelAll(_ invoke: Invoke) {
+        let center = UNUserNotificationCenter.current()
+        center.removeAllPendingNotificationRequests()
+        center.removeAllDeliveredNotifications()
+        invoke.resolve()
+    }
+
+    /// Convert our generic schedule descriptor (see PHP `Notification`
+    /// builder) into the matching `UNNotificationTrigger`. A nil schedule
+    /// means "fire now" — we use a 0.1s interval trigger because iOS
+    /// rejects truly-immediate triggers in some build configurations.
+    private func makeTrigger(_ schedule: NotifySchedule?) -> UNNotificationTrigger {
+        guard let schedule = schedule else {
+            return UNTimeIntervalNotificationTrigger(timeInterval: 0.1, repeats: false)
+        }
+
+        switch schedule.type {
+        case "at":
+            let date = ISO8601DateFormatter().date(from: schedule.at ?? "") ?? Date()
+            let comps = Calendar.current.dateComponents(
+                [.year, .month, .day, .hour, .minute, .second],
+                from: date
+            )
+            return UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+        case "every":
+            let count = schedule.count ?? 1
+            let seconds: TimeInterval = {
+                switch schedule.kind ?? "" {
+                case "minute": return 60
+                case "hour":   return 3600
+                case "day":    return 86400
+                case "week":   return 604800
+                case "month":  return 2592000 // 30d approx — UN doesn't expose calendar months on intervals
+                default:       return 86400
+                }
+            }() * Double(count)
+            // UN requires interval >= 60 for repeating triggers.
+            return UNTimeIntervalNotificationTrigger(
+                timeInterval: max(seconds, 60),
+                repeats: true
+            )
+        case "dailyAt":
+            let parts = (schedule.time ?? "09:00").split(separator: ":")
+            var comps = DateComponents()
+            comps.hour = Int(parts.first ?? "9") ?? 9
+            comps.minute = parts.count > 1 ? (Int(parts[1]) ?? 0) : 0
+            return UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+        default:
+            return UNTimeIntervalNotificationTrigger(timeInterval: 0.1, repeats: false)
+        }
     }
 
     // MARK: - Emitters (called by the swizzled delegate)

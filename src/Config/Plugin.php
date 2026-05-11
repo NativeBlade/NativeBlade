@@ -26,7 +26,6 @@ enum Plugin: string
     case HAPTICS = 'haptics';
     case CLIPBOARD = 'clipboard';
     case UPLOAD = 'upload';
-    case NOTIFICATION = 'notification';
     case DIALOG = 'dialog';
     case OPENER = 'opener';
     case STORE = 'store';

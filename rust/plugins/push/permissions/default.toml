@@ -11,4 +11,7 @@ permissions = [
   "allow-get-token",
   "allow-request-permission",
   "allow-drain-pending",
+  "allow-notify",
+  "allow-cancel",
+  "allow-cancel-all",
 ]

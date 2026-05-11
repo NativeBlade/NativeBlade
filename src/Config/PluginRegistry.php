@@ -136,15 +136,6 @@ class PluginRegistry
                 'npm' => ['@tauri-apps/plugin-upload' => '^2'],
             ],
 
-            Plugin::NOTIFICATION => [
-                'feature' => 'notification',
-                'feature_crate' => 'tauri-plugin-notification',
-                'rust_init' => 'tauri_plugin_notification::init()',
-                'capabilities' => ['notification:default'],
-                'npm' => ['@tauri-apps/plugin-notification' => '^2'],
-                'android_permissions' => ['POST_NOTIFICATIONS'],
-            ],
-
             Plugin::HTTP => [
                 'feature' => 'http',
                 'feature_crate' => 'tauri-plugin-http',

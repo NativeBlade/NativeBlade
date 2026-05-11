@@ -9,7 +9,14 @@ import android.os.Build
 import android.util.Log
 import android.webkit.WebView
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.work.Data
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import app.tauri.annotation.Command
 import app.tauri.annotation.Permission
 import app.tauri.annotation.TauriPlugin
@@ -19,6 +26,12 @@ import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
+import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 /**
  * Kotlin side of the NativeBlade push plugin.
@@ -40,6 +53,7 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
 
     companion object {
         private const val TAG = "NativeBladePush"
+        private const val WORK_TAG = "nb_notification"
 
         @Volatile
         var instance: NativeBladePushPlugin? = null
@@ -124,6 +138,187 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
             arr.put(mapToJsObject(item))
         }
         invoke.resolve(JSObject().apply { put("pending", arr) })
+    }
+
+    // -------------------------------------------------------------------
+    // Local notifications
+    //
+    // These commands replace tauri-plugin-notification for the immediate
+    // and scheduled cases on Android. WorkManager handles the scheduling
+    // so the system stays responsible for waking us up at the right time
+    // (no AlarmManager exact-alarm permission needed on 12+).
+    // -------------------------------------------------------------------
+
+    @Command
+    fun notify(invoke: Invoke) {
+        val args = invoke.invokeArgs as? JSObject ?: JSObject()
+
+        val userId = args.optString("id", null) ?: UUID.randomUUID().toString()
+        val title = args.optString("title", null)
+        val body = args.optString("body", null)
+        val channel = args.optString("channel", null)
+        val sound = args.optString("sound", null)
+        val icon = args.optString("icon", null)
+        val schedule = args.optJSObject("schedule")
+
+        val tag = NotificationDisplay.hashId(userId)
+
+        if (schedule == null) {
+            // Fire immediately on the calling thread — no need to detour
+            // through WorkManager for an instant notification.
+            NotificationDisplay.show(
+                context = activity.applicationContext,
+                title = title,
+                body = body,
+                channelId = channel,
+                sound = sound,
+                smallIconName = icon,
+                tag = tag,
+            )
+            invoke.resolve(JSObject().apply { put("id", userId) })
+            return
+        }
+
+        try {
+            scheduleNotification(userId, tag, title, body, channel, sound, icon, schedule)
+            invoke.resolve(JSObject().apply { put("id", userId) })
+        } catch (e: Throwable) {
+            Log.w(TAG, "Failed to schedule notification '$userId'", e)
+            invoke.reject("Failed to schedule notification: ${e.message}")
+        }
+    }
+
+    @Command
+    fun cancel(invoke: Invoke) {
+        val args = invoke.invokeArgs as? JSObject ?: JSObject()
+        val userId = args.optString("id", null)
+        if (userId.isNullOrBlank()) {
+            invoke.reject("Missing notification id")
+            return
+        }
+        cancelById(userId)
+        invoke.resolve()
+    }
+
+    @Command
+    fun cancelAll(invoke: Invoke) {
+        WorkManager.getInstance(activity.applicationContext).cancelAllWorkByTag(WORK_TAG)
+        NotificationManagerCompat.from(activity.applicationContext).cancelAll()
+        invoke.resolve()
+    }
+
+    private fun cancelById(userId: String) {
+        val ctx = activity.applicationContext
+        WorkManager.getInstance(ctx).cancelUniqueWork(workName(userId))
+        NotificationManagerCompat.from(ctx).cancel(NotificationDisplay.hashId(userId))
+    }
+
+    private fun scheduleNotification(
+        userId: String,
+        tag: Int,
+        title: String?,
+        body: String?,
+        channel: String?,
+        sound: String?,
+        icon: String?,
+        schedule: JSObject,
+    ) {
+        val ctx = activity.applicationContext
+        val workManager = WorkManager.getInstance(ctx)
+        val workName = workName(userId)
+
+        val data = Data.Builder().apply {
+            putString(ScheduledNotificationWorker.KEY_TITLE, title)
+            putString(ScheduledNotificationWorker.KEY_BODY, body)
+            putString(ScheduledNotificationWorker.KEY_CHANNEL, channel)
+            putString(ScheduledNotificationWorker.KEY_SOUND, sound)
+            putString(ScheduledNotificationWorker.KEY_ICON, icon)
+            putInt(ScheduledNotificationWorker.KEY_TAG, tag)
+        }.build()
+
+        when (schedule.optString("type", "")) {
+            "at" -> {
+                val whenMs = parseIsoUtc(schedule.optString("at", null))
+                val delay = (whenMs - System.currentTimeMillis()).coerceAtLeast(0L)
+                val request = OneTimeWorkRequestBuilder<ScheduledNotificationWorker>()
+                    .setInitialDelay(delay, TimeUnit.MILLISECONDS)
+                    .setInputData(data)
+                    .addTag(WORK_TAG)
+                    .build()
+                workManager.enqueueUniqueWork(workName, ExistingWorkPolicy.REPLACE, request)
+            }
+
+            "every" -> {
+                val kind = schedule.optString("kind", "day")
+                val count = schedule.optInt("count", 1).coerceAtLeast(1)
+                val intervalMinutes = when (kind) {
+                    "minute" -> count.toLong()
+                    "hour"   -> count.toLong() * 60
+                    "day"    -> count.toLong() * 60 * 24
+                    "week"   -> count.toLong() * 60 * 24 * 7
+                    "month"  -> count.toLong() * 60 * 24 * 30
+                    else     -> count.toLong() * 60 * 24
+                }
+                // WorkManager periodic minimum is 15 minutes — anything
+                // shorter is silently clamped by the framework.
+                val request = PeriodicWorkRequestBuilder<ScheduledNotificationWorker>(
+                    intervalMinutes.coerceAtLeast(15), TimeUnit.MINUTES
+                )
+                    .setInputData(data)
+                    .addTag(WORK_TAG)
+                    .build()
+                workManager.enqueueUniquePeriodicWork(
+                    workName, ExistingPeriodicWorkPolicy.UPDATE, request
+                )
+            }
+
+            "dailyAt" -> {
+                val time = schedule.optString("time", "09:00")
+                val (hh, mm) = time.split(":").let {
+                    (it.getOrNull(0)?.toIntOrNull() ?: 9) to (it.getOrNull(1)?.toIntOrNull() ?: 0)
+                }
+                val initialDelay = millisUntilNextDailyAt(hh, mm)
+                val request = PeriodicWorkRequestBuilder<ScheduledNotificationWorker>(
+                    24, TimeUnit.HOURS
+                )
+                    .setInitialDelay(initialDelay, TimeUnit.MILLISECONDS)
+                    .setInputData(data)
+                    .addTag(WORK_TAG)
+                    .build()
+                workManager.enqueueUniquePeriodicWork(
+                    workName, ExistingPeriodicWorkPolicy.UPDATE, request
+                )
+            }
+
+            else -> throw IllegalArgumentException("Unsupported schedule type")
+        }
+    }
+
+    private fun workName(userId: String) = "nb_notification_$userId"
+
+    private fun parseIsoUtc(iso: String?): Long {
+        if (iso.isNullOrBlank()) return System.currentTimeMillis()
+        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+        format.timeZone = TimeZone.getTimeZone("UTC")
+        return try {
+            format.parse(iso)?.time ?: System.currentTimeMillis()
+        } catch (e: Throwable) {
+            System.currentTimeMillis()
+        }
+    }
+
+    private fun millisUntilNextDailyAt(hh: Int, mm: Int): Long {
+        val now = Calendar.getInstance()
+        val target = (now.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, hh)
+            set(Calendar.MINUTE, mm)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            if (timeInMillis <= now.timeInMillis) {
+                add(Calendar.DAY_OF_YEAR, 1)
+            }
+        }
+        return target.timeInMillis - now.timeInMillis
     }
 
     fun emitPush(payload: Map<String, Any?>) {
