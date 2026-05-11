@@ -6,7 +6,7 @@
 
 Server-pushed notifications on Android (FCM) and iOS (APNS) that can wake the app even when it's closed. Receiving is handled by the NativeBlade plugin; sending is done from your own backend using whatever library you prefer.
 
-Not to be confused with `NativeBlade::notification()`, which fires a local notification while the app is running.
+The same plugin powers `NativeBlade::notification(...)` — local, scheduled, and remote notifications share one native code path (WorkManager on Android, `UNUserNotificationCenter` on iOS). See [Notifications](./PLUGINS.md#notifications) for the local / scheduled side. The plugin is enabled by declaring `Plugin::PUSH` in your `NativeBladeConfig::plugins([...])` — it covers both push *and* local.
 
 <p align="center">
   <img src="native_push_static.jpeg" alt="Push Notification" width="300" />

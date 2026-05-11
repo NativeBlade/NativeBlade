@@ -74,7 +74,7 @@ When you run `nativeblade:dev` or `nativeblade:build`, the CLI passes `--feature
 | Enum | What it provides |
 |------|------------------|
 | `Plugin::MEDIA` | `NativeBlade::camera()`, `gallery()`, `video()` (mobile only) |
-| `Plugin::PUSH` | FCM (Android) and APNS (iOS) push notifications (mobile only) |
+| `Plugin::PUSH` | FCM (Android) and APNS (iOS) push **and** all local / scheduled notifications via `NativeBlade::notification()` (mobile only) |
 | `Plugin::GEOLOCATION` | `nb:geolocation` event with current position |
 | `Plugin::BIOMETRIC` | `NativeBlade::biometric()` (mobile only) |
 | `Plugin::BARCODE_SCANNER` | `NativeBlade::scan()` (mobile only) |
@@ -82,7 +82,6 @@ When you run `nativeblade:dev` or `nativeblade:build`, the CLI passes `--feature
 | `Plugin::HAPTICS` | `NativeBlade::impact()`, `vibrate()`, `selection()` |
 | `Plugin::CLIPBOARD` | `NativeBlade::clipboardWrite()`, `clipboardRead()` |
 | `Plugin::UPLOAD` | `NativeBlade::upload($path, $url)` streaming uploads |
-| `Plugin::NOTIFICATION` | `NativeBlade::notification()` local notifications |
 | `Plugin::HTTP` | Native HTTP requests (bypasses CORS) |
 | `Plugin::DEEP_LINK` | URL scheme handling |
 | `Plugin::SHELL` | Run external commands (desktop only — disabled by default) |
@@ -350,9 +349,9 @@ See [Receiving Results](#receiving-results-in-php) for more on handling dialog r
 
 ## Notifications
 
-Backed by [`tauri-plugin-notification`](https://v2.tauri.app/plugin/notification/). Automatically requests permission on first use.
+Backed by the same native plugin that handles push (`nativeblade-push` — Kotlin on Android, Swift on iOS). Local notifications, scheduled notifications, and remote pushes all share one code path. Permission is requested at app boot together with `POST_NOTIFICATIONS`; iOS prompts on first use.
 
-Notifications are configured through a dedicated `Notification` builder passed as a closure. This keeps all notification-specific options (title, body, sound, icon, channel) together and out of the generic modifier chain.
+Configured through a dedicated `Notification` builder passed as a closure. Calls without `->at()` / `->every()` / `->dailyAt()` fire immediately; with one of those, the OS handles the timing natively (WorkManager on Android, UNUserNotificationCenter on iOS).
 
 **Blade:**
 ```blade
@@ -361,7 +360,7 @@ Notifications are configured through a dedicated `Notification` builder passed a
 </button>
 ```
 
-**PHP:**
+**PHP — immediate:**
 ```php
 use NativeBlade\Plugins\Notification;
 
@@ -379,6 +378,37 @@ public function completeLesson()
 }
 ```
 
+**PHP — scheduled:**
+```php
+// Fire once at a specific moment
+NativeBlade::notification(function (Notification $n) {
+    $n->title('Lesson reminder')
+      ->body('Continue where you stopped')
+      ->id('lesson-reminder')         // tag so we can cancel it later
+      ->at(now()->addHours(2));
+});
+
+// Repeat every day at 9am local time
+NativeBlade::notification(function (Notification $n) {
+    $n->title('Daily streak')
+      ->body('Keep your streak alive')
+      ->id('daily-streak')
+      ->dailyAt('09:00');
+});
+
+// Repeat every N units of time
+NativeBlade::notification(function (Notification $n) {
+    $n->title('Hydrate')
+      ->body('Drink some water')
+      ->id('hydrate')
+      ->every('hour', 2);              // every 2 hours
+});
+
+// Cancel — anywhere later in the app
+NativeBlade::cancelNotification('lesson-reminder');
+NativeBlade::cancelAllNotifications();
+```
+
 The `Notification` builder supports:
 
 | Method | Description |
@@ -388,8 +418,14 @@ The `Notification` builder supports:
 | `->sound($name)` | Sound played on delivery — `'default'` or a platform-specific identifier |
 | `->icon($name)` | Small icon — Android drawable resource or iOS attachment |
 | `->channel($id)` | Android notification channel — auto-created on first use (ignored on iOS/desktop) |
+| `->id($id)` | String tag so the notification can be cancelled or updated later |
+| `->at($dateTime)` | Fire once at the given `DateTimeInterface`, serialised in UTC ISO 8601 |
+| `->every($kind, $count = 1)` | Repeat every N units; kind is `'minute'`, `'hour'`, `'day'`, `'week'`, `'month'`. Android `every('minute')` is clamped to a 15-minute minimum by WorkManager. iOS requires a minimum 60-second interval. |
+| `->dailyAt($time)` | Repeat daily at the given `'HH:MM'` (24-hour, device local time) |
 
 > NativeBlade automatically creates the Android notification channel the first time you use one, so `->channel('lessons')` Just Works without registering the channel explicitly. The auto-created channel uses the default importance, lights and vibration settings.
+
+> **About scheduling internals.** On Android, scheduled notifications are dispatched by `WorkManager` so the OS handles waking the app — no `AlarmManager` exact-alarm permission needed. On iOS, `UNUserNotificationCenter` triggers fire even when the app is suspended. Both survive reboots. Pass `->id($tag)` if you want to cancel or replace a pending schedule later.
 
 Combine with the [Scheduler](./SCHEDULER.md) for local reminders:
 
