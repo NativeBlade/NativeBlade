@@ -151,15 +151,17 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun notify(invoke: Invoke) {
-        val args = invoke.invokeArgs as? JSObject ?: JSObject()
+        val args = invoke.getArgs()
 
-        val userId = args.optString("id", null) ?: UUID.randomUUID().toString()
-        val title = args.optString("title", null)
-        val body = args.optString("body", null)
-        val channel = args.optString("channel", null)
-        val sound = args.optString("sound", null)
-        val icon = args.optString("icon", null)
-        val schedule = args.optJSObject("schedule")
+        val userId = nullableString(args, "id") ?: UUID.randomUUID().toString()
+        val title = nullableString(args, "title")
+        val body = nullableString(args, "body")
+        val channel = nullableString(args, "channel")
+        val sound = nullableString(args, "sound")
+        val icon = nullableString(args, "icon")
+        val schedule = if (args.has("schedule") && !args.isNull("schedule")) {
+            args.getJSONObject("schedule")
+        } else null
 
         val tag = NotificationDisplay.hashId(userId)
 
@@ -190,8 +192,7 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun cancel(invoke: Invoke) {
-        val args = invoke.invokeArgs as? JSObject ?: JSObject()
-        val userId = args.optString("id", null)
+        val userId = nullableString(invoke.getArgs(), "id")
         if (userId.isNullOrBlank()) {
             invoke.reject("Missing notification id")
             return
@@ -213,6 +214,12 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
         NotificationManagerCompat.from(ctx).cancel(NotificationDisplay.hashId(userId))
     }
 
+    private fun nullableString(obj: org.json.JSONObject, key: String): String? {
+        if (!obj.has(key) || obj.isNull(key)) return null
+        val value = obj.optString(key, "")
+        return value.takeIf { it.isNotBlank() }
+    }
+
     private fun scheduleNotification(
         userId: String,
         tag: Int,
@@ -221,7 +228,7 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
         channel: String?,
         sound: String?,
         icon: String?,
-        schedule: JSObject,
+        schedule: org.json.JSONObject,
     ) {
         val ctx = activity.applicationContext
         val workManager = WorkManager.getInstance(ctx)
@@ -236,9 +243,9 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
             putInt(ScheduledNotificationWorker.KEY_TAG, tag)
         }.build()
 
-        when (schedule.optString("type", "")) {
+        when (schedule.optString("type")) {
             "at" -> {
-                val whenMs = parseIsoUtc(schedule.optString("at", null))
+                val whenMs = parseIsoUtc(schedule.optString("at"))
                 val delay = (whenMs - System.currentTimeMillis()).coerceAtLeast(0L)
                 val request = OneTimeWorkRequestBuilder<ScheduledNotificationWorker>()
                     .setInitialDelay(delay, TimeUnit.MILLISECONDS)
@@ -249,7 +256,7 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
             }
 
             "every" -> {
-                val kind = schedule.optString("kind", "day")
+                val kind = schedule.optString("kind").ifBlank { "day" }
                 val count = schedule.optInt("count", 1).coerceAtLeast(1)
                 val intervalMinutes = when (kind) {
                     "minute" -> count.toLong()
@@ -273,7 +280,7 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
             }
 
             "dailyAt" -> {
-                val time = schedule.optString("time", "09:00")
+                val time = schedule.optString("time").ifBlank { "09:00" }
                 val (hh, mm) = time.split(":").let {
                     (it.getOrNull(0)?.toIntOrNull() ?: 9) to (it.getOrNull(1)?.toIntOrNull() ?: 0)
                 }
