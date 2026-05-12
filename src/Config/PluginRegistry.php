@@ -37,7 +37,7 @@ class PluginRegistry
                 'rust_init' => 'tauri_plugin_nativeblade_media::init()',
                 'mobile_only' => true,
                 'mobile_capabilities' => ['nativeblade-media:default'],
-                'android_permissions' => ['CAMERA', 'READ_MEDIA_IMAGES', 'READ_MEDIA_VIDEO'],
+                'android_permissions' => ['CAMERA'],
                 'ios_plist' => ['NSCameraUsageDescription', 'NSPhotoLibraryUsageDescription'],
             ],
 
