@@ -19,6 +19,7 @@ class AndroidConfigGenerator
         $this->generateVersion($config);
         $this->generateSdk($config);
         $this->generateProguard();
+        $this->generateDebugSymbols();
         $this->generatePushNotification($config);
     }
 
@@ -377,6 +378,27 @@ XML;
 
         file_put_contents($gradlePath, $gradle);
         $this->cmd->line("  <fg=green>✓</> Android version: {$config['version']} ({$config['buildNumber']})");
+    }
+
+    private function generateDebugSymbols(): void
+    {
+        $gradlePath = base_path('src-tauri/gen/android/app/build.gradle.kts');
+        if (!file_exists($gradlePath)) return;
+
+        $gradle = file_get_contents($gradlePath);
+        if (str_contains($gradle, 'debugSymbolLevel')) return;
+
+        $pattern = '/(defaultConfig\s*\{[^}]*?)(\n\s*\})/s';
+        if (!preg_match($pattern, $gradle)) return;
+
+        $gradle = preg_replace(
+            $pattern,
+            "$1\n        ndk {\n            debugSymbolLevel = \"FULL\"\n        }$2",
+            $gradle
+        );
+
+        file_put_contents($gradlePath, $gradle);
+        $this->cmd->line("  <fg=green>✓</> Android NDK debug symbols enabled");
     }
 
     private function generateSdk(array $config): void
