@@ -47,20 +47,23 @@ impl<R: Runtime, T: Manager<R>> NativeBladePushExt<R> for T {
     }
 }
 
-/// Initialize the plugin. On desktop this is a no-op stub that fails
-/// with [`Error::Unsupported`] when any method is called; push
-/// notifications only make sense on mobile platforms where the OS
-/// itself (FCM / APNS) handles delivery.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
-    Builder::new("nativeblade-push")
-        .setup(|app, api| {
-            #[cfg(any(target_os = "android", target_os = "ios"))]
-            let handle = mobile::init(app, api)?;
-            #[cfg(not(any(target_os = "android", target_os = "ios")))]
-            let handle = desktop::init(app, api)?;
+    let builder = Builder::new("nativeblade-push").setup(|app, api| {
+        #[cfg(any(target_os = "android", target_os = "ios"))]
+        let handle = mobile::init(app, api)?;
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        let handle = desktop::init(app, api)?;
 
-            app.manage(handle);
-            Ok(())
-        })
-        .build()
+        app.manage(handle);
+        Ok(())
+    });
+
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        desktop::notify,
+        desktop::cancel,
+        desktop::cancel_all,
+    ]);
+
+    builder.build()
 }
