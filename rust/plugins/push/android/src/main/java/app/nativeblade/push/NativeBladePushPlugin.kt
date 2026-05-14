@@ -66,11 +66,12 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
         super.load(webView)
         instance = this
 
-        // Request POST_NOTIFICATIONS unconditionally, even when Firebase is not
-        // configured. Local notifications (tauri-plugin-notification) need this
-        // permission too, and their own requestPermission() flow is broken
-        // because the plugin's lateinit ActivityResultLauncher isn't always
-        // initialized in time. Using ActivityCompat directly avoids that bug.
+        try {
+            WorkManager.getInstance(activity.applicationContext).cancelAllWorkByTag(WORK_TAG)
+        } catch (e: Throwable) {
+            Log.w(TAG, "Failed to clear pending notification work on load", e)
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(activity, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED
