@@ -40,6 +40,10 @@ const EXPECTED_ACTIONS = [
     'shell',
     'exit',
     'log',
+    'minimize',
+    'maximize',
+    'unmaximize',
+    'toggle_maximize',
     'tauri_invoke',
 ];
 

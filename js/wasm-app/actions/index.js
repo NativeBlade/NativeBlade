@@ -92,6 +92,10 @@ export const actions = {
     // system
     exit: system.exit,
     log: system.log,
+    minimize: system.minimize,
+    maximize: system.maximize,
+    unmaximize: system.unmaximize,
+    toggle_maximize: system.toggle_maximize,
 
     // generic tauri invoke (for third-party Tauri plugins)
     tauri_invoke: tauri.tauri_invoke,

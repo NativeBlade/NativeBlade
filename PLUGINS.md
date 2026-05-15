@@ -24,6 +24,7 @@ This document lists every built-in bridge, what it does, and how to call it from
 - [Modal](#modal)
 - [Shell](#shell)
 - [Process](#process)
+- [Window Controls](#window-controls)
 - [Receiving Results in PHP](#receiving-results-in-php)
 - [Using Third-Party Tauri Plugins](#using-third-party-tauri-plugins)
 - [Composer plugin discovery](#composer-plugin-discovery)
@@ -989,6 +990,42 @@ Backed by [`tauri-plugin-process`](https://v2.tauri.app/plugin/process/). Quits 
 ```php
 return NativeBlade::exit();
 ```
+
+---
+
+## Window Controls
+
+Control the main window (desktop only — mobile platforms ignore these). Backed by `@tauri-apps/api/window`.
+
+**Blade:**
+```blade
+<button wire:nb-bridge="minimize">_</button>
+<button wire:nb-bridge="toggle_maximize">⬜</button>
+```
+
+**PHP:**
+```php
+return NativeBlade::minimize();
+return NativeBlade::maximize();
+return NativeBlade::unmaximize();
+return NativeBlade::toggleMaximize();
+```
+
+| Method | Description |
+|---|---|
+| `minimize()` | Minimize the window to the taskbar / dock |
+| `maximize()` | Maximize the window to fill the screen |
+| `unmaximize()` | Restore from maximized state |
+| `toggleMaximize()` | Toggle between maximized and restored |
+
+Chain with other actions when you want a side-effect after work completes:
+
+```php
+return NativeBlade::notification(fn (Notification $n) => $n->title('Done'))
+    ->toggleMaximize();
+```
+
+On mobile (Android / iOS) these actions are no-ops with a console warning. Hide your window-chrome buttons on mobile via `NativeBlade::isDesktop()`.
 
 ---
 

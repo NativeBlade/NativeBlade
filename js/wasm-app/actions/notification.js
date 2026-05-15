@@ -1,20 +1,3 @@
-// Notification actions — notification, cancel_notification, cancel_all_notifications
-//
-// These dispatch to the `nativeblade-push` Tauri plugin (the same one that
-// handles FCM/APNS) so local and remote notifications share one code path.
-// On the JS side we use `invoke()` directly because the plugin exposes
-// `notify` / `cancel` / `cancelAll` as native commands.
-//
-// Payload shape (matches PHP NativeBlade\Plugins\Notification builder):
-//   { id?, title?, body?, sound?, icon?, channel?, schedule? }
-//
-// schedule:
-//   { type: 'at', at: 'YYYY-MM-DDTHH:MM:SSZ' }       — one-shot
-//   { type: 'every', kind, count }                    — recurring
-//   { type: 'dailyAt', time: 'HH:MM' }                — daily at time
-//
-// Uses: ctx.isTauri, ctx.invokeTauri (resolved by bridge.js), ctx.post
-
 async function getInvoke(ctx) {
     if (typeof ctx.invokeTauri === 'function') return ctx.invokeTauri;
     try {
@@ -25,22 +8,38 @@ async function getInvoke(ctx) {
     }
 }
 
-export async function notification(payload, ctx) {
-    if (!ctx.isTauri) {
-        ctx.post('nativeblade-alert', { message: payload.body });
-        return;
-    }
-    const invoke = await getInvoke(ctx);
-    if (!invoke) {
-        ctx.post('nativeblade-alert', { message: payload.body });
-        return;
-    }
+async function webFallback(payload) {
+    if (typeof window === 'undefined' || !('Notification' in window)) return false;
     try {
-        await invoke('plugin:nativeblade-push|notify', sanitize(payload));
-    } catch (e) {
-        console.warn('[NB Notification] notify failed:', e);
-        ctx.post('nativeblade-alert', { message: payload.body });
+        if (Notification.permission === 'default') {
+            const result = await Notification.requestPermission();
+            if (result !== 'granted') return false;
+        }
+        if (Notification.permission !== 'granted') return false;
+        new Notification(payload.title || 'NativeBlade', {
+            body: payload.body || '',
+            icon: payload.icon,
+        });
+        return true;
+    } catch {
+        return false;
     }
+}
+
+export async function notification(payload, ctx) {
+    if (ctx.isTauri) {
+        const invoke = await getInvoke(ctx);
+        if (invoke) {
+            try {
+                await invoke('plugin:nativeblade-push|notify', sanitize(payload));
+                return;
+            } catch (e) {
+                console.warn('[NB Notification] notify failed:', e);
+            }
+        }
+    }
+
+    await webFallback(payload);
 }
 
 export async function cancel_notification(payload, ctx) {
@@ -65,8 +64,6 @@ export async function cancel_all_notifications(_payload, ctx) {
     }
 }
 
-// Strip fields that are undefined/null so the native side only sees what
-// the dev actually set — keeps the Kotlin/Swift JSObject parsing clean.
 function sanitize(payload) {
     const out = {};
     for (const [key, value] of Object.entries(payload)) {

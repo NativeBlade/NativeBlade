@@ -25,7 +25,7 @@ NativeBladeConfig::android(function (AndroidConfig $config) {
     $config->identifier('com.myapp.app')
         ->version('1.0.0', 1)
         ->minSdk(28)
-        ->targetSdk(34)
+        ->targetSdk(35)
         ->orientation('portrait')
         ->statusBar(style: 'dark', color: '#0a0a0a')
         ->navigationBar('#0a0a0a')
@@ -76,12 +76,20 @@ php artisan nativeblade:config
 | `icon(string)` | Path to app icon |
 | `size(w, h)` | Default window size |
 | `minSize(w, h)` | Minimum window size |
-| `resizable(bool)` | Allow window resizing |
-| `fullscreen(bool)` | Start in fullscreen |
+| `resizable(bool)` | Allow window resizing (default `true`) |
+| `fullscreen(bool)` | Start in fullscreen (default `false`) |
+| `decorations(bool)` | Show native title bar and window chrome (default `true`). Set to `false` for a frameless / custom-chrome look |
+| `transparent(bool)` | Transparent window background (default `false`, requires `decorations(false)`) |
+| `alwaysOnTop(bool)` | Window stays above other windows (default `false`) |
+| `maximized(bool)` | Start maximized (default `false`) |
+| `center(bool)` | Center window on screen at launch (default `false`) |
 | `hideOnClose(bool)` | Hide to tray instead of closing |
 | `tray(icon, tooltip, menu)` | System tray configuration |
 | `menu(array)` | Native menu bar |
+| `updateUrl(string)` | URL returning the auto-update version JSON. See [UPDATES.md](./UPDATES.md) |
 | `splashBackground(string)` | Splash screen background color |
+
+> Boolean flags are always written to `tauri.conf.json` with their resolved value, even when you remove the method call. Removing `->decorations(false)` restores the default (`true`) on the next `nativeblade:config` run, so the window goes back to having native chrome without manual cleanup of the config file.
 
 ## Android Options
 
@@ -90,7 +98,7 @@ php artisan nativeblade:config
 | `identifier(string)` | Package name |
 | `version(string, int)` | versionName + versionCode |
 | `minSdk(int)` | Minimum Android SDK (default: 28) |
-| `targetSdk(int)` | Target Android SDK (default: 34) |
+| `targetSdk(int)` | Target Android SDK (default: 35) |
 | `orientation(string)` | `portrait`, `landscape`, or `auto` |
 | `statusBar(style, color)` | Status bar appearance |
 | `navigationBar(color)` | Navigation bar color |

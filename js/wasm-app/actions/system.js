@@ -6,6 +6,39 @@ export function exit() {
     } catch {}
 }
 
+async function getMainWindow() {
+    try {
+        const mod = await import('@tauri-apps/api/window');
+        return mod.getCurrentWindow ? mod.getCurrentWindow() : null;
+    } catch {
+        return null;
+    }
+}
+
+export async function minimize() {
+    const win = await getMainWindow();
+    if (!win) return;
+    try { await win.minimize(); } catch (e) { console.warn('[NB] minimize failed:', e); }
+}
+
+export async function maximize() {
+    const win = await getMainWindow();
+    if (!win) return;
+    try { await win.maximize(); } catch (e) { console.warn('[NB] maximize failed:', e); }
+}
+
+export async function unmaximize() {
+    const win = await getMainWindow();
+    if (!win) return;
+    try { await win.unmaximize(); } catch (e) { console.warn('[NB] unmaximize failed:', e); }
+}
+
+export async function toggle_maximize() {
+    const win = await getMainWindow();
+    if (!win) return;
+    try { await win.toggleMaximize(); } catch (e) { console.warn('[NB] toggleMaximize failed:', e); }
+}
+
 export function log(payload) {
     const level = payload.level || 'info';
     const message = payload.message || '';

@@ -544,6 +544,38 @@ class NativeResponse
         return $this->push('exit', []);
     }
 
+    /**
+     * Minimize the main window to the taskbar / dock. Desktop only.
+     */
+    public function minimize(): static
+    {
+        return $this->push('minimize', []);
+    }
+
+    /**
+     * Maximize the main window to fill the screen. Desktop only.
+     */
+    public function maximize(): static
+    {
+        return $this->push('maximize', []);
+    }
+
+    /**
+     * Restore the window from maximized state. Desktop only.
+     */
+    public function unmaximize(): static
+    {
+        return $this->push('unmaximize', []);
+    }
+
+    /**
+     * Toggle between maximized and restored window state. Desktop only.
+     */
+    public function toggleMaximize(): static
+    {
+        return $this->push('toggle_maximize', []);
+    }
+
     // ------------------------------------------------------------------
     // Modifiers — attach extra data to the last pushed action
     // ------------------------------------------------------------------

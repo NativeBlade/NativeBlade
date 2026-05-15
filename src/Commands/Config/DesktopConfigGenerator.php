@@ -44,13 +44,14 @@ class DesktopConfigGenerator
         if (isset($desktop['height'])) $conf['app']['windows'][0]['height'] = $desktop['height'];
         if (isset($desktop['minWidth'])) $conf['app']['windows'][0]['minWidth'] = $desktop['minWidth'];
         if (isset($desktop['minHeight'])) $conf['app']['windows'][0]['minHeight'] = $desktop['minHeight'];
-        if (isset($desktop['resizable'])) $conf['app']['windows'][0]['resizable'] = $desktop['resizable'];
-        if (isset($desktop['fullscreen'])) $conf['app']['windows'][0]['fullscreen'] = $desktop['fullscreen'];
-        if (isset($desktop['decorations'])) $conf['app']['windows'][0]['decorations'] = $desktop['decorations'];
-        if (isset($desktop['transparent'])) $conf['app']['windows'][0]['transparent'] = $desktop['transparent'];
-        if (isset($desktop['alwaysOnTop'])) $conf['app']['windows'][0]['alwaysOnTop'] = $desktop['alwaysOnTop'];
-        if (isset($desktop['maximized'])) $conf['app']['windows'][0]['maximized'] = $desktop['maximized'];
-        if (isset($desktop['center'])) $conf['app']['windows'][0]['center'] = $desktop['center'];
+
+        $conf['app']['windows'][0]['resizable']   = $desktop['resizable']   ?? true;
+        $conf['app']['windows'][0]['fullscreen']  = $desktop['fullscreen']  ?? false;
+        $conf['app']['windows'][0]['decorations'] = $desktop['decorations'] ?? true;
+        $conf['app']['windows'][0]['transparent'] = $desktop['transparent'] ?? false;
+        $conf['app']['windows'][0]['alwaysOnTop'] = $desktop['alwaysOnTop'] ?? false;
+        $conf['app']['windows'][0]['maximized']   = $desktop['maximized']   ?? false;
+        $conf['app']['windows'][0]['center']      = $desktop['center']      ?? false;
 
         if (isset($desktop['updateUrl'])) {
             $conf['plugins']['updater'] = [

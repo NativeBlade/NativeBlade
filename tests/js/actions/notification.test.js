@@ -21,13 +21,13 @@ describe('actions/notification', () => {
     let rec;
     beforeEach(() => { rec = new Recorder(); });
 
-    it('falls back to postMessage when not in Tauri', async () => {
-        const ctx = makeCtx({ isTauri: false, post: rec.fn() });
+    it('does not call invoke when not in Tauri', async () => {
+        const invoke = makeInvoke();
+        const ctx = makeCtx({ isTauri: false, invokeTauri: invoke, post: rec.fn() });
         await notification({ title: 'T', body: 'B' }, ctx);
 
-        assert.deepEqual(rec.calls, [
-            { type: 'nativeblade-alert', data: { message: 'B' } },
-        ]);
+        assert.equal(invoke.callCount, 0);
+        assert.equal(rec.calls.length, 0);
     });
 
     it('invokes nativeblade-push|notify when in Tauri', async () => {
@@ -86,14 +86,12 @@ describe('actions/notification', () => {
         assert.deepEqual(Object.keys(payload).sort(), ['body', 'title']);
     });
 
-    it('falls back to alert when invoke rejects', async () => {
+    it('does not post alert when invoke rejects', async () => {
         const invoke = makeInvoke(() => Promise.reject(new Error('plugin not loaded')));
         const ctx = makeCtx({ isTauri: true, invokeTauri: invoke, post: rec.fn() });
         await notification({ body: 'B' }, ctx);
 
-        assert.equal(rec.calls.length, 1);
-        assert.equal(rec.calls[0].type, 'nativeblade-alert');
-        assert.equal(rec.calls[0].data.message, 'B');
+        assert.equal(rec.calls.length, 0);
     });
 });
 
