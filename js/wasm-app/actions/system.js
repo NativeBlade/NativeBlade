@@ -39,6 +39,18 @@ export async function toggle_maximize() {
     try { await win.toggleMaximize(); } catch (e) { console.warn('[NB] toggleMaximize failed:', e); }
 }
 
+export async function hide() {
+    const win = await getMainWindow();
+    if (!win) return;
+    try { await win.hide(); } catch (e) { console.warn('[NB] hide failed:', e); }
+}
+
+export async function show() {
+    const win = await getMainWindow();
+    if (!win) return;
+    try { await win.show(); } catch (e) { console.warn('[NB] show failed:', e); }
+}
+
 export function log(payload) {
     const level = payload.level || 'info';
     const message = payload.message || '';

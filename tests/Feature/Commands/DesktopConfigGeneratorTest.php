@@ -128,11 +128,12 @@ final class DesktopConfigGeneratorTest extends TestCase
     #[Test]
     public function generate_writes_menu_json_when_menu_provided(): void
     {
+        // Generator receives the already-built menu structure from Menu::toArray().
         $this->generator->generate([
             'menu' => [
-                'File' => [
-                    'Quit' => 'quit',
-                ],
+                ['label' => 'File', 'items' => [
+                    ['label' => 'Quit', 'action' => 'quit'],
+                ]],
             ],
         ]);
 
@@ -170,11 +171,11 @@ final class DesktopConfigGeneratorTest extends TestCase
             'tray' => [
                 'tooltip' => 'MyApp running',
                 'menu' => [
-                    'Show' => 'show_window',
-                    'Quit' => 'quit',
+                    ['label' => 'Show', 'action' => 'show_window'],
+                    ['label' => 'Quit', 'action' => 'quit'],
                 ],
+                'hideOnClose' => true,
             ],
-            'hideOnClose' => true,
         ]);
 
         $tray = json_decode(file_get_contents(base_path('src-tauri/tray.json')), true);

@@ -71,14 +71,14 @@ class DesktopConfigGenerator
         if (empty($menu)) return;
 
         $path = base_path('src-tauri/menu.json');
-        file_put_contents($path, json_encode($this->buildMenuItems($menu), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        file_put_contents($path, json_encode($menu, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         $this->cmd->line("  <fg=green>✓</> menu.json generated");
     }
 
     private function generateTray(array $desktop): void
     {
         $tray = $desktop['tray'] ?? null;
-        $hideOnClose = $desktop['hideOnClose'] ?? false;
+        $hideOnClose = $tray['hideOnClose'] ?? false;
         $trayMenu = $tray['menu'] ?? [];
 
         $hasIcon = false;
@@ -97,26 +97,11 @@ class DesktopConfigGenerator
             'tooltip' => $tray['tooltip'] ?? 'NativeBlade',
             'hideOnClose' => $hideOnClose,
             'customIcon' => $hasIcon,
-            'menu' => !empty($trayMenu) ? $this->buildMenuItems($trayMenu) : [],
+            'menu' => $trayMenu,
         ];
 
         $path = base_path('src-tauri/tray.json');
         file_put_contents($path, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         $this->cmd->line("  <fg=green>✓</> tray.json generated");
-    }
-
-    private function buildMenuItems(array $menu): array
-    {
-        $result = [];
-        foreach ($menu as $label => $value) {
-            if ($value === '---') {
-                $result[] = ['separator' => true];
-            } elseif (is_array($value)) {
-                $result[] = ['label' => $label, 'items' => $this->buildMenuItems($value)];
-            } else {
-                $result[] = ['label' => $label, 'action' => $value];
-            }
-        }
-        return $result;
     }
 }

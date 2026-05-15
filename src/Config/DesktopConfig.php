@@ -81,25 +81,24 @@ class DesktopConfig
     }
 
     /**
-     * Hide the window instead of quitting when the user clicks the close button.
-     * Useful with `tray()` — the app stays in the system tray.
-     */
-    public function hideOnClose(bool $value = true): static
-    {
-        $this->config['hideOnClose'] = $value;
-        return $this;
-    }
-
-    /**
-     * Enable the system tray icon.
+     * Enable the system tray icon and configure its behavior.
      *
-     * @param  string  $icon     Path to a PNG icon for the tray (relative to project root).
-     * @param  string  $tooltip  Tooltip text shown on hover.
-     * @param  array   $menu     Tray context menu items (`['Label' => 'action', '---' => '---']`).
+     * ```php
+     * ->tray(function (Tray $t) {
+     *     $t->icon('public/tray.png')
+     *       ->tooltip('My App')
+     *       ->menu(['Show' => 'show', 'Quit' => 'exit'])
+     *       ->hideOnClose();
+     * });
+     * ```
+     *
+     * @param  \Closure(Tray): void  $callback
      */
-    public function tray(string $icon = '', string $tooltip = '', array $menu = []): static
+    public function tray(\Closure $callback): static
     {
-        $this->config['tray'] = ['icon' => $icon, 'tooltip' => $tooltip, 'menu' => $menu];
+        $tray = new Tray();
+        $callback($tray);
+        $this->config['tray'] = $tray->toArray();
         return $this;
     }
 
@@ -107,18 +106,22 @@ class DesktopConfig
      * Native application menu bar (macOS menu bar, Windows/Linux top menu).
      *
      * ```php
-     * ->menu([
-     *     'File' => [
-     *         'New'  => '/new',
-     *         '---'  => '---',
-     *         'Quit' => 'exit',
-     *     ],
-     * ])
+     * ->menu(function (Menu $m) {
+     *     $m->submenu('File', function (Menu $file) {
+     *         $file->item('New', '/new');
+     *         $file->separator();
+     *         $file->item('Quit', 'exit');
+     *     });
+     * });
      * ```
+     *
+     * @param  \Closure(Menu): void  $callback
      */
-    public function menu(array $items): static
+    public function menu(\Closure $callback): static
     {
-        $this->config['menu'] = $items;
+        $menu = new Menu();
+        $callback($menu);
+        $this->config['menu'] = $menu->toArray();
         return $this;
     }
 

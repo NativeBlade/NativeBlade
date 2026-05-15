@@ -44,6 +44,8 @@ const EXPECTED_ACTIONS = [
     'maximize',
     'unmaximize',
     'toggle_maximize',
+    'hide',
+    'show',
     'tauri_invoke',
 ];
 

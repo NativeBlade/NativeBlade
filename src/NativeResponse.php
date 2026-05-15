@@ -576,6 +576,24 @@ class NativeResponse
         return $this->push('toggle_maximize', []);
     }
 
+    /**
+     * Hide the main window without quitting the app. Useful for the
+     * "minimize to tray" pattern when paired with `Tray::hideOnClose()`.
+     * Desktop only.
+     */
+    public function hide(): static
+    {
+        return $this->push('hide', []);
+    }
+
+    /**
+     * Show the main window after it was hidden. Desktop only.
+     */
+    public function show(): static
+    {
+        return $this->push('show', []);
+    }
+
     // ------------------------------------------------------------------
     // Modifiers — attach extra data to the last pushed action
     // ------------------------------------------------------------------

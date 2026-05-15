@@ -532,6 +532,27 @@ final class NativeResponseTest extends TestCase
         ], $r->toArray());
     }
 
+    #[Test]
+    public function window_controls_push_their_named_actions(): void
+    {
+        $r = (new NativeResponse())
+            ->minimize()
+            ->maximize()
+            ->unmaximize()
+            ->toggleMaximize()
+            ->hide()
+            ->show();
+
+        self::assertSame([
+            ['action' => 'minimize',        'data' => []],
+            ['action' => 'maximize',        'data' => []],
+            ['action' => 'unmaximize',      'data' => []],
+            ['action' => 'toggle_maximize', 'data' => []],
+            ['action' => 'hide',            'data' => []],
+            ['action' => 'show',            'data' => []],
+        ], $r->toArray());
+    }
+
     // -- Modifiers -----------------------------------------------------
 
     #[Test]
