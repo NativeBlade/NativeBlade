@@ -8,6 +8,38 @@ async function getInvoke(ctx) {
     }
 }
 
+async function getNotificationApi(ctx) {
+    if (ctx.notificationApi) return ctx.notificationApi;
+    try {
+        return await import('@tauri-apps/plugin-notification');
+    } catch {
+        return null;
+    }
+}
+
+async function desktopNotify(payload, ctx) {
+    const api = await getNotificationApi(ctx);
+    if (!api) return false;
+    try {
+        let granted = await api.isPermissionGranted();
+        if (!granted) {
+            const perm = await api.requestPermission();
+            granted = perm === 'granted';
+        }
+        if (!granted) return false;
+        api.sendNotification({
+            title: payload.title || 'NativeBlade',
+            body: payload.body || '',
+            icon: payload.icon,
+            sound: payload.sound,
+        });
+        return true;
+    } catch (e) {
+        console.warn('[NB Notification] desktop send failed:', e);
+        return false;
+    }
+}
+
 async function webFallback(payload) {
     if (typeof window === 'undefined' || !('Notification' in window)) return false;
     try {
@@ -37,13 +69,16 @@ export async function notification(payload, ctx) {
                 console.warn('[NB Notification] notify failed:', e);
             }
         }
+        return;
     }
+
+    if (ctx.isTauri && await desktopNotify(payload, ctx)) return;
 
     await webFallback(payload);
 }
 
 export async function cancel_notification(payload, ctx) {
-    if (!ctx.isTauri || !payload.id) return;
+    if (!ctx.isTauri || !ctx.isMobile || !payload.id) return;
     const invoke = await getInvoke(ctx);
     if (!invoke) return;
     try {
@@ -54,7 +89,7 @@ export async function cancel_notification(payload, ctx) {
 }
 
 export async function cancel_all_notifications(_payload, ctx) {
-    if (!ctx.isTauri) return;
+    if (!ctx.isTauri || !ctx.isMobile) return;
     const invoke = await getInvoke(ctx);
     if (!invoke) return;
     try {

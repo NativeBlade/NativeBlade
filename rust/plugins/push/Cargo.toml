@@ -26,6 +26,3 @@ tauri-plugin = { version = "2.4", features = ["build"] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 tauri = { version = "2", default-features = false, features = ["wry"] }
-
-[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-notify-rust = "4"

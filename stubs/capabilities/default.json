@@ -6,6 +6,7 @@
     "permissions": [
         "core:default",
         "core:event:default",
+        "notification:default",
         "shell:allow-open",
         "shell:allow-kill",
         {
@@ -45,7 +46,6 @@
             ]
         },
         "dialog:default",
-        "notification:default",
         "store:default",
         "process:default",
         "clipboard-manager:allow-read-text",

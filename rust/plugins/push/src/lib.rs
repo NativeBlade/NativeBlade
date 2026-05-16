@@ -48,22 +48,15 @@ impl<R: Runtime, T: Manager<R>> NativeBladePushExt<R> for T {
 }
 
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
-    let builder = Builder::new("nativeblade-push").setup(|app, api| {
-        #[cfg(any(target_os = "android", target_os = "ios"))]
-        let handle = mobile::init(app, api)?;
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
-        let handle = desktop::init(app, api)?;
+    Builder::new("nativeblade-push")
+        .setup(|app, api| {
+            #[cfg(any(target_os = "android", target_os = "ios"))]
+            let handle = mobile::init(app, api)?;
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            let handle = desktop::init(app, api)?;
 
-        app.manage(handle);
-        Ok(())
-    });
-
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    let builder = builder.invoke_handler(tauri::generate_handler![
-        desktop::notify,
-        desktop::cancel,
-        desktop::cancel_all,
-    ]);
-
-    builder.build()
+            app.manage(handle);
+            Ok(())
+        })
+        .build()
 }

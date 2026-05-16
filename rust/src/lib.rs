@@ -20,6 +20,9 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init());
 
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    let builder = builder.plugin(tauri_plugin_notification::init());
+
     let builder = builder
         .manage(commands::scheduler::SchedulerState::new())
         .manage(commands::database::DatabaseState::new())

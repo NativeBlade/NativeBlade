@@ -37,13 +37,17 @@ tauri-plugin-opener = "2"
 # Run `php artisan nativeblade:config` to regenerate the [features]
 # section below to match your declared plugins.
 tauri-plugin-shell = { version = "2", optional = true }
-tauri-plugin-notification = { version = "2", optional = true }
 tauri-plugin-clipboard-manager = { version = "2", optional = true }
 tauri-plugin-geolocation = { version = "2", optional = true }
 tauri-plugin-haptics = { version = "2", optional = true }
 tauri-plugin-http = { version = "2", optional = true }
 tauri-plugin-deep-link = { version = "2", optional = true }
 tauri-plugin-upload = { version = "2", optional = true }
+
+# Desktop-only always-on plugins. Compiled in on Windows/macOS/Linux,
+# excluded on Android/iOS (where mobile-specific equivalents are used).
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-notification = "2"
 
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
 tauri-plugin-biometric = { version = "2", optional = true }

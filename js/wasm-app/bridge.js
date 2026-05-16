@@ -19,6 +19,7 @@ let isAndroid = false;
 // spread it into the ctx without listing each one.
 const apis = {
     dialogApi: null,
+    notificationApi: null,
     clipboardApi: null,
     geolocationApi: null,
     hapticsApi: null,
@@ -61,6 +62,10 @@ export async function init(appFrame) {
         isMobile = platform === 'android' || platform === 'ios';
         isAndroid = platform === 'android';
     } catch {}
+
+    if (!isMobile) {
+        try { apis.notificationApi = await import('@tauri-apps/plugin-notification'); } catch {}
+    }
 
     try { apis.clipboardApi   = await import('@tauri-apps/plugin-clipboard-manager'); } catch {}
     try { apis.geolocationApi = await import('@tauri-apps/plugin-geolocation'); } catch {}
