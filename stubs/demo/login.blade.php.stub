@@ -43,6 +43,30 @@
                 class="w-full bg-[#8B0000] hover:bg-[#c0392b] text-white font-bold text-lg py-4 rounded-xl shadow-[0_4px_0_rgba(60,0,0,1)] active:shadow-none active:translate-y-[4px] transition-all uppercase tracking-wide">
                 Sign In
             </button>
+
+            @if($biometricAvailable)
+                <div class="w-full flex items-center gap-3 my-1">
+                    <div class="flex-1 h-px bg-[#2a2a2a]"></div>
+                    <span class="text-[#6b7280] text-xs uppercase tracking-wider">or</span>
+                    <div class="flex-1 h-px bg-[#2a2a2a]"></div>
+                </div>
+
+                <button wire:click="biometricLogin" nb-feedback
+                    class="w-full flex items-center justify-center gap-3 bg-[#1a1a1a] hover:bg-[#222] border border-[#2a2a2a] hover:border-[#c0392b] text-white font-semibold py-4 rounded-xl transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#c0392b]">
+                        <path d="M12 11c0 6-3 9-3 9"/>
+                        <path d="M15 11c0 7-3 10-3 10"/>
+                        <path d="M9 11c0 3.5-1.5 6-1.5 6"/>
+                        <path d="M6 8a6 6 0 0 1 12 0c0 5-1 8-1 8"/>
+                        <path d="M19 19a13 13 0 0 0 0-10"/>
+                        <path d="M2 14a8 8 0 0 0 1 4"/>
+                        <path d="M3 9a7 7 0 0 1 7-7"/>
+                        <path d="M21 5a8 8 0 0 0-12 0"/>
+                    </svg>
+                    Sign in as {{ $biometricEmail }}
+                </button>
+            @endif
+
             <p class="text-[#4b5563] text-xs text-center">
                 Forgot your password? <span class="text-[#6b7280] underline">Reset access</span>
             </p>

@@ -3,8 +3,10 @@
 namespace App\Livewire;
 
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use NativeBlade\Facades\NativeBlade;
+use NativeBlade\Plugins\Biometric;
 use NativeBlade\Plugins\Notification;
 
 #[Layout('components.layouts.auth')]
@@ -13,6 +15,9 @@ class Login extends Component
     public string $email = '';
     public string $password = '';
     public string $error = '';
+    public bool $biometricAvailable = false;
+    public string $biometricEmail = '';
+
     public function mount()
     {
         NativeBlade::forget('auth.user');
@@ -20,6 +25,12 @@ class Login extends Component
         NativeBlade::forget('trail.xp');
         NativeBlade::forget('trail.streak');
         NativeBlade::forget('trail.completed');
+
+        $saved = NativeBlade::getState('biometric.user');
+        if (is_array($saved) && !empty($saved['email'])) {
+            $this->biometricAvailable = true;
+            $this->biometricEmail = $saved['email'];
+        }
     }
 
     public function login()
@@ -27,11 +38,11 @@ class Login extends Component
         $this->error = '';
 
         if ($this->email === 'admin@admin.com' && $this->password === '123456') {
-            NativeBlade::setState('auth.user', [
-                'name' => 'Admin',
-                'email' => $this->email,
-            ]);
+            $user = ['name' => 'Admin', 'email' => $this->email];
+
+            NativeBlade::setState('auth.user', $user);
             NativeBlade::setState('auth.logged_at', now()->timestamp);
+            NativeBlade::setState('biometric.user', $user);
 
             return NativeBlade::notification(function (Notification $n) {
                 $n->title('Welcome back!')
@@ -46,6 +57,46 @@ class Login extends Component
         $this->error = 'Invalid credentials';
 
         return NativeBlade::impact('heavy')->toResponse();
+    }
+
+    public function biometricLogin()
+    {
+        $this->error = '';
+
+        return NativeBlade::biometric(function (Biometric $b) {
+            $b->id('login')
+              ->reason('Sign in to ' . ($this->biometricEmail ?: 'NativeBlade'))
+              ->allowDeviceCredential();
+        })->toResponse();
+    }
+
+    #[On('nb:biometric')]
+    public function onBiometric($success, $error = null, $id = null)
+    {
+        if ($id !== 'login') return;
+
+        if (!$success) {
+            $this->error = $error ?: 'Authentication failed';
+            return NativeBlade::impact('heavy')->toResponse();
+        }
+
+        $saved = NativeBlade::getState('biometric.user');
+        if (!is_array($saved) || empty($saved['email'])) {
+            $this->error = 'No saved credentials';
+            return null;
+        }
+
+        NativeBlade::setState('auth.user', $saved);
+        NativeBlade::setState('auth.logged_at', now()->timestamp);
+
+        return NativeBlade::notification(function (Notification $n) {
+            $n->title('Welcome back!')
+              ->body('Signed in with biometrics')
+              ->sound('default');
+        })
+        ->impact('light')
+        ->navigate('/', replace: true)
+        ->toResponse();
     }
 
     public function render()

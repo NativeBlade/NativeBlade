@@ -43,6 +43,7 @@ class AppServiceProvider extends ServiceProvider
                     Permission::CAMERA => 'Take photos for your profile',
                     Permission::LOCATION => 'Show nearby content',
                     Permission::NOTIFICATIONS => 'Receive updates and reminders',
+                    Permission::BIOMETRIC => 'Sign in with fingerprint or face',
                 ]);
         });
 
@@ -57,6 +58,7 @@ class AppServiceProvider extends ServiceProvider
                     Permission::CAMERA => 'Take photos for your profile',
                     Permission::LOCATION => 'Show nearby content',
                     Permission::PHOTOS => 'Select images from your library',
+                    Permission::BIOMETRIC => 'Sign in with Face ID',
                 ])
                 ->privacyManifest([
                     PrivacyApi::USER_DEFAULTS => PrivacyApi::USER_DEFAULTS_APP,
