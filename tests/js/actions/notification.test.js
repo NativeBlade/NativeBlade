@@ -104,9 +104,9 @@ describe('actions/notification', () => {
 });
 
 describe('actions/cancel_notification', () => {
-    it('invokes nativeblade-push|cancel with the id', async () => {
+    it('invokes nativeblade-push|cancel with the id (mobile)', async () => {
         const invoke = makeInvoke();
-        const ctx = makeCtx({ isTauri: true, invokeTauri: invoke });
+        const ctx = makeCtx({ isTauri: true, isMobile: true, invokeTauri: invoke });
         await cancel_notification({ id: 'reminder-1' }, ctx);
 
         assert.equal(invoke.callCount, 1);
@@ -116,7 +116,7 @@ describe('actions/cancel_notification', () => {
 
     it('is a no-op when no id is given', async () => {
         const invoke = makeInvoke();
-        const ctx = makeCtx({ isTauri: true, invokeTauri: invoke });
+        const ctx = makeCtx({ isTauri: true, isMobile: true, invokeTauri: invoke });
         await cancel_notification({}, ctx);
 
         assert.equal(invoke.callCount, 0);
@@ -129,12 +129,20 @@ describe('actions/cancel_notification', () => {
 
         assert.equal(invoke.callCount, 0);
     });
+
+    it('is a no-op on Tauri desktop', async () => {
+        const invoke = makeInvoke();
+        const ctx = makeCtx({ isTauri: true, isMobile: false, invokeTauri: invoke });
+        await cancel_notification({ id: 'x' }, ctx);
+
+        assert.equal(invoke.callCount, 0);
+    });
 });
 
 describe('actions/cancel_all_notifications', () => {
-    it('invokes nativeblade-push|cancelAll', async () => {
+    it('invokes nativeblade-push|cancelAll (mobile)', async () => {
         const invoke = makeInvoke();
-        const ctx = makeCtx({ isTauri: true, invokeTauri: invoke });
+        const ctx = makeCtx({ isTauri: true, isMobile: true, invokeTauri: invoke });
         await cancel_all_notifications({}, ctx);
 
         assert.equal(invoke.callCount, 1);
@@ -144,6 +152,14 @@ describe('actions/cancel_all_notifications', () => {
     it('is a no-op outside Tauri', async () => {
         const invoke = makeInvoke();
         const ctx = makeCtx({ isTauri: false, invokeTauri: invoke });
+        await cancel_all_notifications({}, ctx);
+
+        assert.equal(invoke.callCount, 0);
+    });
+
+    it('is a no-op on Tauri desktop', async () => {
+        const invoke = makeInvoke();
+        const ctx = makeCtx({ isTauri: true, isMobile: false, invokeTauri: invoke });
         await cancel_all_notifications({}, ctx);
 
         assert.equal(invoke.callCount, 0);
