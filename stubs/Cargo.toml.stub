@@ -57,3 +57,7 @@ tauri-plugin-nativeblade-media = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/med
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 # nativeblade:plugins:end
+
+[profile.release]
+debug = "limited"
+strip = false
