@@ -17,6 +17,22 @@ async function getNotificationApi(ctx) {
     }
 }
 
+async function resolveDesktopIcon(icon) {
+    if (!icon) return undefined;
+    if (/^(file:|https?:|ms-appx:|\/|[A-Za-z]:[\\/])/.test(icon)) return icon;
+    try {
+        const path = await import('@tauri-apps/api/path');
+        try {
+            return await path.resolveResource(icon);
+        } catch {}
+        const base = await path.resourceDir();
+        const sep = await path.sep();
+        return (base.endsWith(sep) ? base : base + sep) + icon.replace(/[\\/]/g, sep);
+    } catch {
+        return undefined;
+    }
+}
+
 async function desktopNotify(payload, ctx) {
     const api = await getNotificationApi(ctx);
     if (!api) return false;
@@ -27,10 +43,11 @@ async function desktopNotify(payload, ctx) {
             granted = perm === 'granted';
         }
         if (!granted) return false;
+        const icon = await resolveDesktopIcon(payload.icon);
         api.sendNotification({
             title: payload.title || 'NativeBlade',
             body: payload.body || '',
-            icon: payload.icon,
+            icon,
             sound: payload.sound,
         });
         return true;

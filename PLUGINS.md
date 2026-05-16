@@ -417,7 +417,7 @@ The `Notification` builder supports:
 | `->title($text)` | Title shown above the body (all platforms) |
 | `->body($text)` | Main notification text |
 | `->sound($name)` | Sound played on delivery — `'default'` or a platform-specific identifier |
-| `->icon($name)` | Small icon — Android drawable resource or iOS attachment |
+| `->icon($name)` | Small icon — Android drawable resource, iOS attachment, or (desktop) absolute path / bundled resource. See note below. |
 | `->channel($id)` | Android notification channel — auto-created on first use (ignored on iOS/desktop) |
 | `->id($id)` | String tag so the notification can be cancelled or updated later |
 | `->at($dateTime)` | Fire once at the given `DateTimeInterface`, serialised in UTC ISO 8601 |
@@ -425,6 +425,13 @@ The `Notification` builder supports:
 | `->dailyAt($time)` | Repeat daily at the given `'HH:MM'` (24-hour, device local time) |
 
 > NativeBlade automatically creates the Android notification channel the first time you use one, so `->channel('lessons')` Just Works without registering the channel explicitly. The auto-created channel uses the default importance, lights and vibration settings.
+
+> **About desktop icons.** Each platform handles per-notification icons differently:
+> - **macOS** always uses the app bundle icon (`bundle.icon` in `tauri.conf.json`). Custom `->icon()` values are ignored by the OS.
+> - **Windows** uses the AppUserModelID-registered icon (the bundled app icon). Custom paths require an MSIX-packaged build to take effect; on plain `.exe` installs they're ignored.
+> - **Linux** accepts either an XDG icon name (`'dialog-information'`) or an absolute file path. NativeBlade auto-resolves relative paths against the app's resource directory, so if you add your image to `tauri.conf.json` -> `bundle.resources`, `->icon('images/logo.png')` will work.
+>
+> The safe default on desktop is to skip `->icon()` and let the OS use your app's installed icon (which you configure once via `NativeBladeConfig::desktop()->icon(...)`).
 
 > **About scheduling internals.** On Android, scheduled notifications are dispatched by `WorkManager` so the OS handles waking the app — no `AlarmManager` exact-alarm permission needed. On iOS, `UNUserNotificationCenter` triggers fire even when the app is suspended. Both survive reboots. Pass `->id($tag)` if you want to cancel or replace a pending schedule later.
 
