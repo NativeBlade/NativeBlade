@@ -102,6 +102,19 @@ php artisan nativeblade:dev --platform=ios --host=192.168.0.10
 
 > **Mobile requires `--host=<your-local-ip>`** so the device/emulator can reach the Vite dev server running on your machine. Replace `192.168.0.10` with your computer's LAN IP (find it with `ipconfig` on Windows or `ifconfig` / `ip addr` on macOS/Linux). `localhost` won't work because the phone can't reach your machine through it.
 
+### NativeBlade Portal — test on real devices without building
+
+A companion app for iOS and Android that loads any NativeBlade dev bundle by URL or QR scan. Install once, then point it at your `nativeblade:dev` server to preview your app on a real device with no Xcode / Android Studio build needed.
+
+[![Available on the App Store](https://img.shields.io/badge/App%20Store-Download-0a84ff?logo=apple&logoColor=white)](https://apps.apple.com/us/app/nativeblade/id6765935943)
+[![Get it on Google Play](https://img.shields.io/badge/Google%20Play-Download-689f38?logo=googleplay&logoColor=white)](https://play.google.com/store/apps/details?id=com.nativeblade.app)
+
+```bash
+php artisan nativeblade:dev --platform=portal --host=192.168.0.10
+```
+
+Open the Portal app on your phone, scan the QR shown in your terminal (or paste the URL), and your Laravel + Livewire app loads in seconds. Switch between projects by changing the URL — no rebuild required.
+
 ### Preview the Production Bundle
 
 Test the exact bundle that will ship — without the Vite dev server and without running a full `nativeblade:build`:
