@@ -30,9 +30,9 @@ describe('actions/notification', () => {
         assert.equal(rec.calls.length, 0);
     });
 
-    it('invokes nativeblade-push|notify when in Tauri', async () => {
+    it('invokes nativeblade-push|notify when in Tauri mobile', async () => {
         const invoke = makeInvoke();
-        const ctx = makeCtx({ isTauri: true, invokeTauri: invoke, post: rec.fn() });
+        const ctx = makeCtx({ isTauri: true, isMobile: true, invokeTauri: invoke, post: rec.fn() });
         await notification({ title: 'Hi', body: 'There' }, ctx);
 
         assert.equal(invoke.callCount, 1);
@@ -40,9 +40,17 @@ describe('actions/notification', () => {
         assert.deepEqual(invoke.calls[0][1], { title: 'Hi', body: 'There' });
     });
 
-    it('forwards id and schedule untouched to the native side', async () => {
+    it('does not invoke the plugin on Tauri desktop — uses Web Notification API instead', async () => {
         const invoke = makeInvoke();
-        const ctx = makeCtx({ isTauri: true, invokeTauri: invoke });
+        const ctx = makeCtx({ isTauri: true, isMobile: false, invokeTauri: invoke, post: rec.fn() });
+        await notification({ title: 'Hi', body: 'There' }, ctx);
+
+        assert.equal(invoke.callCount, 0);
+    });
+
+    it('forwards id and schedule untouched on mobile', async () => {
+        const invoke = makeInvoke();
+        const ctx = makeCtx({ isTauri: true, isMobile: true, invokeTauri: invoke });
         await notification({
             id: 'reminder-1',
             title: 'T',
@@ -55,9 +63,9 @@ describe('actions/notification', () => {
         assert.deepEqual(payload.schedule, { type: 'at', at: '2026-12-25T09:00:00Z' });
     });
 
-    it('forwards channel, sound, icon when set', async () => {
+    it('forwards channel, sound, icon when set (mobile)', async () => {
         const invoke = makeInvoke();
-        const ctx = makeCtx({ isTauri: true, invokeTauri: invoke });
+        const ctx = makeCtx({ isTauri: true, isMobile: true, invokeTauri: invoke });
         await notification({
             body: 'x',
             channel: 'messages',
@@ -71,9 +79,9 @@ describe('actions/notification', () => {
         assert.equal(payload.icon, 'ic_chat');
     });
 
-    it('strips undefined and null fields before invoking', async () => {
+    it('strips undefined and null fields before invoking (mobile)', async () => {
         const invoke = makeInvoke();
-        const ctx = makeCtx({ isTauri: true, invokeTauri: invoke });
+        const ctx = makeCtx({ isTauri: true, isMobile: true, invokeTauri: invoke });
         await notification({
             title: 'T',
             body: 'B',
@@ -88,7 +96,7 @@ describe('actions/notification', () => {
 
     it('does not post alert when invoke rejects', async () => {
         const invoke = makeInvoke(() => Promise.reject(new Error('plugin not loaded')));
-        const ctx = makeCtx({ isTauri: true, invokeTauri: invoke, post: rec.fn() });
+        const ctx = makeCtx({ isTauri: true, isMobile: true, invokeTauri: invoke, post: rec.fn() });
         await notification({ body: 'B' }, ctx);
 
         assert.equal(rec.calls.length, 0);

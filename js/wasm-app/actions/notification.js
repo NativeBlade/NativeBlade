@@ -27,7 +27,7 @@ async function webFallback(payload) {
 }
 
 export async function notification(payload, ctx) {
-    if (ctx.isTauri) {
+    if (ctx.isTauri && ctx.isMobile) {
         const invoke = await getInvoke(ctx);
         if (invoke) {
             try {
