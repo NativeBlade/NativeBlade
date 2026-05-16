@@ -154,9 +154,16 @@ class PluginsConfigGenerator
         $defaultPath = base_path('src-tauri/capabilities/default.json');
         $mobilePath = base_path('src-tauri/capabilities/mobile.json');
 
-        $desktopPerms = ['core:default', 'core:event:default'];
+        $desktopPerms = [
+            'core:default',
+            'core:event:default',
+            'notification:default',
+            'notification:allow-is-permission-granted',
+            'notification:allow-request-permission',
+            'notification:allow-notify',
+        ];
         $mobilePerms = [];
-        $allowedPrefixes = ['core', 'fs'];
+        $allowedPrefixes = ['core', 'fs', 'notification'];
         $allowedMobilePrefixes = [];
 
         foreach ($plugins as $plugin) {
@@ -230,6 +237,7 @@ class PluginsConfigGenerator
         $required = [
             '@tauri-apps/api' => '^2',
             '@tauri-apps/cli' => '^2',
+            '@tauri-apps/plugin-notification' => '^2',
         ];
         foreach ($plugins as $plugin) {
             $d = PluginRegistry::descriptor($plugin);
