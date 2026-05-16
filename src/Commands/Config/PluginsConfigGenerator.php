@@ -10,7 +10,7 @@ use NativeBlade\Config\PluginRegistry;
  * Rewrites every file that depends on the declared plugin set:
  * - src-tauri/Cargo.toml: [features] section between markers
  * - src-tauri/src/lib.rs: optional plugin init chain between markers
- * - src-tauri/capabilities/default.json + mobile.json: permissions arrays
+ * - src-tauri/capabilities/default.json + mobile.json + desktop.json: permissions arrays
  * - package.json: only @tauri-apps/plugin-* deps that are actually used
  * - AndroidManifest.xml: <uses-permission> entries between markers
  * - Info.plist: usage description keys between markers
@@ -153,23 +153,24 @@ class PluginsConfigGenerator
     {
         $defaultPath = base_path('src-tauri/capabilities/default.json');
         $mobilePath = base_path('src-tauri/capabilities/mobile.json');
+        $desktopPath = base_path('src-tauri/capabilities/desktop.json');
 
-        $desktopPerms = [
-            'core:default',
-            'core:event:default',
+        $sharedPerms = ['core:default', 'core:event:default'];
+        $desktopOnlyPerms = [
             'notification:default',
             'notification:allow-is-permission-granted',
             'notification:allow-request-permission',
             'notification:allow-notify',
         ];
         $mobilePerms = [];
-        $allowedPrefixes = ['core', 'fs', 'notification'];
+        $allowedPrefixes = ['core', 'fs'];
+        $allowedDesktopPrefixes = ['notification'];
         $allowedMobilePrefixes = [];
 
         foreach ($plugins as $plugin) {
             $d = PluginRegistry::descriptor($plugin);
             foreach ($d['capabilities'] ?? [] as $perm) {
-                $desktopPerms[] = $perm;
+                $sharedPerms[] = $perm;
                 $prefix = strtok($perm, ':');
                 if ($prefix !== false && !in_array($prefix, $allowedPrefixes, true)) {
                     $allowedPrefixes[] = $prefix;
@@ -188,7 +189,7 @@ class PluginsConfigGenerator
             $cap = json_decode(file_get_contents($defaultPath), true);
             $extras = $this->filterNonStringPerms($cap['permissions'] ?? [], $allowedPrefixes);
             $cap['permissions'] = array_values(array_unique([
-                ...array_filter($desktopPerms),
+                ...array_filter($sharedPerms),
                 ...$extras,
             ], SORT_REGULAR));
             file_put_contents($defaultPath, json_encode($cap, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
@@ -204,6 +205,17 @@ class PluginsConfigGenerator
             ], SORT_REGULAR));
             file_put_contents($mobilePath, json_encode($cap, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
             $this->cmd->line("  <fg=green>✓</> capabilities/mobile.json");
+        }
+
+        if (file_exists($desktopPath)) {
+            $cap = json_decode(file_get_contents($desktopPath), true);
+            $extras = $this->filterNonStringPerms($cap['permissions'] ?? [], $allowedDesktopPrefixes);
+            $cap['permissions'] = array_values(array_unique([
+                ...array_filter($desktopOnlyPerms),
+                ...$extras,
+            ], SORT_REGULAR));
+            file_put_contents($desktopPath, json_encode($cap, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->cmd->line("  <fg=green>✓</> capabilities/desktop.json");
         }
     }
 

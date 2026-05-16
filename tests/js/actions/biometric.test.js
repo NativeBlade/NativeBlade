@@ -14,9 +14,14 @@ describe('actions/biometric', () => {
     let rec;
     beforeEach(() => { rec = new Recorder(); });
 
-    it('is a no-op when the API is unavailable', async () => {
-        await biometric({}, makeCtx({ biometricApi: null, post: rec.fn() }));
-        assert.equal(rec.calls.length, 0);
+    it('posts success=false when the API is unavailable (desktop)', async () => {
+        await biometric({ id: 'login' }, makeCtx({ biometricApi: null, post: rec.fn() }));
+        assert.deepEqual(rec.calls, [
+            {
+                type: 'nativeblade-biometric',
+                data: { success: false, error: 'Biometric not available', id: 'login' },
+            },
+        ]);
     });
 
     it('posts success=false when biometric is not available', async () => {

@@ -2,7 +2,14 @@
 // Uses: ctx.biometricApi, ctx.post
 
 export async function biometric(payload, ctx) {
-    if (!ctx.biometricApi) return;
+    if (!ctx.biometricApi) {
+        ctx.post('nativeblade-biometric', {
+            success: false,
+            error: 'Biometric not available',
+            id: payload.id || null,
+        });
+        return;
+    }
     try {
         const status = await ctx.biometricApi.checkStatus();
         if (!status.isAvailable) {
