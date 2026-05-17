@@ -386,19 +386,31 @@ XML;
         if (!file_exists($gradlePath)) return;
 
         $gradle = file_get_contents($gradlePath);
-        if (str_contains($gradle, 'debugSymbolLevel')) return;
+        $target = 'SYMBOL_TABLE';
+
+        if (str_contains($gradle, 'debugSymbolLevel')) {
+            $gradle = preg_replace(
+                '/debugSymbolLevel\s*=\s*"[^"]*"/',
+                "debugSymbolLevel = \"{$target}\"",
+                $gradle,
+                1
+            );
+            file_put_contents($gradlePath, $gradle);
+            $this->cmd->line("  <fg=green>✓</> Android NDK debug symbols set to {$target}");
+            return;
+        }
 
         $pattern = '/(defaultConfig\s*\{[^}]*?)(\n\s*\})/s';
         if (!preg_match($pattern, $gradle)) return;
 
         $gradle = preg_replace(
             $pattern,
-            "$1\n        ndk {\n            debugSymbolLevel = \"SYMBOL_TABLE\"\n        }$2",
+            "$1\n        ndk {\n            debugSymbolLevel = \"{$target}\"\n        }$2",
             $gradle
         );
 
         file_put_contents($gradlePath, $gradle);
-        $this->cmd->line("  <fg=green>✓</> Android NDK debug symbols enabled");
+        $this->cmd->line("  <fg=green>✓</> Android NDK debug symbols enabled ({$target})");
     }
 
     private function generateSdk(array $config): void
