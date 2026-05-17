@@ -19,7 +19,7 @@ class AndroidConfigGenerator
         $this->generateVersion($config);
         $this->generateSdk($config);
         $this->generateProguard();
-        $this->generateDebugSymbols();
+        $this->stripDebugSymbolsBlock();
         $this->generatePushNotification($config);
     }
 
@@ -380,37 +380,33 @@ XML;
         $this->cmd->line("  <fg=green>✓</> Android version: {$config['version']} ({$config['buildNumber']})");
     }
 
-    private function generateDebugSymbols(): void
+    /**
+     * Strip any leftover `ndk { debugSymbolLevel = ... }` block from
+     * `build.gradle.kts`. Earlier versions of NativeBlade added this expecting
+     * AGP to extract native debug symbols into `BUNDLE-METADATA/`. In practice
+     * AGP only processes libs Gradle compiles itself (CMake/ndk-build); it
+     * silently ignores pre-built libs under `jniLibs/`, which is how Tauri
+     * ships the Rust binary. The block did nothing useful and was misleading.
+     *
+     * Stripping (`strip = "debuginfo"`) is now done at the Rust profile level
+     * in `Cargo.toml`. See `stubs/Cargo.toml.stub`.
+     */
+    private function stripDebugSymbolsBlock(): void
     {
         $gradlePath = base_path('src-tauri/gen/android/app/build.gradle.kts');
         if (!file_exists($gradlePath)) return;
 
         $gradle = file_get_contents($gradlePath);
-        $target = 'SYMBOL_TABLE';
+        if (!str_contains($gradle, 'debugSymbolLevel')) return;
 
-        if (str_contains($gradle, 'debugSymbolLevel')) {
-            $gradle = preg_replace(
-                '/debugSymbolLevel\s*=\s*"[^"]*"/',
-                "debugSymbolLevel = \"{$target}\"",
-                $gradle,
-                1
-            );
-            file_put_contents($gradlePath, $gradle);
-            $this->cmd->line("  <fg=green>✓</> Android NDK debug symbols set to {$target}");
-            return;
-        }
-
-        $pattern = '/(defaultConfig\s*\{[^}]*?)(\n\s*\})/s';
-        if (!preg_match($pattern, $gradle)) return;
-
-        $gradle = preg_replace(
-            $pattern,
-            "$1\n        ndk {\n            debugSymbolLevel = \"{$target}\"\n        }$2",
+        $stripped = preg_replace(
+            '/\n\s*ndk\s*\{\s*debugSymbolLevel\s*=\s*"[^"]*"\s*\}\n?/',
+            "\n",
             $gradle
         );
 
-        file_put_contents($gradlePath, $gradle);
-        $this->cmd->line("  <fg=green>✓</> Android NDK debug symbols enabled ({$target})");
+        file_put_contents($gradlePath, $stripped);
+        $this->cmd->line("  <fg=green>✓</> Removed legacy debugSymbolLevel block (AGP ignores Tauri's jniLibs)");
     }
 
     private function generateSdk(array $config): void
