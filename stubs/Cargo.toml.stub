@@ -63,5 +63,5 @@ custom-protocol = ["tauri/custom-protocol"]
 # nativeblade:plugins:end
 
 [profile.release]
-debug = "limited"
+debug = "line-tables-only"
 strip = false
