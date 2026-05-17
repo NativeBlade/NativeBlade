@@ -22,12 +22,14 @@ class Tray
 
     private bool $hideOnClose = false;
 
+    /** Path to a 22x22 (Win/Linux) or 18x18 (macOS) PNG icon, relative to project root. */
     public function icon(string $path): static
     {
         $this->icon = $path;
         return $this;
     }
 
+    /** Hover text shown when the user mouses over the tray icon. */
     public function tooltip(string $text): static
     {
         $this->tooltip = $text;

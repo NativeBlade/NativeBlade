@@ -2,6 +2,25 @@
 
 namespace NativeBlade\Config;
 
+/**
+ * Apple `PrivacyInfo.xcprivacy` API category and reason codes (required by
+ * the App Store since 2024 for any app that touches one of the five flagged
+ * API categories).
+ *
+ * Map each category your app uses to one of its allowed reason codes when
+ * calling `IosConfig::privacyManifest()`. NativeBlade emits the codes into
+ * the generated `PrivacyInfo.xcprivacy`. See Apple's documentation for the
+ * authoritative list of categories and reasons.
+ *
+ * ```php
+ * $config->privacyManifest([
+ *     PrivacyApi::USER_DEFAULTS    => PrivacyApi::USER_DEFAULTS_APP,
+ *     PrivacyApi::FILE_TIMESTAMP   => PrivacyApi::FILE_TIMESTAMP_THIRD_PARTY,
+ *     PrivacyApi::SYSTEM_BOOT_TIME => PrivacyApi::BOOT_TIME_ELAPSED,
+ *     PrivacyApi::DISK_SPACE       => PrivacyApi::DISK_SPACE_WRITE_CHECK,
+ * ]);
+ * ```
+ */
 class PrivacyApi
 {
     // === API Categories ===

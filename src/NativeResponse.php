@@ -382,6 +382,14 @@ class NativeResponse
     // File picker
     // ------------------------------------------------------------------
 
+    /**
+     * Open the OS file picker so the user can choose one or more files.
+     *
+     * Result arrives on the `nb:file-picker` Livewire event with `$paths`
+     * (string[]) and an optional `$id` from the builder.
+     *
+     * @param  ?Closure(FilePicker): void  $callback  Optional builder callback.
+     */
     public function filePicker(?Closure $callback = null): static
     {
         $picker = new FilePicker();
@@ -389,6 +397,15 @@ class NativeResponse
         return $this->push('file_picker', $picker->toArray());
     }
 
+    /**
+     * Open the OS "save file" dialog so the user can pick a destination path.
+     *
+     * Result arrives on the `nb:file-save` Livewire event with `$path`
+     * (string) and an optional `$id` from the builder.
+     *
+     * @param  string  $defaultName  Suggested file name shown in the dialog.
+     * @param  ?Closure(FilePicker): void  $callback  Optional builder callback.
+     */
     public function fileSave(string $defaultName, ?Closure $callback = null): static
     {
         $picker = new FilePicker();
@@ -403,11 +420,21 @@ class NativeResponse
     // File operations
     // ------------------------------------------------------------------
 
+    /**
+     * Copy a file from `$from` to `$to` resolved against a `$purpose` root.
+     *
+     * `$purpose` selects the base directory the relative `$to` path is
+     * resolved against. One of: `'app'` (app data), `'export'` (Documents),
+     * `'downloads'`, `'cache'`, `'temp'`. Default `'app'`.
+     */
     public function copyFile(string $from, string $to, string $purpose = 'app'): static
     {
         return $this->push('copy_file', ['from' => $from, 'to' => $to, 'purpose' => $purpose]);
     }
 
+    /**
+     * Move a file from `$from` to `$to`. See `copyFile()` for `$purpose` values.
+     */
     public function moveFile(string $from, string $to, string $purpose = 'app'): static
     {
         return $this->push('move_file', ['from' => $from, 'to' => $to, 'purpose' => $purpose]);
@@ -417,6 +444,17 @@ class NativeResponse
     // Upload
     // ------------------------------------------------------------------
 
+    /**
+     * Upload a local file to a remote URL with optional headers and progress.
+     *
+     * Progress is reported via the `nb:upload-progress` Livewire event.
+     * Completion is reported via `nb:upload-result` with `$status` (int)
+     * and `$body` (string).
+     *
+     * @param  string  $path  Absolute path to the file on the device.
+     * @param  string  $url  Destination URL (full URL with scheme).
+     * @param  ?Closure(Upload): void  $callback  Optional builder callback for headers / id.
+     */
     public function upload(string $path, string $url, ?Closure $callback = null): static
     {
         $upload = new Upload();

@@ -43,30 +43,50 @@ class Notification
      */
     private ?array $schedule = null;
 
+    /**
+     * Set the notification title (top line, bold).
+     */
     public function title(string $title): static
     {
         $this->title = $title;
         return $this;
     }
 
+    /**
+     * Set the notification body (subtitle / message text).
+     */
     public function body(string $body): static
     {
         $this->body = $body;
         return $this;
     }
 
+    /**
+     * Sound played on delivery. Use `'default'` for the system default, or a
+     * platform-specific identifier (Android: raw resource name; iOS: file in
+     * the app bundle). Ignored on desktop.
+     */
     public function sound(string $sound): static
     {
         $this->sound = $sound;
         return $this;
     }
 
+    /**
+     * Small icon shown next to the notification. On Android this is a
+     * drawable resource name; on iOS it's a bundled attachment; on desktop
+     * it's a bundled resource path. See PLUGINS.md for the desktop caveats.
+     */
     public function icon(string $icon): static
     {
         $this->icon = $icon;
         return $this;
     }
 
+    /**
+     * Android notification channel. The framework auto-creates the channel
+     * on first use, so any string works. Ignored on iOS and desktop.
+     */
     public function channel(string $channel): static
     {
         $this->channel = $channel;
