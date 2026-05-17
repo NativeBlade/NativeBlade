@@ -393,7 +393,7 @@ XML;
 
         $gradle = preg_replace(
             $pattern,
-            "$1\n        ndk {\n            debugSymbolLevel = \"FULL\"\n        }$2",
+            "$1\n        ndk {\n            debugSymbolLevel = \"SYMBOL_TABLE\"\n        }$2",
             $gradle
         );
 
