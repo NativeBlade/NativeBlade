@@ -53,7 +53,8 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
 
     companion object {
         private const val TAG = "NativeBladePush"
-        private const val WORK_TAG = "nb_notification"
+        private const val WORK_TAG = "nb_notification_v2"
+        private val ALL_WORK_TAGS = listOf("nb_notification", "nb_notification_v2")
 
         @Volatile
         var instance: NativeBladePushPlugin? = null
@@ -67,7 +68,10 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
         instance = this
 
         try {
-            WorkManager.getInstance(activity.applicationContext).cancelAllWorkByTag(WORK_TAG)
+            val wm = WorkManager.getInstance(activity.applicationContext)
+            for (tag in ALL_WORK_TAGS) {
+                wm.cancelAllWorkByTag(tag)
+            }
         } catch (e: Throwable) {
             Log.w(TAG, "Failed to clear pending notification work on load", e)
         }
@@ -204,7 +208,10 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun cancelAll(invoke: Invoke) {
-        WorkManager.getInstance(activity.applicationContext).cancelAllWorkByTag(WORK_TAG)
+        val wm = WorkManager.getInstance(activity.applicationContext)
+        for (tag in ALL_WORK_TAGS) {
+            wm.cancelAllWorkByTag(tag)
+        }
         NotificationManagerCompat.from(activity.applicationContext).cancelAll()
         invoke.resolve()
     }
@@ -242,6 +249,7 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
             putString(ScheduledNotificationWorker.KEY_SOUND, sound)
             putString(ScheduledNotificationWorker.KEY_ICON, icon)
             putInt(ScheduledNotificationWorker.KEY_TAG, tag)
+            putInt(ScheduledNotificationWorker.KEY_VERSION_MARKER, ScheduledNotificationWorker.CURRENT_VERSION)
         }.build()
 
         when (schedule.optString("type")) {

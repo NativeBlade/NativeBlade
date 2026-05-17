@@ -380,17 +380,6 @@ XML;
         $this->cmd->line("  <fg=green>✓</> Android version: {$config['version']} ({$config['buildNumber']})");
     }
 
-    /**
-     * Strip any leftover `ndk { debugSymbolLevel = ... }` block from
-     * `build.gradle.kts`. Earlier versions of NativeBlade added this expecting
-     * AGP to extract native debug symbols into `BUNDLE-METADATA/`. In practice
-     * AGP only processes libs Gradle compiles itself (CMake/ndk-build); it
-     * silently ignores pre-built libs under `jniLibs/`, which is how Tauri
-     * ships the Rust binary. The block did nothing useful and was misleading.
-     *
-     * Stripping (`strip = "debuginfo"`) is now done at the Rust profile level
-     * in `Cargo.toml`. See `stubs/Cargo.toml.stub`.
-     */
     private function stripDebugSymbolsBlock(): void
     {
         $gradlePath = base_path('src-tauri/gen/android/app/build.gradle.kts');

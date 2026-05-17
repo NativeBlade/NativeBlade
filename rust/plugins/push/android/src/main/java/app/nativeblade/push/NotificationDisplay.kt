@@ -16,7 +16,7 @@ import androidx.core.app.NotificationCompat
  * wiring, and small-icon resolution live in one place.
  */
 object NotificationDisplay {
-    const val DEFAULT_CHANNEL = "nativeblade_default"
+    const val DEFAULT_CHANNEL = "nativeblade_default_v2"
 
     /**
      * Show a notification immediately. [tag] is the deterministic numeric
@@ -61,7 +61,7 @@ object NotificationDisplay {
             .setContentTitle(title ?: "")
             .setContentText(body ?: "")
             .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
 
         if (pendingIntent != null) builder.setContentIntent(pendingIntent)
         applySound(builder, context, sound)
@@ -76,7 +76,7 @@ object NotificationDisplay {
         val channel = NotificationChannel(
             channelId,
             channelId.replaceFirstChar { it.titlecase() },
-            NotificationManager.IMPORTANCE_HIGH,
+            NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
             enableLights(true)
             enableVibration(true)

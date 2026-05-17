@@ -63,13 +63,5 @@ custom-protocol = ["tauri/custom-protocol"]
 # nativeblade:plugins:end
 
 [profile.release]
-# Strip DWARF from the .so but keep the ELF symbol table (function names).
-# AGP's `debugSymbolLevel` only operates on libs Gradle compiles itself (CMake/
-# ndk-build) — it silently skips pre-built libs in `jniLibs/`, which is exactly
-# how Tauri ships the Rust binary on Android. Without this `strip`, the .so
-# ships with full debug info baked in (100MB+ per arch) and AGP doesn't extract
-# anything. With `strip = "debuginfo"` the .so shrinks ~10× and crash reports
-# still demangle to function names. The "missing native debug symbols" warning
-# in Play Console is cosmetic at this point.
 strip = "debuginfo"
 debug = false
