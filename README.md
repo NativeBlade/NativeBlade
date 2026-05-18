@@ -15,6 +15,7 @@
   <a href="CONFIGURATION.md">Configuration</a> &bull;
   <a href="COMPONENTS.md">Components</a> &bull;
   <a href="DIRECTIVES.md">Directives &amp; Attributes</a> &bull;
+  <a href="NAVIGATE.md">Navigate</a> &bull;
   <a href="PLUGINS.md">Plugins</a> &bull;
   <a href="PUSH.md">Push</a> &bull;
   <a href="MEDIA.md">Media</a> &bull;
@@ -25,7 +26,8 @@
   <a href="BUILD.md">Build</a> &bull;
   <a href="SCHEDULER.md">Scheduler</a> &bull;
   <a href="UPDATES.md">Auto-Update</a> &bull;
-  <a href="PUBLISH.md">Publish</a>
+  <a href="PUBLISH.md">Publish</a> &bull;
+  <a href="MCP.md">MCP (AI agents)</a>
 </p>
 
 ---
