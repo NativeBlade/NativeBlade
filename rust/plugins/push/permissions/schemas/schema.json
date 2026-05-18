@@ -295,6 +295,30 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the cancel command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-cancel",
+          "markdownDescription": "Enables the cancel command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the cancel command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-cancel",
+          "markdownDescription": "Denies the cancel command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the cancel_all command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-cancel-all",
+          "markdownDescription": "Enables the cancel_all command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the cancel_all command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-cancel-all",
+          "markdownDescription": "Denies the cancel_all command without any pre-configured scope."
+        },
+        {
           "description": "Enables the drain_pending command without any pre-configured scope.",
           "type": "string",
           "const": "allow-drain-pending",
@@ -319,6 +343,18 @@
           "markdownDescription": "Denies the get_token command without any pre-configured scope."
         },
         {
+          "description": "Enables the notify command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-notify",
+          "markdownDescription": "Enables the notify command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the notify command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-notify",
+          "markdownDescription": "Denies the notify command without any pre-configured scope."
+        },
+        {
           "description": "Enables the request_permission command without any pre-configured scope.",
           "type": "string",
           "const": "allow-request-permission",
@@ -331,10 +367,10 @@
           "markdownDescription": "Denies the request_permission command without any pre-configured scope."
         },
         {
-          "description": "Default permission set for the NativeBlade push notifications plugin.\nAllows querying the device token, requesting notification permission,\nand draining pushes that were buffered during cold start.\n\n#### This default permission set includes:\n\n- `allow-get-token`\n- `allow-request-permission`\n- `allow-drain-pending`",
+          "description": "Default permission set for the NativeBlade push notifications plugin.\nAllows querying the device token, requesting notification permission,\nand draining pushes that were buffered during cold start.\n\n#### This default permission set includes:\n\n- `allow-get-token`\n- `allow-request-permission`\n- `allow-drain-pending`\n- `allow-notify`\n- `allow-cancel`\n- `allow-cancel-all`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permission set for the NativeBlade push notifications plugin.\nAllows querying the device token, requesting notification permission,\nand draining pushes that were buffered during cold start.\n\n#### This default permission set includes:\n\n- `allow-get-token`\n- `allow-request-permission`\n- `allow-drain-pending`"
+          "markdownDescription": "Default permission set for the NativeBlade push notifications plugin.\nAllows querying the device token, requesting notification permission,\nand draining pushes that were buffered during cold start.\n\n#### This default permission set includes:\n\n- `allow-get-token`\n- `allow-request-permission`\n- `allow-drain-pending`\n- `allow-notify`\n- `allow-cancel`\n- `allow-cancel-all`"
         }
       ]
     }

@@ -285,4 +285,4 @@ Per-navigation override:
 NativeBlade::navigate('/lesson/1')->transition('slide')->toResponse();
 ```
 
-Available: `fade`, `slide`, `slide-left`, `slide-up`, `slide-down`, `zoom`, `flip`, `bounce`, `back`, `blur`, `pop`, or any [Animate.css](https://animate.style/) name directly.
+Available: `none`, `slide`, `fade`. Page transitions are intentionally limited to these three because each one requires its own dual-iframe choreography in the router. For richer element-level animations, see [ANIMATIONS.md](ANIMATIONS.md) (`nb-animation` attribute and `<x-nativeblade-animate>` component).

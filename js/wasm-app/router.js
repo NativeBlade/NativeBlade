@@ -9,8 +9,8 @@ import { init as initAutoUpdate } from './auto-update.js';
 import { init as initScheduler } from './scheduler.js';
 import { setFrame as setPushFrame } from './push.js';
 
-let appFrame = null;     // currently visible iframe
-let bufferFrame = null;  // hidden buffer that loads the next page in parallel
+let appFrame = null;
+let bufferFrame = null;
 let splash = null;
 let currentPath = null;
 let historyStack = [];
@@ -198,24 +198,12 @@ async function renderPage(text, path, options, version) {
         initScheduler(config.schedules);
     }
 
-    // First navigation: full srcdoc swap so the iframe boots up Alpine,
-    // Livewire, all the CSS, etc. After that, we never re-create the
-    // document — only swap the body content.
     if (isFirstRender || !appFrame.contentDocument || !appFrame.contentDocument.body) {
         appFrame.srcdoc = html;
-        // Prime the buffer iframe with the same content. Without this, the
-        // buffer's first real srcdoc load (on user's first tab navigation)
-        // gives WKWebView a fresh iframe in a hidden state, and the
-        // resulting scroll-view configuration is broken — touch-drag scroll
-        // only works on interactive elements until the iframe has been
-        // navigated away from and back. Priming ensures WKWebView sets up
-        // the scroll-view while we're still in boot/splash, and subsequent
-        // srcdoc swaps reuse the already-configured scroll-view.
         bufferFrame.srcdoc = html;
         return;
     }
 
-    // First time the iframe has any content at all: full srcdoc swap.
     if (!appFrame.contentDocument || !appFrame.contentDocument.body) {
         appFrame.srcdoc = html;
         bufferFrame.srcdoc = html;
@@ -228,17 +216,10 @@ async function renderPage(text, path, options, version) {
     const slide = pageTransition === 'slide' || pageTransition === 'slide-left';
     const noTransition = pageTransition === 'none';
 
-    // Paint the container with the new page's bg so the gap during animation
-    // (if any) does not flash the shell colour.
     const newBg = sampleBodyBg(html);
     const container = appFrame.parentNode;
     if (container && newBg) container.style.backgroundColor = newBg;
 
-    // For transition='none' (tabbar navigation): instant dual-iframe swap.
-    // Same sequence as slide, but transforms snap immediately. The CSS Grid
-    // container (see setupFrameContainer) keeps the iframes overlapping
-    // without `position: relative`, which is what was breaking WKWebView's
-    // scroll handling on the new iframe.
     if (noTransition) {
         bufferFrame.style.transition = 'none';
         bufferFrame.style.transform = 'translateX(100%)';
@@ -257,13 +238,11 @@ async function renderPage(text, path, options, version) {
         await loaded;
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-        // Snap transforms (no transition).
         void bufferFrame.offsetWidth;
         bufferFrame.style.transform = 'translateX(0)';
         appFrame.style.transform = 'translateX(-100%)';
         appFrame.style.opacity = '0';
 
-        // Role swap.
         const oldFrame = appFrame;
         appFrame = bufferFrame;
         bufferFrame = oldFrame;
@@ -392,23 +371,28 @@ const KNOWN_BG_COLORS = {
 };
 
 function sampleBodyBg(html) {
-    // Try inline style first.
     const styleMatch = html.match(/<body[^>]*style="([^"]*)"/i);
     if (styleMatch) {
         const m = styleMatch[1].match(/background(?:-color)?\s*:\s*([^;]+)/i);
         if (m) return m[1].trim();
     }
 
-    // Fall back to known Tailwind bg classes on the body.
     const classMatch = html.match(/<body[^>]*class="([^"]*)"/i);
     if (classMatch) {
         const cls = classMatch[1];
+
+        // Tailwind arbitrary values: bg-[#0d1117], bg-[rgb(...)], bg-[hsl(...)], bg-[red].
+        const arbitrary = cls.match(/bg-\[((?:#[0-9a-fA-F]{3,8})|(?:rgba?\([^\]]+\))|(?:hsla?\([^\]]+\))|(?:[a-zA-Z]+))\]/);
+        if (arbitrary) return arbitrary[1];
+
         for (const [name, hex] of Object.entries(KNOWN_BG_COLORS)) {
             if (new RegExp('(?:^|\\s)' + name + '(?:\\s|$)').test(cls)) return hex;
         }
     }
 
-    return '#ffffff';
+    // Return null instead of white so the caller can skip painting the
+    // container — a white default is the worst-case for dark-theme apps.
+    return null;
 }
 
 // Wrap the original iframe in a CSS-grid container so both iframes can
@@ -457,6 +441,7 @@ function setupFrameContainer() {
         width: '100%',
         height: '100%',
         border: 'none',
+        display: 'block', // Important: subsequent navs check appFrame.style.display !== 'block' to detect isFirstRender; after the role swap this iframe BECOMES appFrame, so it needs display:block from the start or every nav after the first will wrongly take the isFirstRender path.
         zIndex: '0',
         transform: 'translateX(100%)',
         opacity: '0',

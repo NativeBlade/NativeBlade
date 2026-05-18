@@ -57,6 +57,7 @@ class NativeBladeServiceProvider extends ServiceProvider
                 Commands\BundleCommand::class,
                 Commands\SignCommand::class,
                 Commands\PhpVersionCommand::class,
+                Commands\McpCommand::class,
             ]);
         }
     }

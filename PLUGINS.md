@@ -180,7 +180,7 @@ After any action, chain any of these to customize it:
 
 | Modifier | Applies to |
 |---|---|
-| `transition($type)` | navigate — `'slide' \| 'fade' \| 'zoom' \| 'flip' \| 'bounce' \| 'blur'` |
+| `transition($type)` | navigate — `'none' \| 'slide' \| 'fade'` |
 | `replace($bool = true)` | navigate |
 
 > All other per-action options live inside their dedicated `Plugins\*` builder closures — `Dialog`, `Notification`, `Camera`, `Biometric`, `Scan`, `Geolocation`, `Clipboard`, `Nfc`. The `NativeResponse` itself only keeps modifiers that affect the action queue (`transition`, `replace`).

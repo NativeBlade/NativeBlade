@@ -279,14 +279,21 @@ class ShellConfig
         return static::$onBootCallback;
     }
 
+    private const VALID_TRANSITIONS = ['none', 'slide', 'fade'];
+
     /**
      * Set the default page transition used when navigating between routes.
      *
-     * @param  string  $type  One of `'none'`, `'fade'`, `'slide'`, `'zoom'`,
-     *                        `'flip'`, `'bounce'`, `'blur'`.
+     * @param  string  $type  One of `'none'`, `'slide'`, `'fade'`.
+     * @throws \InvalidArgumentException If `$type` is not one of the supported transitions.
      */
     public function transition(string $type = 'fade'): static
     {
+        if (!in_array($type, self::VALID_TRANSITIONS, true)) {
+            throw new \InvalidArgumentException(
+                "Invalid transition '{$type}'. Use one of: " . implode(', ', self::VALID_TRANSITIONS) . '.'
+            );
+        }
         static::$transition = $type;
         return $this;
     }

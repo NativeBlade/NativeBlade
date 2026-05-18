@@ -111,10 +111,14 @@ export function inject(html) {
 
         Livewire.directive('nb-navigate', function(ctx) {
             var path = ctx.directive.expression;
-            var replace = ctx.directive.modifiers.includes('replace');
+            var mods = ctx.directive.modifiers;
+            var replace = mods.includes('replace');
+            var transition = mods.find(function (m) { return m === 'none' || m === 'slide' || m === 'fade'; });
             var handler = function(e) {
                 e.preventDefault();
-                window.parent.postMessage({ type: 'nativeblade-navigate', path: path, replace: replace }, '*');
+                var msg = { type: 'nativeblade-navigate', path: path, replace: replace };
+                if (transition) msg.transition = transition;
+                window.parent.postMessage(msg, '*');
             };
             ctx.el.addEventListener('click', handler);
             ctx.cleanup(function() { ctx.el.removeEventListener('click', handler); });

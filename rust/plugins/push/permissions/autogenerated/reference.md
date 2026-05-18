@@ -9,6 +9,9 @@ and draining pushes that were buffered during cold start.
 - `allow-get-token`
 - `allow-request-permission`
 - `allow-drain-pending`
+- `allow-notify`
+- `allow-cancel`
+- `allow-cancel-all`
 
 ## Permission Table
 
@@ -18,6 +21,58 @@ and draining pushes that were buffered during cold start.
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`nativeblade-push:allow-cancel`
+
+</td>
+<td>
+
+Enables the cancel command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nativeblade-push:deny-cancel`
+
+</td>
+<td>
+
+Denies the cancel command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nativeblade-push:allow-cancel-all`
+
+</td>
+<td>
+
+Enables the cancel_all command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nativeblade-push:deny-cancel-all`
+
+</td>
+<td>
+
+Denies the cancel_all command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>
@@ -67,6 +122,32 @@ Enables the get_token command without any pre-configured scope.
 <td>
 
 Denies the get_token command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nativeblade-push:allow-notify`
+
+</td>
+<td>
+
+Enables the notify command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nativeblade-push:deny-notify`
+
+</td>
+<td>
+
+Denies the notify command without any pre-configured scope.
 
 </td>
 </tr>

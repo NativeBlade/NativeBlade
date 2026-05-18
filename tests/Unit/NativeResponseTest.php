@@ -44,6 +44,15 @@ final class NativeResponseTest extends TestCase
         self::assertSame($r, $r->replace());
     }
 
+    #[Test]
+    public function transition_modifier_rejects_unsupported_value(): void
+    {
+        $r = (new NativeResponse())->navigate('/dashboard');
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("Invalid transition 'flip'");
+        $r->transition('flip');
+    }
+
     // -- Dialog --------------------------------------------------------
 
     #[Test]

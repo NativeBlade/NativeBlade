@@ -639,11 +639,16 @@ class NativeResponse
     /**
      * Set the animation used for a navigate action.
      *
-     * @param  string  $type  One of: `'slide'`, `'fade'`, `'zoom'`,
-     *                        `'flip'`, `'bounce'`, `'blur'`.
+     * @param  string  $type  One of: `'none'`, `'slide'`, `'fade'`.
+     * @throws \InvalidArgumentException If `$type` is not one of the supported transitions.
      */
     public function transition(string $type): static
     {
+        if (!in_array($type, ['none', 'slide', 'fade'], true)) {
+            throw new \InvalidArgumentException(
+                "Invalid transition '{$type}'. Use one of: none, slide, fade."
+            );
+        }
         return $this->modify('transition', $type);
     }
 

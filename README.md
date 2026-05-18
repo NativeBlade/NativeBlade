@@ -53,6 +53,7 @@ NativeBlade lets Laravel developers build **desktop** and **mobile** apps using 
 - **Icons** — 3,024 [Phosphor Icons](https://phosphoricons.com/) (regular + fill) included
 - **Custom Fonts** — Offline font loading via base64 embedding
 - **Page Transitions** — Fade, slide, zoom, flip, bounce, blur — powered by Animate.css
+- **AI-Ready** — Built-in [MCP server](MCP.md) so Claude Code, Cursor, and Windsurf can introspect your live project (declared plugins, facade methods, framework docs) instead of guessing
 
 ## Requirements
 
@@ -331,6 +332,7 @@ NativeBlade is a **client-side runtime**, so anything inherently server-side (se
 | Doc | Description |
 |-----|-------------|
 | [CONFIGURATION.md](CONFIGURATION.md) | Desktop, Android, iOS configs, permissions, privacy manifest, transitions |
+| [NAVIGATE.md](NAVIGATE.md) | SPA routing — `wire:nb-navigate` directive, `NativeBlade::navigate()`, transition and replace modifiers |
 | [COMPONENTS.md](COMPONENTS.md) | Shell components, icons, images, skeleton, fonts, safe area, custom components |
 | [DIRECTIVES.md](DIRECTIVES.md) | wire:nb-bridge, wire:nb-navigate, nb-feedback, native actions |
 | [PLUGINS.md](PLUGINS.md) | Built-in Tauri 2 plugin bridges (dialogs, notifications, clipboard, geolocation, haptics, biometric, barcode, NFC, opener, OS info) |
@@ -344,6 +346,7 @@ NativeBlade is a **client-side runtime**, so anything inherently server-side (se
 | [BUILD.md](BUILD.md) | Build command, output, CLI commands, icon generation |
 | [UPDATES.md](UPDATES.md) | Auto-update for desktop and mobile |
 | [PUBLISH.md](PUBLISH.md) | Publishing to stores |
+| [MCP.md](MCP.md) | Built-in MCP server so Claude Code / Cursor / Windsurf can introspect your live project (declared plugins, facade methods, framework docs) |
 
 ## How NativeBlade Differs
 

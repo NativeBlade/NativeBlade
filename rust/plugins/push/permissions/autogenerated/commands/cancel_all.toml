@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-cancel-all"
+description = "Enables the cancel_all command without any pre-configured scope."
+commands.allow = ["cancel_all"]
+
+[[permission]]
+identifier = "deny-cancel-all"
+description = "Denies the cancel_all command without any pre-configured scope."
+commands.deny = ["cancel_all"]

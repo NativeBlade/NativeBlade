@@ -129,6 +129,25 @@ final class ShellConfigPlatformTest extends TestCase
     }
 
     #[Test]
+    public function transition_setter_rejects_invalid_value(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("Invalid transition 'flip'");
+        $this->config->transition('flip');
+    }
+
+    #[Test]
+    public function transition_setter_accepts_none_slide_fade(): void
+    {
+        $this->config->transition('none');
+        self::assertSame('none', ShellConfig::getTransition());
+        $this->config->transition('slide');
+        self::assertSame('slide', ShellConfig::getTransition());
+        $this->config->transition('fade');
+        self::assertSame('fade', ShellConfig::getTransition());
+    }
+
+    #[Test]
     public function on_boot_stores_the_callback_statically(): void
     {
         self::assertNull(ShellConfig::getBootCallback());
