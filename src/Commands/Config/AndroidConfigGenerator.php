@@ -21,7 +21,44 @@ class AndroidConfigGenerator
         $this->generateSdk($config);
         $this->generateProguard();
         $this->stripDebugSymbolsBlock();
+        $this->generateNfcTechFilter();
         $this->generatePushNotification($config);
+    }
+
+    private function generateNfcTechFilter(): void
+    {
+        $declared = \NativeBlade\ShellConfig::getDeclaredPlugins();
+        $hasNfc = $declared === null || in_array(\NativeBlade\Config\Plugin::NFC, $declared, true);
+        if (!$hasNfc) return;
+
+        $resDir = base_path('src-tauri/gen/android/app/src/main/res');
+        if (!is_dir($resDir)) return;
+
+        $xmlDir = $resDir . '/xml';
+        if (!is_dir($xmlDir)) mkdir($xmlDir, 0755, true);
+
+        $target = $xmlDir . '/nfc_tech_filter.xml';
+        if (file_exists($target)) return;
+
+        $body = <<<XML
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <tech-list>
+        <tech>android.nfc.tech.IsoDep</tech>
+        <tech>android.nfc.tech.NfcA</tech>
+        <tech>android.nfc.tech.NfcB</tech>
+        <tech>android.nfc.tech.NfcF</tech>
+        <tech>android.nfc.tech.NfcV</tech>
+        <tech>android.nfc.tech.Ndef</tech>
+        <tech>android.nfc.tech.NdefFormatable</tech>
+        <tech>android.nfc.tech.MifareClassic</tech>
+        <tech>android.nfc.tech.MifareUltralight</tech>
+    </tech-list>
+</resources>
+XML;
+
+        file_put_contents($target, $body);
+        $this->cmd->line("  <fg=green>✓</> res/xml/nfc_tech_filter.xml");
     }
 
     private function generateAppName(): void

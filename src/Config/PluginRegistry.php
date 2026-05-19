@@ -134,6 +134,7 @@ class PluginRegistry
                 'rust_init' => 'tauri_plugin_upload::init()',
                 'capabilities' => ['upload:default'],
                 'npm' => ['@tauri-apps/plugin-upload' => '^2'],
+                'android_permissions' => ['INTERNET'],
             ],
 
             Plugin::HTTP => [
