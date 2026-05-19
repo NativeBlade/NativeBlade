@@ -93,6 +93,9 @@ class IconCommand extends Command
             rename("{$dir}/icon.icns.png", "{$dir}/icon.icns");
         }
         $this->line("  <fg=green>✓</> icon.icns");
+
+        $this->resize($source, "{$dir}/tray.png", 32, 32);
+        $this->line("  <fg=green>✓</> tray.png (32x32)");
     }
 
     private function generateAndroidIcons($source): void
