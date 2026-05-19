@@ -13,6 +13,7 @@ class AndroidConfigGenerator
 
     public function generate(array $config): void
     {
+        $this->generateAppName();
         $this->generateTheme($config);
         $this->generateOrientation($config);
         $this->generateEdgeToEdge();
@@ -21,6 +22,32 @@ class AndroidConfigGenerator
         $this->generateProguard();
         $this->stripDebugSymbolsBlock();
         $this->generatePushNotification($config);
+    }
+
+    private function generateAppName(): void
+    {
+        $name = \NativeBlade\ShellConfig::getName();
+        if ($name === null) return;
+
+        $path = base_path('src-tauri/gen/android/app/src/main/res/values/strings.xml');
+        if (!file_exists($path)) return;
+
+        $xml = file_get_contents($path);
+        $escaped = htmlspecialchars($name, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+
+        $xml = preg_replace(
+            '/<string\s+name="app_name">[^<]*<\/string>/',
+            '<string name="app_name">' . $escaped . '</string>',
+            $xml
+        );
+        $xml = preg_replace(
+            '/<string\s+name="main_activity_title">[^<]*<\/string>/',
+            '<string name="main_activity_title">' . $escaped . '</string>',
+            $xml
+        );
+
+        file_put_contents($path, $xml);
+        $this->cmd->line("  <fg=green>✓</> Android app name: {$name}");
     }
 
     /**

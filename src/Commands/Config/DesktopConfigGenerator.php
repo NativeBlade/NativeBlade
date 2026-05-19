@@ -22,9 +22,17 @@ class DesktopConfigGenerator
 
         $conf = json_decode(file_get_contents($confPath), true);
 
-        if (isset($desktop['title'])) {
+        $appName = \NativeBlade\ShellConfig::getName();
+        if ($appName !== null) {
+            $conf['productName'] = $appName;
+        } elseif (isset($desktop['title'])) {
             $conf['productName'] = $desktop['title'];
+        }
+
+        if (isset($desktop['title'])) {
             $conf['app']['windows'][0]['title'] = $desktop['title'];
+        } elseif ($appName !== null) {
+            $conf['app']['windows'][0]['title'] = $appName;
         }
         if (isset($desktop['version'])) $conf['version'] = $desktop['version'];
         if (isset($desktop['identifier'])) $conf['identifier'] = $desktop['identifier'];

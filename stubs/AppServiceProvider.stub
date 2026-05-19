@@ -1,6 +1,7 @@
+        NativeBlade::name('{{APP_NAME}}');
+
         NativeBlade::desktop(function ($config) {
-            $config->title('{{APP_NAME}}')
-                ->identifier('{{IDENTIFIER}}')
+            $config->identifier('{{IDENTIFIER}}')
                 ->size(1200, 800)
                 ->minSize(800, 600)
                 ->resizable();

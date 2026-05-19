@@ -6,9 +6,10 @@ namespace NativeBlade\Config;
  * Fluent builder for desktop window configuration.
  *
  * ```php
+ * NativeBladeConfig::name('My App');
+ *
  * NativeBladeConfig::desktop(function (DesktopConfig $config) {
- *     $config->title('My App')
- *         ->identifier('com.myapp.desktop')
+ *     $config->identifier('com.myapp.desktop')
  *         ->version('1.0.0', 1)
  *         ->size(1200, 800)
  *         ->minSize(800, 600)
@@ -16,12 +17,22 @@ namespace NativeBlade\Config;
  *         ->center();
  * });
  * ```
+ *
+ * The app name is set globally via `NativeBladeConfig::name()` and propagates
+ * to `productName` in `tauri.conf.json` and the window title bar.
  */
 class DesktopConfig
 {
     private array $config = [];
 
-    /** Window title shown in the title bar and taskbar. */
+    /**
+     * Window title shown in the title bar and taskbar.
+     *
+     * @deprecated Use `NativeBladeConfig::name('AppName')` instead. The global name now drives
+     *             both `productName` in `tauri.conf.json` and the desktop window title. This
+     *             method is kept only as a desktop-specific override for the rare case where
+     *             the window's title bar needs different text from the app name everywhere else.
+     */
     public function title(string $title): static
     {
         $this->config['title'] = $title;

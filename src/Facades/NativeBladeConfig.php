@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Facade;
  * declares which Tauri plugins ship in the binary, sets the default page
  * transition, and registers OTA update sources.
  *
+ * @method static static name(string $name) Set the global app name. Becomes `productName` in `tauri.conf.json` (EXE name on Windows, .app bundle name on macOS) and the default window title if `DesktopConfig::title()` is not set.
  * @method static void desktop(callable $callback) Configure desktop window via a `DesktopConfig` builder.
  * @method static void android(callable $callback) Configure Android shell via an `AndroidConfig` builder.
  * @method static void ios(callable $callback) Configure iOS shell via an `IosConfig` builder.

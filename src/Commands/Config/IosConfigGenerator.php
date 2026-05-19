@@ -13,10 +13,29 @@ class IosConfigGenerator
 
     public function generate(array $config): void
     {
+        $this->generateAppName();
         $this->generatePlistConfig($config);
         $this->generateVersion($config);
         $this->generatePrivacyManifest($config);
         $this->generateSplash($config);
+    }
+
+    private function generateAppName(): void
+    {
+        $name = \NativeBlade\ShellConfig::getName();
+        if ($name === null) return;
+
+        $plistPath = $this->findPlist();
+        if (!$plistPath) return;
+
+        $plist = file_get_contents($plistPath);
+        $escaped = htmlspecialchars($name, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+
+        $plist = $this->setPlistValue($plist, 'CFBundleName', $escaped);
+        $plist = $this->setPlistValue($plist, 'CFBundleDisplayName', $escaped);
+
+        file_put_contents($plistPath, $plist);
+        $this->cmd->line("  <fg=green>✓</> iOS app name: {$name}");
     }
 
     /**

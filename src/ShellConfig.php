@@ -35,6 +35,9 @@ class ShellConfig
     /** Default page transition applied to every `navigate` action. */
     private static string $transition = 'none';
 
+    /** Global app name (`productName` in `tauri.conf.json`, label in Android/iOS bundles). */
+    private static ?string $name = null;
+
     /** @var callable|null Callback executed once when the app boots (before first render). */
     private static $onBootCallback = null;
 
@@ -280,6 +283,27 @@ class ShellConfig
     }
 
     private const VALID_TRANSITIONS = ['none', 'slide', 'fade'];
+
+    /**
+     * Set the global app name. Becomes `productName` in `tauri.conf.json`
+     * (which drives the EXE name on Windows, the .app bundle name on macOS,
+     * and the default window title when `DesktopConfig::title()` is not set).
+     *
+     * Use this when your app name should be the same everywhere — desktop
+     * window, Android app label, iOS bundle. Per-platform configs can still
+     * override (e.g. `DesktopConfig::title()` for a custom title bar text).
+     */
+    public function name(string $name): static
+    {
+        static::$name = $name;
+        return $this;
+    }
+
+    /** @return string|null The currently configured global app name, or null if not set. */
+    public static function getName(): ?string
+    {
+        return static::$name;
+    }
 
     /**
      * Set the default page transition used when navigating between routes.

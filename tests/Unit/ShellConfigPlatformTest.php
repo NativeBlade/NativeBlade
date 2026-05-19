@@ -37,7 +37,7 @@ final class ShellConfigPlatformTest extends TestCase
 
         // reset static state on ShellConfig
         $ref = new ReflectionClass(ShellConfig::class);
-        foreach (['appConfigs' => [], 'transition' => 'none', 'onBootCallback' => null] as $prop => $default) {
+        foreach (['appConfigs' => [], 'transition' => 'none', 'onBootCallback' => null, 'name' => null] as $prop => $default) {
             $p = $ref->getProperty($prop);
             $p->setAccessible(true);
             $p->setValue(null, $default);
@@ -134,6 +134,20 @@ final class ShellConfigPlatformTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage("Invalid transition 'flip'");
         $this->config->transition('flip');
+    }
+
+    #[Test]
+    public function name_setter_stores_app_name_globally(): void
+    {
+        self::assertNull(ShellConfig::getName());
+        $this->config->name('LaraCloud');
+        self::assertSame('LaraCloud', ShellConfig::getName());
+    }
+
+    #[Test]
+    public function name_setter_returns_self_for_chaining(): void
+    {
+        self::assertSame($this->config, $this->config->name('LaraCloud'));
     }
 
     #[Test]

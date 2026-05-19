@@ -19,9 +19,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        NativeBladeConfig::name('{{APP_NAME}}');
+
         NativeBladeConfig::desktop(function (DesktopConfig $config) {
-            $config->title('{{APP_NAME}}')
-                ->identifier('{{IDENTIFIER}}')
+            $config->identifier('{{IDENTIFIER}}')
                 ->version('1.0.0', 1)
                 ->size(1200, 800)
                 ->icon('src-tauri/icons/logo.png')

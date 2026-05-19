@@ -10,9 +10,10 @@ use NativeBlade\Config\Permission;
 use NativeBlade\Config\PrivacyApi;
 use NativeBlade\Facades\NativeBladeConfig;
 
+NativeBladeConfig::name('My App');
+
 NativeBladeConfig::desktop(function (DesktopConfig $config) {
-    $config->title('My App')
-        ->identifier('com.myapp.app')
+    $config->identifier('com.myapp.app')
         ->version('1.0.0', 1)
         ->size(1200, 800)
         ->minSize(800, 600)
@@ -68,9 +69,17 @@ php artisan nativeblade:config
 
 ## Desktop Options
 
+### Global
+
 | Method | Description |
 |--------|-------------|
-| `title(string)` | Window title and product name |
+| `NativeBladeConfig::name(string)` | Global app name. Becomes `productName` in `tauri.conf.json` and the default window title. Prefer this over `DesktopConfig::title()`. |
+
+### Desktop
+
+| Method | Description |
+|--------|-------------|
+| `title(string)` | **Deprecated.** Desktop-only window title override. Use `NativeBladeConfig::name()` unless the title bar truly needs different text from the app name. |
 | `identifier(string)` | App identifier (com.example.app) |
 | `version(string, int)` | Version string + build number |
 | `icon(string)` | Path to app icon |
@@ -99,8 +108,7 @@ use NativeBlade\Config\Menu;
 use NativeBlade\Config\Tray;
 
 NativeBladeConfig::desktop(function (DesktopConfig $config) {
-    $config->title('My App')
-        ->tray(function (Tray $t) {
+    $config->tray(function (Tray $t) {
             $t->icon('public/tray.png')
               ->tooltip('My App is running')
               ->menu(function (Menu $m) {
