@@ -174,12 +174,6 @@ RULES;
         if (isset($config['statusBar'])) {
             $light = ($config['statusBar']['style'] ?? 'dark') === 'light' ? 'true' : 'false';
             $items[] = '<item name="android:windowLightStatusBar" tools:targetApi="23">' . $light . '</item>';
-        }
-
-        if (isset($config['navigationBar'])) {
-            $navStyle = $config['navigationBar']['style']
-                ?? ($config['statusBar']['style'] ?? 'dark');
-            $light = $navStyle === 'light' ? 'true' : 'false';
             $items[] = '<item name="android:windowLightNavigationBar" tools:targetApi="27">' . $light . '</item>';
         }
 

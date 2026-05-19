@@ -28,8 +28,7 @@ NativeBladeConfig::android(function (AndroidConfig $config) {
         ->minSdk(28)
         ->targetSdk(35)
         ->orientation('portrait')
-        ->statusBar(style: 'dark', color: '#0a0a0a')
-        ->navigationBar('#0a0a0a')
+        ->statusBar(style: 'dark')
         ->splashBackground('#0a0a0a')
         ->permissions([
             Permission::CAMERA => 'Take photos for your profile',
@@ -187,8 +186,7 @@ Action conventions (same for tray menus and menu bars):
 | `minSdk(int)` | Minimum Android SDK (default: 28) |
 | `targetSdk(int)` | Target Android SDK (default: 35) |
 | `orientation(string)` | `portrait`, `landscape`, or `auto` |
-| `statusBar(style, color)` | Status bar appearance |
-| `navigationBar(color)` | Navigation bar color |
+| `statusBar(style)` | Status bar icon style (`'dark'` or `'light'`). Navigation bar matches automatically. Edge-to-edge is enforced, so the background under both system bars comes from your WebView content (paint via CSS with `env(safe-area-inset-top)`), not from a theme color. |
 | `fullscreen(bool)` | Hide status bar and navigation bar |
 | `splashBackground(string)` | Native splash screen color |
 | `permissions(array)` | Permission declarations with descriptions |

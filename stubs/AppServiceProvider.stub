@@ -9,6 +9,6 @@
 
         NativeBlade::mobile(function ($config) {
             $config->orientation('portrait')
-                ->statusBar(style: 'dark', color: '#0a0a0a')
+                ->statusBar(style: 'dark')
                 ->splash(bg: '#0a0a0a');
         });

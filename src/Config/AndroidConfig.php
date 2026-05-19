@@ -15,7 +15,7 @@ use NativeBlade\Config\Push\AndroidPushNotificationConfig;
  *         ->minSdk(28)
  *         ->targetSdk(35)
  *         ->orientation('portrait')
- *         ->statusBar(style: 'dark', color: '#0a0a0a')
+ *         ->statusBar(style: 'dark')
  *         ->permissions([
  *             Permission::CAMERA => 'Take photos for your profile',
  *         ]);
@@ -54,21 +54,20 @@ class AndroidConfig
     }
 
     /**
-     * Configure the status bar appearance.
+     * Configure the status bar icon style.
+     *
+     * Only the icon style (light vs dark) is configurable. NativeBlade forces
+     * edge-to-edge layout, which makes the system bars transparent — so the
+     * background you see under the status bar comes from your WebView content
+     * (paint it via CSS with `env(safe-area-inset-top)`), not from a theme color.
+     *
+     * The navigation bar inherits the same style automatically.
      *
      * @param  string  $style  `'dark'` for dark icons on light bg, `'light'` for light icons on dark bg.
-     * @param  string  $color  Hex background color of the bar (e.g. `'#0a0a0a'`).
      */
-    public function statusBar(string $style = 'dark', string $color = '#000000'): static
+    public function statusBar(string $style = 'dark'): static
     {
-        $this->config['statusBar'] = ['style' => $style, 'color' => $color];
-        return $this;
-    }
-
-    /** Background color of the system navigation bar (3-button or gesture pill). */
-    public function navigationBar(string $color = '#000000'): static
-    {
-        $this->config['navigationBar'] = ['color' => $color];
+        $this->config['statusBar'] = ['style' => $style];
         return $this;
     }
 
