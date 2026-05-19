@@ -419,6 +419,187 @@ This makes "what does this feature touch" a single folder browse.
 TXT,
         ],
 
+        'enums-and-constants' => [
+            'summary' => 'How to model closed sets and tunables — never use string literals or magic numbers.',
+            'body' => <<<'TXT'
+Every closed set of values is an enum. Every numeric tunable is a class constant. String literals and magic numbers in business code are bugs in disguise: typos compile, refactors miss callers, IDE autocomplete fails, the agent hallucinates.
+
+## Enums for closed sets
+
+Anything with a fixed list of possible values: status, type, role, level, kind, mode.
+
+```php
+namespace App\Enums;
+
+enum LessonStatus: string
+{
+    case Locked    = 'locked';
+    case Available = 'available';
+    case InProgress = 'in_progress';
+    case Completed = 'completed';
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::Locked     => 'Locked',
+            self::Available  => 'Available',
+            self::InProgress => 'In progress',
+            self::Completed  => 'Completed',
+        };
+    }
+
+    public function isPlayable(): bool
+    {
+        return $this === self::Available || $this === self::InProgress;
+    }
+}
+```
+
+Usage anywhere:
+
+```php
+if ($lesson->status === LessonStatus::Locked) { ... }
+$lesson->update(['status' => LessonStatus::Completed]);
+```
+
+Eloquent casts make this idiomatic:
+
+```php
+class Lesson extends Model
+{
+    protected $casts = [
+        'status' => LessonStatus::class,
+    ];
+}
+```
+
+Now `$lesson->status` is always a `LessonStatus` instance. Comparison, match, autocomplete — all type-safe.
+
+## Where enums live
+
+`app/Enums/` at the root, with subfolders by domain when there are many:
+
+```
+app/
+└── Enums/
+    ├── Auth/
+    │   └── UserRole.php
+    ├── Lessons/
+    │   ├── LessonStatus.php
+    │   └── DifficultyLevel.php
+    └── Push/
+        └── PushType.php
+```
+
+## Push payload type routing — enum first
+
+```php
+namespace App\Enums\Push;
+
+enum PushType: string
+{
+    case NewLesson    = 'new_lesson';
+    case Achievement  = 'achievement';
+    case StreakAlert  = 'streak_alert';
+}
+```
+
+```php
+public function handle(PushPayload $payload): ?NativeResponse
+{
+    $type = PushType::tryFrom($payload->data['type'] ?? '');
+
+    return match ($type) {
+        PushType::NewLesson   => app(LessonPushHandler::class)->handle($payload),
+        PushType::Achievement => app(AchievementPushHandler::class)->handle($payload),
+        PushType::StreakAlert => app(StreakPushHandler::class)->handle($payload),
+        null                  => null,
+    };
+}
+```
+
+The server can keep sending strings — `tryFrom()` returns `null` for unknown types instead of throwing, so unknown future types degrade gracefully.
+
+## Constants for tunables
+
+Any number or string that controls behavior is a class constant. Each constant has an obvious name that documents why it exists.
+
+```php
+class AuthService
+{
+    private const MAX_LOGIN_ATTEMPTS = 5;
+    private const LOCKOUT_MINUTES = 15;
+    private const TOKEN_TTL_DAYS = 30;
+
+    public function attempt(string $email, string $password): array
+    {
+        if ($this->failedAttempts($email) >= self::MAX_LOGIN_ATTEMPTS) {
+            return ['ok' => false, 'message' => "Try again in " . self::LOCKOUT_MINUTES . " minutes"];
+        }
+        // ...
+    }
+}
+```
+
+```php
+class PaymentClient
+{
+    private const TIMEOUT_SECONDS = 10;
+    private const RETRIES = 3;
+    private const RETRY_DELAY_MS = 200;
+
+    public function charge(int $cents, string $currency): array
+    {
+        return Http::timeout(self::TIMEOUT_SECONDS)
+            ->retry(self::RETRIES, self::RETRY_DELAY_MS)
+            ->post('/charges', ['amount' => $cents, 'currency' => $currency])
+            ->json();
+    }
+}
+```
+
+The grep-ability and refactor safety justifies the seven extra characters of `self::`.
+
+## State wrappers ARE this pattern
+
+Notice how `app/Native/State/AuthState.php` already follows the rule:
+
+```php
+class AuthState
+{
+    private const KEY = 'auth.user';  // ← constant, not a literal at the call site
+}
+```
+
+Every state wrapper has its key as a private constant. That's why we never call `NativeBlade::setState('auth.user', ...)` from the outside.
+
+## What stays a literal
+
+- Tiny tags that exist in one place only: `->id('login')`, `->channel('lessons')`. If a string appears in exactly one call and refactoring it means touching only that line, it's fine.
+- HTML class names, route paths, error messages that the user reads. Those live in Blade or `lang/` files.
+
+## Anti-patterns
+
+```php
+// ❌ Bad
+if ($lesson->status === 'completed') { ... }                          // magic string
+$user->role === 'admin' ? $this->showAdmin() : $this->showUser();     // typo-prone
+Http::timeout(10)->retry(3, 200)->post($url);                         // magic numbers
+$cache->put('user_' . $id, $value, 3600);                             // what's 3600?
+```
+
+```php
+// ✅ Good
+if ($lesson->status === LessonStatus::Completed) { ... }
+$user->role === UserRole::Admin ? $this->showAdmin() : $this->showUser();
+Http::timeout(self::TIMEOUT_SECONDS)->retry(self::RETRIES, self::RETRY_DELAY_MS)->post($url);
+$cache->put(self::userKey($id), $value, self::CACHE_TTL_SECONDS);
+```
+
+The right test: if a junior reads only the call site, would they understand what the value means? If no, it's wrong.
+TXT,
+        ],
+
         'debugging' => [
             'summary' => 'How to debug code running inside PHP-WASM (no dd(), no Laravel log file).',
             'body' => <<<'TXT'
@@ -476,6 +657,8 @@ Each of these is a flag the architecture is being violated. Refactor away from t
 
 7. **Component calling Http:: directly** — Wrap the external API in `app/Http/Clients/`. The service depends on the client.
 
+8. **Magic string / magic number in business code** — Closed sets become enums in `app/Enums/`. Tunables (timeouts, retries, limits, TTLs) become private class constants. Only one-off tags (`->id('login')`) stay as literals.
+
 The MCP `architecture_recipe` tool returns the correct pattern for each of these when asked.
 TXT,
         ],
@@ -488,7 +671,7 @@ TXT,
 
     public function description(): string
     {
-        return 'Returns the NativeBlade-canonical pattern for a specific use case (component-controller, form-validation, global-state, push-handler, deep-link, biometric-flow, multiple-http-pool, repository-vs-eloquent, http-client, file-organization, debugging, anti-patterns). Use this when generating code instead of guessing — it returns rules + example for each pattern. Call with no arguments to list every recipe.';
+        return 'Returns the NativeBlade-canonical pattern for a specific use case (component-controller, form-validation, global-state, push-handler, deep-link, biometric-flow, multiple-http-pool, repository-vs-eloquent, http-client, file-organization, enums-and-constants, debugging, anti-patterns). Use this when generating code instead of guessing — it returns rules + example for each pattern. Call with no arguments to list every recipe.';
     }
 
     public function inputSchema(): array

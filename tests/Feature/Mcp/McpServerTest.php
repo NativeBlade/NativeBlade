@@ -109,6 +109,16 @@ class McpServerTest extends TestCase
         $this->assertStringContainsString("dd()", $payload);
     }
 
+    public function test_architecture_recipe_enums_covers_magic_strings_and_numbers(): void
+    {
+        $payload = $this->callTool('architecture_recipe', ['use_case' => 'enums-and-constants']);
+
+        $this->assertStringContainsString('enum LessonStatus', $payload);
+        $this->assertStringContainsString('app/Enums/', $payload);
+        $this->assertStringContainsString('tryFrom', $payload);
+        $this->assertStringContainsString('private const', $payload);
+    }
+
     public function test_architecture_recipe_returns_recipe_body_for_known_name(): void
     {
         $payload = $this->callTool('architecture_recipe', ['use_case' => 'push-handler']);

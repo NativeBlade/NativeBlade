@@ -485,6 +485,7 @@ PHP;
         $folders = [
             'app/Services'         => 'Business logic. PHP-pure services called by Livewire components.',
             'app/Repositories'     => 'Data access for external MySQL/Postgres. Local SQLite uses Eloquent direct.',
+            'app/Enums'            => 'PHP enums for closed sets (status, type, role). No string literals in business code.',
             'app/Native/Push'      => 'Push notification handlers. Each is a class with handle(PushPayload $payload).',
             'app/Native/DeepLinks' => 'Deep link route handlers.',
             'app/Native/State'     => 'Typed wrappers over NativeBlade::setState/getState. Mandatory: never use string-literal state keys.',

@@ -116,6 +116,11 @@ app/
 ├── Models/                      Eloquent (SQLite local) — call directly from services
 │   └── User.php
 │
+├── Enums/                       Closed sets (status, type, role). No string literals in business code.
+│   ├── Auth/UserRole.php
+│   ├── Lessons/LessonStatus.php
+│   └── Push/PushType.php
+│
 ├── Native/                      Coordinates native APIs
 │   ├── Push/                    Push handlers, registered in AppServiceProvider
 │   │   └── LessonPushHandler.php
@@ -368,6 +373,114 @@ class PaymentClient
 }
 ```
 
+## Enums and constants
+
+Every closed set of values is an enum. Every numeric tunable is a class constant. String literals and magic numbers in business code are bugs in disguise: typos compile, refactors miss callers, IDE autocomplete fails, AI agents hallucinate.
+
+### Enums for closed sets
+
+```php
+// app/Enums/LessonStatus.php
+namespace App\Enums;
+
+enum LessonStatus: string
+{
+    case Locked     = 'locked';
+    case Available  = 'available';
+    case InProgress = 'in_progress';
+    case Completed  = 'completed';
+
+    public function isPlayable(): bool
+    {
+        return $this === self::Available || $this === self::InProgress;
+    }
+}
+```
+
+Cast the column on the model so the value is always typed:
+
+```php
+class Lesson extends Model
+{
+    protected $casts = ['status' => LessonStatus::class];
+}
+```
+
+Now `$lesson->status === LessonStatus::Completed` everywhere. Typos won't compile.
+
+### Enums live in `app/Enums/`
+
+By domain when there are many:
+
+```
+app/Enums/
+├── Auth/UserRole.php
+├── Lessons/{LessonStatus,DifficultyLevel}.php
+└── Push/PushType.php
+```
+
+### Push routing prefers enums + `tryFrom()`
+
+```php
+enum PushType: string
+{
+    case NewLesson   = 'new_lesson';
+    case Achievement = 'achievement';
+}
+
+public function handle(PushPayload $payload): ?NativeResponse
+{
+    return match (PushType::tryFrom($payload->data['type'] ?? '')) {
+        PushType::NewLesson   => app(LessonPushHandler::class)->handle($payload),
+        PushType::Achievement => app(AchievementPushHandler::class)->handle($payload),
+        null                  => null,  // unknown future type degrades gracefully
+    };
+}
+```
+
+### Constants for tunables
+
+Timeouts, retry counts, TTLs, limits — anything numeric or short string that controls behavior. Name documents the why.
+
+```php
+class AuthService
+{
+    private const MAX_LOGIN_ATTEMPTS = 5;
+    private const LOCKOUT_MINUTES = 15;
+    private const TOKEN_TTL_DAYS = 30;
+}
+
+class PaymentClient
+{
+    private const TIMEOUT_SECONDS = 10;
+    private const RETRIES = 3;
+    private const RETRY_DELAY_MS = 200;
+}
+```
+
+State wrappers already follow this — `private const KEY = 'auth.user'` is exactly this pattern. Extend the discipline everywhere business logic lives.
+
+### When a literal is fine
+
+- One-off tags in fluent builders: `->id('login')`, `->channel('lessons')`. If the string appears in exactly one place and refactoring it means editing only that line, leaving it inline is fine.
+- HTML class names, route paths, user-facing copy. Those live in Blade and `lang/` files.
+
+### The test
+
+If a junior reads only the call site, would they understand what the value means?
+
+```php
+if ($lesson->status === 'completed') { ... }                  // no
+Http::timeout(10)->retry(3, 200)->post($url);                 // no
+$cache->put('user_' . $id, $value, 3600);                     // no
+
+if ($lesson->status === LessonStatus::Completed) { ... }      // yes
+Http::timeout(self::TIMEOUT_SECONDS)
+    ->retry(self::RETRIES, self::RETRY_DELAY_MS)
+    ->post($url);                                             // yes
+$cache->put(self::userKey($id), $value, self::CACHE_TTL_SECONDS); // yes
+```
+
 ## Debugging
 
 PHP-WASM breaks the usual Laravel debugging tools:
@@ -416,6 +529,8 @@ These are bugs in disguise. The MCP architecture tool will flag any of these.
 5. **Manual validation in the component.** Use a Livewire Form Object.
 6. **Closure push handler in `AppServiceProvider`.** Extract to `app/Native/Push/{Domain}PushHandler.php` with a `handle()` method.
 7. **Component calling `Http::get(...)` directly.** Wrap the external API in `app/Http/Clients/`.
+
+8. **Magic string or magic number in business code.** Closed sets become enums in `app/Enums/`. Tunables (timeouts, retries, limits, TTLs) become private class constants. Only one-off tags (`->id('login')`) stay inline.
 
 ## Worked example: a complete feature
 
