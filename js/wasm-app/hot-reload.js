@@ -17,15 +17,14 @@ export function init(navigate, getCurrentPath) {
 
     if (hasWs) {
         setupHMR();
+        return;
     }
     if (serverUrl) {
-        setupPolling(serverUrl, hasWs);
+        setupPolling(serverUrl);
     }
 }
 
 function resolveServerUrl() {
-    // Portal mode: the bundle is served from a remote dev server, and the same
-    // origin hosts the /__php_changes + /__php_version polling endpoints.
     const portalBase = (typeof window !== 'undefined' ? window.__NB_BUNDLE_BASE__ : null)
         ?? readLocalStorage('nb:bundleBase');
     if (typeof portalBase === 'string' && portalBase.length) {
@@ -56,9 +55,10 @@ function readLocalStorage(key) {
     try { return window.localStorage?.getItem?.(key) ?? null; } catch { return null; }
 }
 
-function scheduleChange(wasmPath, content, version) {
+function scheduleChange(change) {
+    const { version = 0 } = change;
     if (version && version <= lastVersion) return;
-    pendingChanges.set(wasmPath, content);
+    pendingChanges.set(change.wasmPath, change);
     if (version) lastVersion = Math.max(lastVersion, version);
 
     if (flushTimer) clearTimeout(flushTimer);
@@ -72,42 +72,36 @@ async function flushPending() {
     const php = getInstance();
     if (!php) return;
 
-    const entries = [...pendingChanges.entries()];
+    const entries = [...pendingChanges.values()];
     pendingChanges.clear();
 
-    try {
-        const files = php.listFiles('/app/storage/framework/views');
-        for (const f of files) {
-            if (f !== '.' && f !== '..') {
-                try { php.unlink('/app/storage/framework/views/' + f); } catch {}
-            }
-        }
-    } catch {}
-
-    for (const [wasmPath, content] of entries) {
+    for (const change of entries) {
         try {
-            const parent = wasmPath.substring(0, wasmPath.lastIndexOf('/'));
+            if (change.op === 'unlink') {
+                try { php.unlink(change.wasmPath); } catch {}
+                continue;
+            }
+            const parent = change.wasmPath.substring(0, change.wasmPath.lastIndexOf('/'));
             if (parent) php.mkdirTree(parent);
-            php.writeFile(wasmPath, content);
+            php.writeFile(change.wasmPath, change.content);
         } catch {}
     }
 
     if (navigateFn && getPathFn) {
-        try { await navigateFn(getPathFn()); } catch {}
+        try { await navigateFn(getPathFn(), { transition: 'none', force: true }); } catch {}
     }
 }
 
 function setupHMR() {
     import.meta.hot.on('php-file-changed', (data) => {
-        scheduleChange(data.wasmPath, data.content, data.version || 0);
+        scheduleChange(data);
     });
 }
 
-function setupPolling(serverUrl, hasWs) {
+function setupPolling(serverUrl) {
     const nativeFetch = window.fetch.bind(window);
     let backoffMs = 1000;
     const backoffCeil = 30000;
-    let baselined = false;
     let lastStatus = null;
 
     function postStatus(status) {
@@ -138,9 +132,9 @@ function setupPolling(serverUrl, hasWs) {
             if (typeof data.version === 'number') {
                 lastVersion = Math.max(lastVersion, data.version);
             }
-            baselined = true;
             backoffMs = 1000;
             postStatus('connected');
+            setTimeout(check, 1000);
         } catch {
             postStatus('disconnected');
             backoffMs = Math.min(backoffMs * 2, backoffCeil);
@@ -153,7 +147,7 @@ function setupPolling(serverUrl, hasWs) {
             const data = await fetchJson(`${serverUrl}/__php_changes?since=${lastVersion}`);
             if (Array.isArray(data.changes)) {
                 for (const change of data.changes) {
-                    scheduleChange(change.wasmPath, change.content, change.version || 0);
+                    scheduleChange(change);
                 }
             }
             if (typeof data.version === 'number') {
@@ -165,11 +159,8 @@ function setupPolling(serverUrl, hasWs) {
             postStatus('disconnected');
             backoffMs = Math.min(backoffMs * 2, backoffCeil);
         }
-        setTimeout(check, hasWs ? backoffMs * 3 : backoffMs);
+        setTimeout(check, backoffMs);
     }
 
-    (async () => {
-        await baseline();
-        if (baselined) setTimeout(check, hasWs ? 3000 : 1000);
-    })();
+    baseline();
 }

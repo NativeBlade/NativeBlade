@@ -61,19 +61,41 @@ export default function phpHmrPlugin(projectRoot) {
                 }
             });
 
-            server.watcher.on('change', (filePath) => {
-                if (!/\.(php|blade\.php|json)$/.test(filePath)) return;
+            const isWatched = (filePath) => /\.(php|blade\.php|json)$/.test(filePath);
 
+            const kindFor = (filePath) => {
+                if (/\.blade\.php$/.test(filePath)) return 'blade';
+                if (/\.json$/.test(filePath)) return 'json';
+                return 'php';
+            };
+
+            const emit = (op, filePath, content) => {
                 try {
-                    const content = readFileSync(filePath, 'utf-8');
                     const wasmPath = toWasmPath(filePath);
+                    const kind = kindFor(filePath);
                     version++;
 
-                    changes.push({ wasmPath, content, version });
+                    const change = { op, wasmPath, content, kind, version };
+                    changes.push(change);
                     if (changes.length > 100) changes.splice(0, changes.length - 100);
 
-                    server.ws.send('php-file-changed', { wasmPath, content, version });
+                    server.ws.send('php-file-changed', change);
                 } catch {}
+            };
+
+            server.watcher.on('change', (filePath) => {
+                if (!isWatched(filePath)) return;
+                try { emit('change', filePath, readFileSync(filePath, 'utf-8')); } catch {}
+            });
+
+            server.watcher.on('add', (filePath) => {
+                if (!isWatched(filePath)) return;
+                try { emit('add', filePath, readFileSync(filePath, 'utf-8')); } catch {}
+            });
+
+            server.watcher.on('unlink', (filePath) => {
+                if (!isWatched(filePath)) return;
+                emit('unlink', filePath, null);
             });
 
             // Permissive CORS on every response so the installed Portal app
