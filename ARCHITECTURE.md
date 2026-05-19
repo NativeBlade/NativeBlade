@@ -481,6 +481,118 @@ Http::timeout(self::TIMEOUT_SECONDS)
 $cache->put(self::userKey($id), $value, self::CACHE_TTL_SECONDS); // yes
 ```
 
+## Internationalization
+
+NativeBlade i18n has two APIs that mirror each other and one State wrapper to keep them in sync.
+
+| Side | Function | File source | Placeholder |
+|---|---|---|---|
+| PHP / Blade / Livewire | `__('key.path', ['name' => $x])` or `@lang(...)` | `lang/{locale}/{file}.php` | `:name` |
+| JS (shell, custom JS components) | `t('key.path', { name: x })` | `lang/{locale}.json` | `:name` |
+
+Same `:placeholder` syntax on both sides so strings look identical.
+
+### Layer 1: shell strings (JS, via `t()`)
+
+The splash and boot screens render before PHP boots, so they use `t()` from `js/runtime/i18n.js`. NativeBlade ships `lang/en.json` and `lang/pt_BR.json` covering boot/splash keys. Add a new locale by dropping `lang/{locale}.json` with the same keys.
+
+```js
+import { t } from '../runtime/i18n.js';
+statusEl.textContent = t('boot.loading');
+```
+
+JS detects the locale via, in order: `./nativeblade-locale.json` → `navigator.language` (OS language in Tauri) → `'en'`.
+
+### Layer 2: app strings (PHP, via `__()`)
+
+Standard Laravel translation files at `lang/{locale}/{file}.php`. Use in Blade and Livewire:
+
+```blade
+<h1>{{ __('messages.welcome', ['name' => $user['name']]) }}</h1>
+<a href="/lessons">{{ __('messages.lessons') }}</a>
+```
+
+```php
+$this->error = __('auth.failed');
+```
+
+### The bridge: `LocaleState`
+
+Without coordination, JS uses `navigator.language` and PHP uses `config('app.locale')` from `.env`. They drift apart. Fix with a State wrapper plus middleware so both halves agree.
+
+```php
+// app/Native/State/LocaleState.php
+class LocaleState
+{
+    private const KEY = 'locale.current';
+    private const SUPPORTED = ['en', 'pt_BR'];
+    private const DEFAULT = 'en';
+
+    public static function set(string $locale): void
+    {
+        if (! in_array($locale, self::SUPPORTED, true)) return;
+        NativeBlade::setState(self::KEY, $locale);
+        app()->setLocale($locale);
+    }
+
+    public static function current(): string
+    {
+        return NativeBlade::getState(self::KEY, self::DEFAULT);
+    }
+
+    public static function supported(): array
+    {
+        return self::SUPPORTED;
+    }
+}
+```
+
+```php
+// app/Http/Middleware/ApplyLocale.php
+class ApplyLocale
+{
+    public function handle($request, Closure $next)
+    {
+        app()->setLocale(LocaleState::current());
+        return $next($request);
+    }
+}
+```
+
+Register as global web middleware in `bootstrap/app.php`. Every request reads the persisted locale before Blade renders anything.
+
+### Switching language at runtime
+
+```php
+class Settings extends Component
+{
+    public string $locale = '';
+
+    public function mount()
+    {
+        $this->locale = LocaleState::current();
+    }
+
+    public function changeLanguage()
+    {
+        LocaleState::set($this->locale);
+        return NativeBlade::navigate('/settings', force: true)->toResponse();
+    }
+}
+```
+
+`LocaleState::set` writes to `NB::setState` (persistent), so the choice survives app restart. Next request reads from the wrapper.
+
+### When the JS shell should follow the user choice
+
+If you need the splash to track the user's pick instead of the OS, write `public/nativeblade-locale.json` with the current locale after every `LocaleState::set` — `i18n.js` reads that file at boot. Most apps skip this since the splash is gone in under a second.
+
+### Anti-patterns
+
+- Hardcoded user-facing strings in Blade, Livewire, or shell JS. Every visible string flows through `__()` (PHP) or `t()` (JS).
+- `app()->setLocale($x)` called directly from a component. Always via `LocaleState::set()` so the value persists.
+- String-literal locale codes outside `LocaleState`. Keep the supported list in one place.
+
 ## Debugging
 
 PHP-WASM breaks the usual Laravel debugging tools:

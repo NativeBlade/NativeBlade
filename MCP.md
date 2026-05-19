@@ -149,7 +149,7 @@ Returns the full Markdown content of one doc file. Only callable for files insid
 
 ### `architecture_recipe`
 
-Returns the canonical NativeBlade pattern for a specific use case: component-controller, form-validation, global-state, push-handler, deep-link, biometric-flow, multiple-http-pool, repository-vs-eloquent, http-client, file-organization, enums-and-constants, debugging, anti-patterns. Call with no arguments to list every available recipe; call with `use_case=<name>` for the full text plus example code.
+Returns the canonical NativeBlade pattern for a specific use case: component-controller, form-validation, global-state, push-handler, deep-link, biometric-flow, multiple-http-pool, repository-vs-eloquent, http-client, file-organization, enums-and-constants, i18n, debugging, anti-patterns. Call with no arguments to list every available recipe; call with `use_case=<name>` for the full text plus example code.
 
 This is the **opinionated** tool. The other five describe what NativeBlade IS; this one tells the agent how to USE it. Agents that follow these recipes produce code that fits the framework's architecture out of the box (thin Livewire controllers, services for business logic, typed state wrappers, push handlers as classes, etc.).
 

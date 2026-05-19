@@ -419,6 +419,195 @@ This makes "what does this feature touch" a single folder browse.
 TXT,
         ],
 
+        'i18n' => [
+            'summary' => 'How to support multiple languages — shell strings, Blade strings, and keeping JS and PHP in sync.',
+            'body' => <<<'TXT'
+NativeBlade i18n has two layers and one bridge.
+
+## Two APIs, one mental model
+
+| Side | Function | File source | Placeholder |
+|---|---|---|---|
+| PHP / Blade / Livewire | `__('key.path', ['name' => $x])` / `@lang(...)` | `lang/{locale}/{file}.php` | `:name` |
+| JS (shell, custom JS components) | `t('key.path', { name: x })` | `lang/{locale}.json` | `:name` |
+
+Both use the same `:placeholder` substitution syntax, so the translation strings look identical on either side.
+
+## Layer 1: shell strings (JS, via `t()`)
+
+The native splash and boot screens render before PHP boots, so they cannot use Laravel translations. They use the JS-side `t()` exported from `js/runtime/i18n.js`, which loads flat-key JSON from `lang/{locale}.json` at boot.
+
+```js
+import { t } from '../runtime/i18n.js';
+
+statusEl.textContent = t('boot.loading');
+toast.textContent = t('errors.network', { code: 503 });
+```
+
+NativeBlade ships `lang/en.json` and `lang/pt_BR.json` with the boot/splash keys. Add a new locale by dropping `lang/{locale}.json` with the same keys:
+
+```json
+{
+    "boot.loading": "Carregando...",
+    "boot.ready": "Pronto!",
+    "splash.loading": "Iniciando..."
+}
+```
+
+You can extend the same files with your own JS-side keys when you have custom shell components, but most app strings should live on the PHP side (Layer 2), not here.
+
+JS detects the locale via, in order:
+1. `./nativeblade-locale.json` (optional file with `{"locale": "pt_BR"}`)
+2. `navigator.language` (reflects OS language in Tauri WebView)
+3. `'en'` fallback
+
+## Layer 2: app strings (PHP / Blade / Livewire)
+
+Standard Laravel. Place files under `lang/{locale}/{file}.php` and call `__()` or `@lang()`:
+
+```php
+// lang/en/messages.php
+return [
+    'welcome' => 'Welcome, :name',
+    'lessons' => 'Lessons',
+];
+
+// lang/pt_BR/messages.php
+return [
+    'welcome' => 'Bem-vindo, :name',
+    'lessons' => 'Lições',
+];
+```
+
+```blade
+<h1>{{ __('messages.welcome', ['name' => $user['name']]) }}</h1>
+<a href="/lessons">{{ __('messages.lessons') }}</a>
+```
+
+```php
+class Login extends Component
+{
+    public function login()
+    {
+        // ...
+        $this->error = __('auth.failed');
+    }
+}
+```
+
+`@lang('auth.failed')` and `trans_choice('messages.lessons_count', $count)` also work.
+
+## The bridge: LocaleState
+
+Without coordination, JS reads `navigator.language` and PHP reads `config('app.locale')` from `.env`. They desync. The fix is a State wrapper plus a tiny middleware so both sides agree.
+
+```php
+// app/Native/State/LocaleState.php
+namespace App\Native\State;
+
+use NativeBlade\Facades\NativeBlade;
+
+class LocaleState
+{
+    private const KEY = 'locale.current';
+    private const SUPPORTED = ['en', 'pt_BR'];
+    private const DEFAULT = 'en';
+
+    public static function set(string $locale): void
+    {
+        if (! in_array($locale, self::SUPPORTED, true)) return;
+        NativeBlade::setState(self::KEY, $locale);
+        app()->setLocale($locale);
+    }
+
+    public static function current(): string
+    {
+        return NativeBlade::getState(self::KEY, self::DEFAULT);
+    }
+
+    public static function supported(): array
+    {
+        return self::SUPPORTED;
+    }
+}
+```
+
+```php
+// app/Http/Middleware/ApplyLocale.php
+namespace App\Http\Middleware;
+
+use App\Native\State\LocaleState;
+use Closure;
+
+class ApplyLocale
+{
+    public function handle($request, Closure $next)
+    {
+        app()->setLocale(LocaleState::current());
+        return $next($request);
+    }
+}
+```
+
+Register it as a global middleware in `bootstrap/app.php`:
+
+```php
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->web(append: [\App\Http\Middleware\ApplyLocale::class]);
+})
+```
+
+## Switching language at runtime
+
+A settings screen calls the State wrapper. Since the State change persists, the next request reads the new locale and Blade renders the right strings.
+
+```php
+class Settings extends Component
+{
+    public string $locale = '';
+
+    public function mount()
+    {
+        $this->locale = LocaleState::current();
+    }
+
+    public function changeLanguage()
+    {
+        LocaleState::set($this->locale);
+        return NativeBlade::navigate('/settings', force: true)->toResponse();
+    }
+
+    public function render()
+    {
+        return view('livewire.settings', ['available' => LocaleState::supported()]);
+    }
+}
+```
+
+```blade
+<select wire:model.change="locale" wire:click="changeLanguage">
+    @foreach($available as $lang)
+        <option value="{{ $lang }}">{{ $lang }}</option>
+    @endforeach
+</select>
+```
+
+## Sync to the JS shell (optional)
+
+If you want the boot/splash to also follow the user's choice (not just the OS language), expose the locale via the bundle so the next cold start picks it up. Either:
+- Write `public/nativeblade-locale.json` with `{"locale": "pt_BR"}` after `LocaleState::set()` (i18n.js reads this file at boot), or
+- Inject `<meta name="nb-locale" content="pt_BR">` in the shell HTML and read it from i18n.js
+
+Most apps live with "shell uses OS language, app uses user choice" because the splash screen flashes for <1s and the user rarely cares.
+
+## Anti-patterns
+
+- Hardcoded user-facing strings in Blade or PHP. Every visible string goes through `__()` or `@lang()`.
+- Calling `app()->setLocale($x)` directly from a component. Always via `LocaleState::set()` so the value persists.
+- String literal locale codes (`'pt_BR'`) outside the LocaleState wrapper. Define `SUPPORTED` once.
+TXT,
+        ],
+
         'enums-and-constants' => [
             'summary' => 'How to model closed sets and tunables — never use string literals or magic numbers.',
             'body' => <<<'TXT'
@@ -671,7 +860,7 @@ TXT,
 
     public function description(): string
     {
-        return 'Returns the NativeBlade-canonical pattern for a specific use case (component-controller, form-validation, global-state, push-handler, deep-link, biometric-flow, multiple-http-pool, repository-vs-eloquent, http-client, file-organization, enums-and-constants, debugging, anti-patterns). Use this when generating code instead of guessing — it returns rules + example for each pattern. Call with no arguments to list every recipe.';
+        return 'Returns the NativeBlade-canonical pattern for a specific use case (component-controller, form-validation, global-state, push-handler, deep-link, biometric-flow, multiple-http-pool, repository-vs-eloquent, http-client, file-organization, enums-and-constants, i18n, debugging, anti-patterns). Use this when generating code instead of guessing — it returns rules + example for each pattern. Call with no arguments to list every recipe.';
     }
 
     public function inputSchema(): array

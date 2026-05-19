@@ -119,6 +119,18 @@ class McpServerTest extends TestCase
         $this->assertStringContainsString('private const', $payload);
     }
 
+    public function test_architecture_recipe_i18n_covers_both_apis_and_locale_state(): void
+    {
+        $payload = $this->callTool('architecture_recipe', ['use_case' => 'i18n']);
+
+        $this->assertStringContainsString('LocaleState', $payload);
+        $this->assertStringContainsString("__(", $payload);
+        $this->assertStringContainsString("t('", $payload);
+        $this->assertStringContainsString('ApplyLocale', $payload);
+        $this->assertStringContainsString('lang/{locale}.json', $payload);
+        $this->assertStringContainsString('lang/{locale}/{file}.php', $payload);
+    }
+
     public function test_architecture_recipe_returns_recipe_body_for_known_name(): void
     {
         $payload = $this->callTool('architecture_recipe', ['use_case' => 'push-handler']);
