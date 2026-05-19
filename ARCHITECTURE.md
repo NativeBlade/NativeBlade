@@ -368,6 +368,43 @@ class PaymentClient
 }
 ```
 
+## Debugging
+
+PHP-WASM breaks the usual Laravel debugging tools:
+
+- `dd()` and `dump()` halt execution but produce no output — you see a frozen iframe.
+- `Log::info()` writes to `storage/logs/laravel.log` inside the WASM filesystem, where nobody is watching.
+- `error_log()` works but goes to stderr without context.
+
+Use **`NativeBlade::log()`** — it pipes structured entries through the request handler to the browser DevTools console of the shell, where you actually look.
+
+```php
+NativeBlade::log('User logged in', ['id' => $user->id], 'info');
+NativeBlade::log('Slow query', ['ms' => $duration], 'warn');
+NativeBlade::log('Payment failed', ['order' => $orderId, 'err' => $e->getMessage()], 'error');
+NativeBlade::log('Trail snapshot', $trail->toArray(), 'debug');
+```
+
+In DevTools you get colored output keyed by level:
+
+```
+[NB:info]  User logged in    {id: 42}
+[NB:warn]  Slow query        {ms: 1247}
+[NB:error] Payment failed    {order: 1001, err: "..."}
+[NB:debug] Trail snapshot    {xp: 320, streak: 4, completed: [...]}
+```
+
+Filter by level in DevTools as usual. The four levels map to `console.log` / `warn` / `error` / `debug`.
+
+**Where to log:**
+- **Services** — log domain events you'd want to see while debugging a feature
+- **Push handlers** — log every incoming payload while developing the handler, then remove
+- **Components** — only the unexpected branch (validation failed for a weird reason, service returned an unusual shape)
+
+**Production discipline:** strip `debug` and most `info` calls before shipping, or wrap behind `app()->environment('local')`. `warn` and `error` can stay — they help triage user-reported bugs after launch.
+
+Anti-pattern: `dd()` in a Livewire component. The render breaks silently.
+
 ## Anti-patterns
 
 These are bugs in disguise. The MCP architecture tool will flag any of these.

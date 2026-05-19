@@ -96,7 +96,17 @@ class McpServerTest extends TestCase
         $this->assertContains('form-validation', $names);
         $this->assertContains('global-state', $names);
         $this->assertContains('push-handler', $names);
+        $this->assertContains('debugging', $names);
         $this->assertContains('anti-patterns', $names);
+    }
+
+    public function test_architecture_recipe_returns_debugging_with_nativeblade_log(): void
+    {
+        $payload = $this->callTool('architecture_recipe', ['use_case' => 'debugging']);
+
+        $this->assertStringContainsString('NativeBlade::log', $payload);
+        $this->assertStringContainsString('[NB:info]', $payload);
+        $this->assertStringContainsString("dd()", $payload);
     }
 
     public function test_architecture_recipe_returns_recipe_body_for_known_name(): void

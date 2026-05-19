@@ -419,6 +419,44 @@ This makes "what does this feature touch" a single folder browse.
 TXT,
         ],
 
+        'debugging' => [
+            'summary' => 'How to debug code running inside PHP-WASM (no dd(), no Laravel log file).',
+            'body' => <<<'TXT'
+Standard Laravel debugging breaks in NativeBlade:
+- `dd()` and `dump()` halt PHP execution mid-request, but the request runs inside WASM with no terminal output. The user sees a broken page; you see nothing.
+- `Log::info(...)` writes to `storage/logs/laravel.log`, which lives inside the WASM filesystem. Nobody is tailing that file.
+- `error_log(...)` writes to PHP-WASM stderr but you have to know where it surfaces.
+
+The supported way is **`NativeBlade::log()`** — it pipes structured entries from PHP-WASM into the browser DevTools console of the shell, where you actually have eyes.
+
+```php
+NativeBlade::log('User logged in', ['id' => $user->id], 'info');
+NativeBlade::log('Slow query', ['ms' => $duration], 'warn');
+NativeBlade::log('Payment failed', ['order' => $orderId, 'error' => $e->getMessage()], 'error');
+NativeBlade::log('Trail snapshot', $trail->toArray(), 'debug');
+```
+
+In DevTools you see colored output:
+```
+[NB:info]  User logged in {id: 42}
+[NB:warn]  Slow query {ms: 1247}
+[NB:error] Payment failed {order: 1001, error: "..."}
+[NB:debug] Trail snapshot {xp: 320, streak: 4, completed: [...]}
+```
+
+Levels map to `console.log`/`warn`/`error`/`debug`. Filter by level in DevTools as usual.
+
+**Where to log:**
+- In services, log domain events (`AuthService::attempt → 'login attempt'`)
+- In push handlers, log every incoming payload while developing
+- In components, only log unexpected branches (a service returning false, validation failing in an odd way) — not routine flow
+
+**Production discipline:** remove (or wrap behind `app()->environment('local')`) the `debug` and `info` calls before shipping. `warn`/`error` can stay — they help when triaging user-reported issues.
+
+Anti-pattern: `dd()` in a Livewire component. The render breaks, you see a frozen iframe, no info.
+TXT,
+        ],
+
         'anti-patterns' => [
             'summary' => 'The 7 forbidden patterns that signal the architecture is breaking down.',
             'body' => <<<'TXT'
@@ -450,7 +488,7 @@ TXT,
 
     public function description(): string
     {
-        return 'Returns the NativeBlade-canonical pattern for a specific use case (component-controller, form-validation, global-state, push-handler, deep-link, biometric-flow, multiple-http-pool, repository-vs-eloquent, http-client, file-organization, anti-patterns). Use this when generating code instead of guessing — it returns rules + example for each pattern. Call with no arguments to list every recipe.';
+        return 'Returns the NativeBlade-canonical pattern for a specific use case (component-controller, form-validation, global-state, push-handler, deep-link, biometric-flow, multiple-http-pool, repository-vs-eloquent, http-client, file-organization, debugging, anti-patterns). Use this when generating code instead of guessing — it returns rules + example for each pattern. Call with no arguments to list every recipe.';
     }
 
     public function inputSchema(): array
