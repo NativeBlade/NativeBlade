@@ -15,6 +15,7 @@
   <a href="CONFIGURATION.md">Configuration</a> &bull;
   <a href="COMPONENTS.md">Components</a> &bull;
   <a href="DIRECTIVES.md">Directives &amp; Attributes</a> &bull;
+  <a href="ARCHITECTURE.md">Architecture</a> &bull;
   <a href="NAVIGATE.md">Navigate</a> &bull;
   <a href="PLUGINS.md">Plugins</a> &bull;
   <a href="PUSH.md">Push</a> &bull;
@@ -334,6 +335,7 @@ NativeBlade is a **client-side runtime**, so anything inherently server-side (se
 | Doc | Description |
 |-----|-------------|
 | [CONFIGURATION.md](CONFIGURATION.md) | Desktop, Android, iOS configs, permissions, privacy manifest, transitions |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Opinionated app structure — Component = Controller, services, state wrappers, push handlers, folder layout |
 | [NAVIGATE.md](NAVIGATE.md) | SPA routing — `wire:nb-navigate` directive, `NativeBlade::navigate()`, transition and replace modifiers |
 | [COMPONENTS.md](COMPONENTS.md) | Shell components, icons, images, skeleton, fonts, safe area, custom components |
 | [DIRECTIVES.md](DIRECTIVES.md) | wire:nb-bridge, wire:nb-navigate, nb-feedback, native actions |

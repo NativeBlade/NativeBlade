@@ -56,7 +56,7 @@ class McpServerTest extends TestCase
         $this->assertSame('2025-11-25', $response['result']['protocolVersion']);
     }
 
-    public function test_tools_list_returns_all_five_tools(): void
+    public function test_tools_list_returns_all_six_tools(): void
     {
         $response = $this->server->handle([
             'jsonrpc' => '2.0',
@@ -69,6 +69,7 @@ class McpServerTest extends TestCase
         sort($names);
 
         $this->assertSame([
+            'architecture_recipe',
             'describe_facade_method',
             'list_docs',
             'list_facade_methods',
@@ -81,6 +82,42 @@ class McpServerTest extends TestCase
             $this->assertArrayHasKey('inputSchema', $tool);
             $this->assertSame('object', $tool['inputSchema']['type']);
         }
+    }
+
+    public function test_architecture_recipe_without_args_lists_available_recipes(): void
+    {
+        $payload = $this->callTool('architecture_recipe');
+        $data = json_decode($payload, true);
+
+        $this->assertArrayHasKey('available', $data);
+        $names = array_column($data['available'], 'name');
+
+        $this->assertContains('component-controller', $names);
+        $this->assertContains('form-validation', $names);
+        $this->assertContains('global-state', $names);
+        $this->assertContains('push-handler', $names);
+        $this->assertContains('anti-patterns', $names);
+    }
+
+    public function test_architecture_recipe_returns_recipe_body_for_known_name(): void
+    {
+        $payload = $this->callTool('architecture_recipe', ['use_case' => 'push-handler']);
+
+        $this->assertStringContainsString('# push-handler', $payload);
+        $this->assertStringContainsString('handle(PushPayload', $payload);
+        $this->assertStringContainsString('app/Native/Push/', $payload);
+    }
+
+    public function test_architecture_recipe_rejects_unknown_use_case(): void
+    {
+        $response = $this->server->handle([
+            'jsonrpc' => '2.0',
+            'id' => 40,
+            'method' => 'tools/call',
+            'params' => ['name' => 'architecture_recipe', 'arguments' => ['use_case' => 'no-such-recipe']],
+        ]);
+
+        $this->assertTrue($response['result']['isError'] ?? false);
     }
 
     public function test_unknown_method_throws_method_not_found(): void

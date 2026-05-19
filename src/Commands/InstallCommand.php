@@ -471,6 +471,38 @@ PHP;
         }
 
         $this->line("  <fg=green>✓</> Project directories created");
+
+        $this->scaffoldArchitectureFolders();
+    }
+
+    /**
+     * Pre-create the folders NativeBlade's architecture expects. Empty
+     * .gitkeep in each so the structure shows up in IDE trees and IDEs/agents
+     * see the convention without needing to read ARCHITECTURE.md first.
+     */
+    private function scaffoldArchitectureFolders(): void
+    {
+        $folders = [
+            'app/Services'         => 'Business logic. PHP-pure services called by Livewire components.',
+            'app/Repositories'     => 'Data access for external MySQL/Postgres. Local SQLite uses Eloquent direct.',
+            'app/Native/Push'      => 'Push notification handlers. Each is a class with handle(PushPayload $payload).',
+            'app/Native/DeepLinks' => 'Deep link route handlers.',
+            'app/Native/State'     => 'Typed wrappers over NativeBlade::setState/getState. Mandatory: never use string-literal state keys.',
+            'app/Livewire/Forms'   => 'Livewire Form Objects (extends Livewire\\Form) for validation.',
+            'app/Http/Clients'     => 'HTTP clients for EXTERNAL APIs (Stripe, Sentry, etc.). Not for the app\'s own backend.',
+        ];
+
+        foreach ($folders as $rel => $purpose) {
+            $abs = base_path($rel);
+            if (!is_dir($abs)) mkdir($abs, 0755, true);
+
+            $keep = $abs . '/.gitkeep';
+            if (!file_exists($keep)) {
+                file_put_contents($keep, "# {$rel}\n#\n# {$purpose}\n#\n# See ARCHITECTURE.md in the NativeBlade docs for the full pattern.\n");
+            }
+        }
+
+        $this->line("  <fg=green>✓</> Architecture folders scaffolded (see ARCHITECTURE.md)");
     }
 
     private function publishStub(string $stub, string $dest, array $extra = []): void

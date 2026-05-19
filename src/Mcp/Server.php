@@ -2,6 +2,7 @@
 
 namespace NativeBlade\Mcp;
 
+use NativeBlade\Mcp\Tools\ArchitectureRecipe;
 use NativeBlade\Mcp\Tools\DescribeFacadeMethod;
 use NativeBlade\Mcp\Tools\ListDocs;
 use NativeBlade\Mcp\Tools\ListFacadeMethods;
@@ -56,6 +57,7 @@ class Server
             new ProjectState(),
             new ListDocs(),
             new ReadDoc(),
+            new ArchitectureRecipe(),
         ];
 
         foreach ($defaults as $tool) {
