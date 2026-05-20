@@ -404,6 +404,42 @@ class ShellConfig
         return $this->platform() === 'web';
     }
 
+    /**
+     * Human-readable version of the running app, taken from the per-platform
+     * config (`DesktopConfig::version`, `AndroidConfig::version`, etc.).
+     * Returns `'dev'` when running in web/dev mode without a declared version.
+     */
+    public function version(): string
+    {
+        $platform = $this->platform();
+        if (!in_array($platform, ['android', 'ios', 'desktop'], true)) {
+            return 'dev';
+        }
+        try {
+            return (string) (self::getVersion($platform)['version'] ?? 'dev');
+        } catch (\Throwable) {
+            return 'dev';
+        }
+    }
+
+    /**
+     * Integer build number of the running app for the current platform
+     * (`versionCode` on Android, `CFBundleVersion` on iOS, `buildNumber` on
+     * desktop). Returns `0` when running in web/dev mode.
+     */
+    public function buildNumber(): int
+    {
+        $platform = $this->platform();
+        if (!in_array($platform, ['android', 'ios', 'desktop'], true)) {
+            return 0;
+        }
+        try {
+            return (int) (self::getVersion($platform)['buildNumber'] ?? 0);
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
     // ------------------------------------------------------------------
     // Native actions
     // ------------------------------------------------------------------

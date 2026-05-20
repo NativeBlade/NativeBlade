@@ -137,6 +137,25 @@ final class ShellConfigPlatformTest extends TestCase
     }
 
     #[Test]
+    public function version_returns_dev_when_platform_is_web(): void
+    {
+        self::assertSame('dev', $this->config->version());
+        self::assertSame(0, $this->config->buildNumber());
+    }
+
+    #[Test]
+    public function version_reads_from_per_platform_config(): void
+    {
+        $_SERVER['NATIVEBLADE_PLATFORM'] = 'android';
+        $this->config->android(function ($c) {
+            $c->identifier('com.test.app')->version('2.4.7', 47);
+        });
+
+        self::assertSame('2.4.7', $this->config->version());
+        self::assertSame(47, $this->config->buildNumber());
+    }
+
+    #[Test]
     public function name_setter_stores_app_name_globally(): void
     {
         self::assertNull(ShellConfig::getName());

@@ -525,6 +525,37 @@ class NativeResponse
     // Modal
     // ------------------------------------------------------------------
 
+    // ------------------------------------------------------------------
+    // Bundle updates (OTA)
+    // ------------------------------------------------------------------
+
+    /**
+     * Probe the OTA manifest for a newer Laravel bundle without downloading.
+     *
+     * The result is delivered via the `nb:update-check` Livewire event with
+     * arguments: `$available` (bool), `$currentVersion` (?string),
+     * `$nextVersion` (?string), `$reason` (?string), `$error` (?string).
+     * `$reason` is `'not-configured'`, `'fetch-failed'`, `'invalid-manifest'`,
+     * `'up-to-date'`, `'shell-too-old'`, or absent when an update is available.
+     */
+    public function checkUpdate(): static
+    {
+        return $this->push('check_update', []);
+    }
+
+    /**
+     * Force-download the latest Laravel bundle right now and persist it.
+     * Applies on the next app launch — does NOT swap the running bundle.
+     *
+     * The result is delivered via the `nb:update-applied` Livewire event with
+     * arguments: `$applied` (bool), `$version` (?string), `$reason` (?string),
+     * `$error` (?string).
+     */
+    public function forceUpdate(): static
+    {
+        return $this->push('force_update', []);
+    }
+
     /**
      * Show the shell-level modal component (`<x-nativeblade-modal>`).
      */

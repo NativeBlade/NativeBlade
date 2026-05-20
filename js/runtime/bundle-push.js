@@ -91,50 +91,92 @@ async function loadConfig() {
 }
 
 /**
- * Run on boot. Checks the version endpoint, downloads new bundle if
- * available and compatible. Errors are logged but do not block boot.
+ * Probe the configured manifest for a newer bundle without downloading it.
+ * Returns a shape the caller can use to drive UI:
+ *   { available: true,  currentVersion, nextVersion, url }
+ *   { available: false, reason: 'not-configured' | 'fetch-failed' | 'invalid-manifest'
+ *                              | 'up-to-date' | 'shell-too-old',
+ *                       currentVersion?, requiredShell?, currentShell?, error? }
  */
-export async function checkAndDownload() {
+export async function checkForUpdate() {
     const config = await loadConfig();
-    if (!config?.url) return;
+    if (!config?.url) return { available: false, reason: 'not-configured' };
 
     let manifest;
     try {
         manifest = await fetch(config.url, { cache: 'no-store' }).then(r => r.json());
     } catch (e) {
-        console.warn('[NB Push] manifest fetch failed:', e);
-        return;
+        return { available: false, reason: 'fetch-failed', error: e.message || String(e) };
     }
 
     const next = manifest?.bundle;
-    if (!next?.version || !next?.url) return;
+    if (!next?.version || !next?.url) {
+        return { available: false, reason: 'invalid-manifest' };
+    }
 
     const currentVersion = localStorage.getItem(VERSION_KEY) || window.__NB_SHELL_BUNDLE_VERSION__ || '0.0.0';
-    if (versionGte(currentVersion, next.version) && currentVersion === next.version) return;
+    if (versionGte(currentVersion, next.version) && currentVersion === next.version) {
+        return { available: false, reason: 'up-to-date', currentVersion };
+    }
 
     if (next.minShellVersion && window.__NB_SHELL_VERSION__) {
         if (!versionGte(window.__NB_SHELL_VERSION__, next.minShellVersion)) {
-            console.info('[NB Push] bundle requires shell >=' + next.minShellVersion + ', skipping');
-            return;
+            return {
+                available: false,
+                reason: 'shell-too-old',
+                requiredShell: next.minShellVersion,
+                currentShell: window.__NB_SHELL_VERSION__,
+            };
         }
+    }
+
+    return {
+        available: true,
+        currentVersion,
+        nextVersion: next.version,
+        url: next.url,
+    };
+}
+
+/**
+ * Force a download of the next bundle right now and persist it. Returns:
+ *   { applied: true,  version }
+ *   { applied: false, reason?, error? }  // includes everything checkForUpdate returns on failure
+ */
+export async function downloadUpdate() {
+    const check = await checkForUpdate();
+    if (!check.available) {
+        return { applied: false, ...check };
     }
 
     let blob;
     try {
-        const res = await fetch(next.url, { cache: 'no-store' });
+        const res = await fetch(check.url, { cache: 'no-store' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         blob = await res.blob();
     } catch (e) {
-        console.warn('[NB Push] bundle download failed:', e);
-        return;
+        return { applied: false, reason: 'download-failed', error: e.message || String(e) };
     }
 
     try {
         await putCachedBundle(blob);
-        localStorage.setItem(VERSION_KEY, next.version);
-        console.info('[NB Push] bundle ' + next.version + ' downloaded — applies on next reload');
+        localStorage.setItem(VERSION_KEY, check.nextVersion);
+        return { applied: true, version: check.nextVersion };
     } catch (e) {
-        console.warn('[NB Push] could not persist bundle:', e);
+        return { applied: false, reason: 'persist-failed', error: e.message || String(e) };
+    }
+}
+
+/**
+ * Boot-time entry point. Background-only: errors logged, never thrown.
+ * Calls downloadUpdate() and applies on next reload.
+ */
+export async function checkAndDownload() {
+    const result = await downloadUpdate();
+    if (result.applied) {
+        console.info('[NB Push] bundle ' + result.version + ' downloaded — applies on next reload');
+    } else if (result.reason && result.reason !== 'not-configured' && result.reason !== 'up-to-date') {
+        console.warn('[NB Push] ' + result.reason + (result.error ? ': ' + result.error : ''));
     }
 }
 

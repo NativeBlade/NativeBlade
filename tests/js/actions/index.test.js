@@ -47,6 +47,8 @@ const EXPECTED_ACTIONS = [
     'hide',
     'show',
     'tauri_invoke',
+    'check_update',
+    'force_update',
 ];
 
 describe('actions/index', () => {

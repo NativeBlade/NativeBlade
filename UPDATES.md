@@ -211,3 +211,93 @@ php artisan nativeblade:bundle --tag=1.0.5
 - Keep `minShellVersion` accurate — bumping it when you add a plugin saves users from a broken app
 - Use a CDN with proper cache headers (e.g. CloudFront, Cloudflare R2)
 - Version your bundle URLs (`bundle-1.0.5.json.gz`) so old shells keep working with old bundles
+
+## User-driven update controls
+
+By default the bundle check runs in the background on boot and silently downloads when a new version is available. If you want to expose the flow as a UI button ("Check for updates", "Update now"), wire up the dedicated actions on the facade.
+
+### `NativeBlade::checkUpdate()`
+
+Asks the JS bridge to probe the manifest and report back. Does NOT download. Result arrives via the `nb:update-check` Livewire event:
+
+```php
+use Livewire\Attributes\On;
+use NativeBlade\Facades\NativeBlade;
+
+class Settings extends Component
+{
+    public ?array $update = null;
+
+    public function checkForUpdates()
+    {
+        return NativeBlade::checkUpdate()->toResponse();
+    }
+
+    #[On('nb:update-check')]
+    public function onUpdateCheck($available, $currentVersion = null, $nextVersion = null, $reason = null, $error = null)
+    {
+        $this->update = compact('available', 'currentVersion', 'nextVersion', 'reason', 'error');
+    }
+}
+```
+
+`$reason` is one of:
+
+| Value | Meaning |
+|---|---|
+| (absent) | An update is available; check `$nextVersion` |
+| `up-to-date` | No newer bundle on the server |
+| `not-configured` | `bundlePush(url: ...)` was never called |
+| `fetch-failed` | Network error reaching the manifest |
+| `invalid-manifest` | Manifest JSON missing `bundle.version` or `bundle.url` |
+| `shell-too-old` | Bundle requires a newer shell version |
+
+### `NativeBlade::forceUpdate()`
+
+Triggers the full download + cache step. The new bundle is stored in IndexedDB and applies on the next app launch (it does NOT swap the running bundle). Result via `nb:update-applied`:
+
+```php
+public function applyUpdate()
+{
+    return NativeBlade::forceUpdate()->toResponse();
+}
+
+#[On('nb:update-applied')]
+public function onUpdateApplied($applied, $version = null, $reason = null, $error = null)
+{
+    if ($applied) {
+        $this->message = "Update ready! Restart the app to apply v{$version}.";
+    } else {
+        $this->message = "Update failed: " . ($reason ?? $error ?? 'unknown error');
+    }
+}
+```
+
+### Showing the current version
+
+`NativeBlade::version()` and `NativeBlade::buildNumber()` read straight from your AppServiceProvider's `DesktopConfig::version`/`AndroidConfig::version`/`IosConfig::version` based on the running platform. No async, no event — synchronous accessors.
+
+```blade
+<p class="text-xs text-zinc-400">
+    Version {{ NativeBlade::version() }} ({{ NativeBlade::buildNumber() }})
+</p>
+```
+
+Returns `'dev'` / `0` when running in web dev mode without a declared version.
+
+### Putting it together
+
+```blade
+<div class="space-y-3">
+    <p>Current: v{{ NativeBlade::version() }} ({{ NativeBlade::buildNumber() }})</p>
+
+    <button wire:click="checkForUpdates">Check for updates</button>
+
+    @if($update?['available'])
+        <p>New version: v{{ $update['nextVersion'] }}</p>
+        <button wire:click="applyUpdate">Download now</button>
+    @elseif($update)
+        <p>{{ $update['reason'] === 'up-to-date' ? 'You are on the latest version.' : ($update['error'] ?? $update['reason']) }}</p>
+    @endif
+</div>
+```

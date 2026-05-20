@@ -23,6 +23,7 @@ import * as navigation from './navigation.js';
 import * as shellMod from './shell.js';
 import * as system from './system.js';
 import * as tauri from './tauri.js';
+import * as updateMod from './update.js';
 
 export const actions = {
     // dialog
@@ -101,4 +102,8 @@ export const actions = {
 
     // generic tauri invoke (for third-party Tauri plugins)
     tauri_invoke: tauri.tauri_invoke,
+
+    // bundle update (OTA)
+    check_update: updateMod.checkUpdate,
+    force_update: updateMod.forceUpdate,
 };

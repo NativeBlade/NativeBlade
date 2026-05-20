@@ -97,6 +97,11 @@ use Illuminate\Support\Facades\Facade;
  * @method static \NativeBlade\NativeResponse hide()
  * @method static \NativeBlade\NativeResponse show()
  *
+ * Bundle updates (OTA).
+ *
+ * @method static \NativeBlade\NativeResponse checkUpdate()
+ * @method static \NativeBlade\NativeResponse forceUpdate()
+ *
  * Response factory and logging.
  *
  * @method static \NativeBlade\NativeResponse response()
@@ -122,6 +127,8 @@ use Illuminate\Support\Facades\Facade;
  * @method static bool isMacos()
  * @method static bool isLinux()
  * @method static bool isWeb()
+ * @method static string version() Human-readable app version for the current platform (e.g. "1.0.0"). Returns "dev" in web mode.
+ * @method static int buildNumber() Integer build number for the current platform (Android versionCode, iOS CFBundleVersion, desktop buildNumber). Returns 0 in web mode.
  */
 class NativeBlade extends Facade
 {

@@ -42,6 +42,22 @@ final class NativeResponseTest extends TestCase
         self::assertSame($r, $r->navigate('/home'));
         self::assertSame($r, $r->transition('slide'));
         self::assertSame($r, $r->replace());
+        self::assertSame($r, $r->checkUpdate());
+        self::assertSame($r, $r->forceUpdate());
+    }
+
+    #[Test]
+    public function check_update_queues_a_check_update_action(): void
+    {
+        $r = (new NativeResponse())->checkUpdate();
+        self::assertSame([['action' => 'check_update', 'data' => []]], $r->toArray());
+    }
+
+    #[Test]
+    public function force_update_queues_a_force_update_action(): void
+    {
+        $r = (new NativeResponse())->forceUpdate();
+        self::assertSame([['action' => 'force_update', 'data' => []]], $r->toArray());
     }
 
     #[Test]
