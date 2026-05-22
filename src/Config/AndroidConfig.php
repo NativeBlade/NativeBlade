@@ -3,6 +3,7 @@
 namespace NativeBlade\Config;
 
 use Closure;
+use NativeBlade\Config\NfcTech;
 use NativeBlade\Config\Push\AndroidPushNotificationConfig;
 
 /**
@@ -124,6 +125,43 @@ class AndroidConfig
     public function permissions(array $permissions): static
     {
         $this->config['permissions'] = $permissions;
+        return $this;
+    }
+
+    /**
+     * Opt into NFC auto-launch (system wakes the app when a tag is presented).
+     *
+     * **Disabled by default.** Without this call, NFC works only while the app
+     * is in the foreground (via `NativeBlade::nfcRead()`), which is the
+     * sensible default. If you enable auto-launch broadly, contactless cards
+     * (credit, transit, badges) will wake the device and bring your app to
+     * the front.
+     *
+     * - `$anyTag = true` adds an `android.nfc.action.TAG_DISCOVERED` filter
+     *   (the broadest: any NFC tag wakes the app).
+     * - `$techs` adds an `android.nfc.action.TECH_DISCOVERED` filter with a
+     *   matching `tech-list` resource. Pass `NfcTech` enum cases, e.g.
+     *   `[NfcTech::ISO_DEP, NfcTech::MIFARE_CLASSIC]`.
+     *
+     * @param  bool  $anyTag  Wake the app on any NFC tag.
+     * @param  array<int, NfcTech>  $techs  Wake the app on tags exposing one of these technologies.
+     */
+    public function nfcAutoLaunch(bool $anyTag = false, array $techs = []): static
+    {
+        $values = [];
+        foreach ($techs as $tech) {
+            if (!$tech instanceof NfcTech) {
+                throw new \InvalidArgumentException(
+                    'nfcAutoLaunch techs must be NfcTech enum cases, got ' . get_debug_type($tech)
+                );
+            }
+            $values[] = $tech->value;
+        }
+
+        $this->config['nfcAutoLaunch'] = [
+            'anyTag' => $anyTag,
+            'techs' => $values,
+        ];
         return $this;
     }
 

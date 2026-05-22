@@ -164,6 +164,45 @@ final class ShellConfigPlatformTest extends TestCase
     }
 
     #[Test]
+    public function nfc_auto_launch_is_not_set_by_default(): void
+    {
+        $captured = null;
+        $this->config->android(function ($c) use (&$captured) {
+            $captured = $c->toArray();
+        });
+        self::assertArrayNotHasKey('nfcAutoLaunch', $captured);
+    }
+
+    #[Test]
+    public function nfc_auto_launch_records_anytag_and_techs(): void
+    {
+        $captured = null;
+        $this->config->android(function ($c) use (&$captured) {
+            $c->nfcAutoLaunch(
+                anyTag: true,
+                techs: [\NativeBlade\Config\NfcTech::ISO_DEP, \NativeBlade\Config\NfcTech::MIFARE_CLASSIC],
+            );
+            $captured = $c->toArray();
+        });
+
+        self::assertSame(
+            ['anyTag' => true, 'techs' => ['IsoDep', 'MifareClassic']],
+            $captured['nfcAutoLaunch']
+        );
+    }
+
+    #[Test]
+    public function nfc_auto_launch_rejects_raw_string_techs(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('NfcTech enum cases');
+
+        $this->config->android(function ($c) {
+            $c->nfcAutoLaunch(techs: ['IsoDep']);
+        });
+    }
+
+    #[Test]
     public function name_setter_returns_self_for_chaining(): void
     {
         self::assertSame($this->config, $this->config->name('LaraCloud'));

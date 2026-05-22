@@ -21,44 +21,159 @@ class AndroidConfigGenerator
         $this->generateSdk($config);
         $this->generateProguard();
         $this->stripDebugSymbolsBlock();
-        $this->generateNfcTechFilter();
+        $this->generateNfcAutoLaunch($config);
         $this->generatePushNotification($config);
     }
 
-    private function generateNfcTechFilter(): void
+    private const NFC_START = '<!-- nativeblade:nfc:start -->';
+    private const NFC_END = '<!-- nativeblade:nfc:end -->';
+
+    /**
+     * NFC auto-launch is opt-in via `AndroidConfig::nfcAutoLaunch()`.
+     *
+     * Without that call, the generator strips any stale NFC filters that
+     * could let contactless cards (credit, transit, badges) wake the app.
+     * With it, the generator emits exactly the filters the dev declared,
+     * fenced by `<!-- nativeblade:nfc:start -->` markers so re-runs replace
+     * the previous block cleanly.
+     */
+    private function generateNfcAutoLaunch(array $config): void
     {
-        $declared = \NativeBlade\ShellConfig::getDeclaredPlugins();
-        $hasNfc = $declared === null || in_array(\NativeBlade\Config\Plugin::NFC, $declared, true);
-        if (!$hasNfc) return;
+        $manifestPath = base_path('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
+        if (!file_exists($manifestPath)) return;
 
-        $resDir = base_path('src-tauri/gen/android/app/src/main/res');
-        if (!is_dir($resDir)) return;
+        $manifest = file_get_contents($manifestPath);
+        $original = $manifest;
+        $manifest = $this->stripNfcBlock($manifest);
 
-        $xmlDir = $resDir . '/xml';
+        $declared = $config['nfcAutoLaunch'] ?? null;
+        $anyTag = (bool) ($declared['anyTag'] ?? false);
+        $techs = $declared['techs'] ?? [];
+        $shouldEmit = $anyTag || !empty($techs);
+
+        $techFilterPath = base_path('src-tauri/gen/android/app/src/main/res/xml/nfc_tech_filter.xml');
+
+        if (!$shouldEmit) {
+            if ($manifest !== $original) {
+                file_put_contents($manifestPath, $manifest);
+                $this->cmd->line("  <fg=green>✓</> Stripped NFC auto-launch filters from AndroidManifest");
+            }
+            if (file_exists($techFilterPath)) {
+                unlink($techFilterPath);
+                $this->cmd->line("  <fg=green>✓</> Removed unused res/xml/nfc_tech_filter.xml");
+            }
+            return;
+        }
+
+        $block = $this->buildNfcBlock($anyTag, $techs);
+        $manifest = $this->injectNfcBlock($manifest, $block);
+
+        if ($manifest !== $original) {
+            file_put_contents($manifestPath, $manifest);
+        }
+
+        if (!empty($techs)) {
+            $this->writeNfcTechFilter($techFilterPath, $techs);
+        } elseif (file_exists($techFilterPath)) {
+            unlink($techFilterPath);
+        }
+
+        $parts = [];
+        if ($anyTag) $parts[] = 'TAG_DISCOVERED';
+        if (!empty($techs)) $parts[] = 'TECH_DISCOVERED(' . count($techs) . ' techs)';
+        $this->cmd->line("  <fg=green>✓</> NFC auto-launch: " . implode(', ', $parts));
+        $this->cmd->line("  <fg=yellow>→</> Reminder: contactless cards (credit, transit, badges) may now wake the app");
+    }
+
+    private function stripNfcBlock(string $manifest): string
+    {
+        $startQ = preg_quote(self::NFC_START, '/');
+        $endQ = preg_quote(self::NFC_END, '/');
+        $manifest = preg_replace("/\s*{$startQ}.*?{$endQ}/s", '', $manifest);
+
+        // Legacy non-marker blocks left over from earlier nativeblade releases
+        // or hand-pasted Tauri NFC plugin snippets.
+        $manifest = preg_replace(
+            '/\s*<!--\s*NFC PLUGIN\..*?NFC PLUGIN\..*?-->/s',
+            '',
+            $manifest
+        );
+        $manifest = preg_replace(
+            '/\s*<intent-filter>\s*<action\s+android:name="android\.nfc\.action\.(?:NDEF|TECH|TAG)_DISCOVERED"\s*\/>\s*<category\s+android:name="android\.intent\.category\.DEFAULT"\s*\/>\s*<\/intent-filter>/s',
+            '',
+            $manifest
+        );
+        $manifest = preg_replace(
+            '/\s*<meta-data\s+android:name="android\.nfc\.action\.TECH_DISCOVERED"\s+android:resource="@xml\/nfc_tech_filter"\s*\/>/s',
+            '',
+            $manifest
+        );
+
+        return $manifest;
+    }
+
+    private function buildNfcBlock(bool $anyTag, array $techs): string
+    {
+        $lines = ['            ' . self::NFC_START];
+
+        if ($anyTag) {
+            $lines[] = '            <intent-filter>';
+            $lines[] = '                <action android:name="android.nfc.action.TAG_DISCOVERED" />';
+            $lines[] = '                <category android:name="android.intent.category.DEFAULT" />';
+            $lines[] = '            </intent-filter>';
+        }
+
+        if (!empty($techs)) {
+            $lines[] = '            <intent-filter>';
+            $lines[] = '                <action android:name="android.nfc.action.TECH_DISCOVERED" />';
+            $lines[] = '                <category android:name="android.intent.category.DEFAULT" />';
+            $lines[] = '            </intent-filter>';
+            $lines[] = '            <meta-data';
+            $lines[] = '                android:name="android.nfc.action.TECH_DISCOVERED"';
+            $lines[] = '                android:resource="@xml/nfc_tech_filter" />';
+        }
+
+        $lines[] = '            ' . self::NFC_END;
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Inject the NFC marker block just before `</activity>` so it sits inside
+     * the main activity alongside the launcher intent-filter. If the manifest
+     * has no `</activity>` (unlikely but defensive), leave it alone.
+     */
+    private function injectNfcBlock(string $manifest, string $block): string
+    {
+        if (!str_contains($manifest, '</activity>')) {
+            return $manifest;
+        }
+
+        return preg_replace(
+            '/(\s*<\/activity>)/',
+            "\n" . $block . "$1",
+            $manifest,
+            1
+        );
+    }
+
+    private function writeNfcTechFilter(string $path, array $techs): void
+    {
+        $xmlDir = dirname($path);
         if (!is_dir($xmlDir)) mkdir($xmlDir, 0755, true);
 
-        $target = $xmlDir . '/nfc_tech_filter.xml';
-        if (file_exists($target)) return;
+        $tags = array_map(
+            fn($tech) => '        <tech>android.nfc.tech.' . htmlspecialchars($tech, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</tech>',
+            $techs
+        );
 
-        $body = <<<XML
-<?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <tech-list>
-        <tech>android.nfc.tech.IsoDep</tech>
-        <tech>android.nfc.tech.NfcA</tech>
-        <tech>android.nfc.tech.NfcB</tech>
-        <tech>android.nfc.tech.NfcF</tech>
-        <tech>android.nfc.tech.NfcV</tech>
-        <tech>android.nfc.tech.Ndef</tech>
-        <tech>android.nfc.tech.NdefFormatable</tech>
-        <tech>android.nfc.tech.MifareClassic</tech>
-        <tech>android.nfc.tech.MifareUltralight</tech>
-    </tech-list>
-</resources>
-XML;
+        $body = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+            . "<resources xmlns:xliff=\"urn:oasis:names:tc:xliff:document:1.2\">\n"
+            . "    <tech-list>\n"
+            . implode("\n", $tags) . "\n"
+            . "    </tech-list>\n"
+            . "</resources>\n";
 
-        file_put_contents($target, $body);
-        $this->cmd->line("  <fg=green>✓</> res/xml/nfc_tech_filter.xml");
+        file_put_contents($path, $body);
     }
 
     private function generateAppName(): void
