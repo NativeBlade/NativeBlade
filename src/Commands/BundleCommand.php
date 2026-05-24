@@ -4,6 +4,7 @@ namespace NativeBlade\Commands;
 
 use Illuminate\Console\Command;
 use NativeBlade\NativeBladeServiceProvider;
+use NativeBlade\ShellConfig;
 
 class BundleCommand extends Command
 {
@@ -48,18 +49,111 @@ class BundleCommand extends Command
             $this->line("  <fg=green>✓</> public/laravel-bundle-{$tag}.json.gz");
         }
 
-        $this->line('');
-        $this->info('  Bundle built. Upload it to your CDN and update version.json:');
-        $this->line('');
-        $this->line('    {');
-        $this->line('      "bundle": {');
-        $this->line("        \"version\": \"" . ($tag ?: '1.0.0') . "\",");
-        $this->line("        \"url\": \"https://releases.myapp.com/laravel-bundle-" . ($tag ?: '1.0.0') . ".json.gz\"");
-        $this->line('      }');
-        $this->line('    }');
-        $this->line('');
+        $this->printPostBundleInstructions($tag);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Print the post-build hint. When `bundlePush()` was configured in the
+     * AppServiceProvider, derive the real bundle URL from the manifest URL
+     * by swapping the last path segment with the tagged bundle filename, so
+     * the dev gets a copy-pasteable manifest. Otherwise fall back to a
+     * placeholder URL.
+     *
+     * Always include `minShellVersion`: when the bundle requires a feature
+     * shipped in a newer shell, devices on older shells must skip the update
+     * rather than apply it and crash. The default is the currently declared
+     * platform version (i.e. "this bundle was built against the shell that
+     * is in the stores right now"). Devs bump it manually when they ship a
+     * bundle that depends on a new native plugin or facade method.
+     */
+    private function printPostBundleInstructions(?string $tag): void
+    {
+        $version = $tag ?: '1.0.0';
+        $filename = "laravel-bundle-{$version}.json.gz";
+        $minShellVersion = $this->detectMinShellVersion();
+
+        $configured = ShellConfig::getAppConfigs()['bundlePush'] ?? null;
+        $manifestUrl = $configured['url'] ?? null;
+
+        $manifest = [
+            'bundle' => [
+                'version' => $version,
+                'url' => $manifestUrl
+                    ? $this->deriveBundleUrl($manifestUrl, $filename)
+                    : "https://releases.myapp.com/{$filename}",
+                'minShellVersion' => $minShellVersion,
+            ],
+        ];
+
+        if ($manifestUrl) {
+            $this->line('');
+            $this->info('  Bundle built. Upload public/' . $filename . ' to:');
+            $this->line('');
+            $this->line('    ' . $manifest['bundle']['url']);
+            $this->line('');
+            $this->info('  Then update your manifest at:');
+            $this->line('');
+            $this->line('    ' . $manifestUrl);
+            $this->line('');
+            $this->info('  with this content (copy-paste):');
+        } else {
+            $this->line('');
+            $this->info('  Bundle built. Upload it to your CDN and update version.json:');
+        }
+
+        $this->line('');
+        foreach (explode("\n", json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) as $line) {
+            $this->line('    ' . $line);
+        }
+        $this->line('');
+
+        $this->line("  <fg=yellow>→</> minShellVersion is set to <fg=cyan>{$minShellVersion}</> (the version declared in your AppServiceProvider).");
+        $this->line('     Bump it manually if this bundle requires a native plugin or facade method added in a newer shell.');
+
+        if (!$manifestUrl) {
+            $this->line('');
+            $this->line('  <fg=yellow>→</> Tip: declare NativeBladeConfig::bundlePush(\'<your-manifest-url>\') in your AppServiceProvider');
+            $this->line('     to make this command print the real URL instead of a placeholder.');
+        }
+        $this->line('');
+    }
+
+    /**
+     * Pick the version that should anchor `minShellVersion`. The dev usually
+     * declares the same version across desktop/android/ios. We try those in
+     * order and use the first one we find. Fall back to "1.0.0" so the
+     * manifest is always syntactically valid even on a fresh project that
+     * never set a version.
+     */
+    private function detectMinShellVersion(): string
+    {
+        foreach (['desktop', 'android', 'ios'] as $platform) {
+            try {
+                $info = ShellConfig::getVersion($platform);
+                if (!empty($info['version'])) {
+                    return (string) $info['version'];
+                }
+            } catch (\Throwable) {
+                // platform not configured; try the next one
+            }
+        }
+        return '1.0.0';
+    }
+
+    /**
+     * Given a manifest URL like `https://example.com/portal/version.json`
+     * and a bundle filename like `laravel-bundle-1.0.22.json.gz`, return
+     * `https://example.com/portal/laravel-bundle-1.0.22.json.gz`.
+     */
+    private function deriveBundleUrl(string $manifestUrl, string $filename): string
+    {
+        $pos = strrpos($manifestUrl, '/');
+        if ($pos === false) {
+            return $filename;
+        }
+        return substr($manifestUrl, 0, $pos + 1) . $filename;
     }
 
     private function runShell(string $cmd): void
