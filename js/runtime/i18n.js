@@ -1,4 +1,5 @@
 let translations = {};
+let resolvedLocale = 'en';
 
 export function t(key, replacements = {}) {
     let text = translations[key] || key;
@@ -8,25 +9,63 @@ export function t(key, replacements = {}) {
     return text;
 }
 
+/**
+ * Resolve the runtime locale and load its translation file.
+ *
+ * Priority (highest to lowest):
+ *   1. Device language (navigator.language).
+ *   2. Bundle fallback declared in nativeblade-locale.json (defaultLocale).
+ *   3. Hardcoded 'en'.
+ *
+ * The bundle locale is treated as a fallback, NEVER as a forced override.
+ * Forcing a locale globally is hostile to accessibility: a Portuguese bundle
+ * loaded on an English VoiceOver device reads Portuguese text with an English
+ * voice, which is mush. The device language wins.
+ *
+ * After resolving, document.documentElement.lang is set to the BCP-47 form
+ * (en, pt-BR) so screen readers pick the correct reading voice.
+ */
 export async function loadTranslations() {
-    let locale = null;
+    let fallback = null;
 
     try {
         const res = await fetch('./nativeblade-locale.json');
-        if (res.ok) locale = (await res.json()).locale;
+        if (res.ok) {
+            const json = await res.json();
+            fallback = json.defaultLocale || json.locale || null;
+        }
     } catch {}
 
-    const raw = locale || navigator.language || 'en';
-    const underscored = raw.replace('-', '_');
-    const candidates = [underscored, raw, raw.split('-')[0], 'en'];
+    const device = navigator.language || 'en';
+    const sources = [device, fallback, 'en'].filter(Boolean);
+
+    const candidates = [];
+    for (const src of sources) {
+        const underscored = src.replace('-', '_');
+        candidates.push(underscored, src, src.split('-')[0]);
+    }
 
     for (const lang of candidates) {
         try {
             const res = await fetch(`./lang/${lang}.json`);
             if (res.ok) {
                 translations = await res.json();
+                resolvedLocale = lang;
+                applyLangAttribute(lang);
                 return;
             }
         } catch {}
     }
+
+    applyLangAttribute('en');
+}
+
+export function getResolvedLocale() {
+    return resolvedLocale;
+}
+
+function applyLangAttribute(locale) {
+    if (typeof document === 'undefined' || !document.documentElement) return;
+    const bcp47 = locale.replace('_', '-');
+    document.documentElement.setAttribute('lang', bcp47);
 }

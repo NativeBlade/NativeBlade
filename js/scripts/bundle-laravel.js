@@ -247,8 +247,12 @@ if (!phpVersion) {
 try {
     const envContent = readFileSync(join(ROOT, '.env'), 'utf-8');
     const localeMatch = envContent.match(/APP_LOCALE=(\S+)/);
-    const locale = localeMatch ? localeMatch[1] : 'en';
-    writeFileSync(join(ROOT, 'public', 'nativeblade-locale.json'), JSON.stringify({ locale }));
+    const defaultLocale = localeMatch ? localeMatch[1] : 'en';
+
+    writeFileSync(
+        join(ROOT, 'public', 'nativeblade-locale.json'),
+        JSON.stringify({ defaultLocale })
+    );
     const langSrc = join(ROOT, 'lang');
     const langDst = join(ROOT, 'public', 'lang');
     if (!existsSync(langDst)) mkdirSync(langDst, { recursive: true });
