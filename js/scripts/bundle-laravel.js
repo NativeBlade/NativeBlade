@@ -12,7 +12,48 @@ try {
         stdio: 'inherit',
     });
 } catch (e) {
-    console.warn('composer install failed, continuing with whatever is in vendor/.');
+    // Fail loud. Continuing with a half-installed vendor/ produces a bundle
+    // whose autoload classmap points at files that do not exist on disk, and
+    // the only sign of trouble appears at PHP-WASM runtime as cryptic
+    // "include(...): Failed to open stream" errors. Better to abort here so
+    // the dev sees the actual composer output above this message.
+    console.error('');
+    console.error('============================================================');
+    console.error('composer install failed.');
+    console.error('');
+    console.error('Common causes:');
+    console.error('  - composer is not in PATH (install from https://getcomposer.org)');
+    console.error('  - network unreachable / packagist mirror down');
+    console.error('  - version conflict in composer.json');
+    console.error('  - missing extension required by a package (check the output above)');
+    console.error('');
+    console.error('Refusing to build the bundle because the autoload map would be');
+    console.error('inconsistent with vendor/. Fix composer install and retry.');
+    console.error('============================================================');
+    process.exit(1);
+}
+
+// Pre-flight: confirm the two non-negotiable dependencies are physically
+// present. composer install can technically succeed with a stale lockfile
+// and still leave critical packages missing. Catching it here is much
+// kinder than failing at runtime inside PHP-WASM.
+const requiredVendorPaths = [
+    { pkg: 'livewire/livewire', path: 'vendor/livewire/livewire/src/Livewire.php', fix: 'composer require livewire/livewire' },
+    { pkg: 'nativeblade/nativeblade', path: 'vendor/nativeblade/nativeblade/src/NativeBladeServiceProvider.php', fix: 'composer require nativeblade/nativeblade' },
+];
+for (const dep of requiredVendorPaths) {
+    if (!existsSync(join(ROOT, dep.path))) {
+        console.error('');
+        console.error('============================================================');
+        console.error(`Required package missing from vendor/: ${dep.pkg}`);
+        console.error('');
+        console.error(`Expected to find: ${dep.path}`);
+        console.error('');
+        console.error('Fix:');
+        console.error(`  ${dep.fix}`);
+        console.error('============================================================');
+        process.exit(1);
+    }
 }
 
 const OUTPUT = join(ROOT, 'public', 'laravel-bundle.json');
