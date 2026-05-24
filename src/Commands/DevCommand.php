@@ -29,6 +29,10 @@ class DevCommand extends Command
 
         $this->call('nativeblade:config');
 
+        if (!$this->ensureNpmDeps()) {
+            return self::FAILURE;
+        }
+
         $this->printBanner($platform, $host, $port, $build);
 
         // Ensure dist-wasm exists (Tauri checks frontendDist at compile time)
@@ -70,6 +74,52 @@ class DevCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Guard against the "npm error could not determine executable to run"
+     * failure mode: every `nativeblade:dev` path eventually shells out to
+     * `npx tauri ...`, and npx can only find that binary if @tauri-apps/cli
+     * was installed into node_modules. The common ways this gets out of sync:
+     *
+     *   - Fresh clone, dev forgot `npm install`.
+     *   - `nativeblade:install` ran but the npm step failed silently (yellow
+     *     warning the dev missed in a long install log).
+     *   - A new Tauri plugin was added to the app, `nativeblade:config`
+     *     updated package.json with a new dep, but node_modules was never
+     *     refreshed.
+     *
+     * Auto-run `npm install` when the Tauri CLI is missing. It is a no-op
+     * when deps are already in sync, so the cost of always checking is tiny.
+     */
+    private function ensureNpmDeps(): bool
+    {
+        $tauriCliPath = base_path('node_modules/@tauri-apps/cli/package.json');
+        if (file_exists($tauriCliPath)) {
+            return true;
+        }
+
+        if (!file_exists(base_path('package.json'))) {
+            $this->error('package.json is missing. Run `php artisan nativeblade:install` first.');
+            return false;
+        }
+
+        $this->warn('Tauri CLI not found in node_modules. Running `npm install`...');
+        $cmd = 'cd ' . escapeshellarg(base_path()) . ' && npm install 2>&1';
+        passthru($cmd, $code);
+
+        if ($code !== 0) {
+            $this->error('`npm install` failed. Run it manually and try again.');
+            return false;
+        }
+
+        if (!file_exists($tauriCliPath)) {
+            $this->error('@tauri-apps/cli still missing after `npm install`. Check package.json and your registry access.');
+            return false;
+        }
+
+        $this->info('npm dependencies installed.');
+        return true;
     }
 
     private function runBuiltDesktop(): void
