@@ -148,8 +148,37 @@ NativeBlade has four state scopes. Pick the right one for the lifetime you want.
 | Component lifetime | Public prop | Until navigate away | Form fields, UI toggles |
 | Session | `NB::setState($key, $value, 'session')` | Until app closes | Filters, current view state, last seen ids |
 | Persistent | `NB::setState($key, $value)` (default) | Until uninstall / logout | `auth.user`, `trail.xp`, preferences |
+| TTL'd cache | `Cache::put($key, $value, $ttl)` | Until expiration or eviction | Memoized expensive computations, throttle counters, idempotency keys |
 
 **Sessions are not Laravel sessions** — there is no HTTP session in WASM. NativeBlade's session scope is a marker that the value should be cleared on app close.
+
+### `Cache::*` persists across restarts automatically
+
+`Cache::put` / `Cache::get` / `Cache::remember` / `Cache::lock` / `Cache::forget` work out of the box and survive cold starts. NativeBlade auto-wires Laravel's standard `database` cache driver against the same `sqlite` connection that powers `setState`, using two tables (`nativeblade_cache`, `nativeblade_cache_locks`) created on boot.
+
+```php
+use Illuminate\Support\Facades\Cache;
+
+// Memoize an expensive computation for one hour
+$weather = Cache::remember('weather.lisbon', 3600, function () {
+    return Http::get('https://api.weather.com/lisbon')->json();
+});
+
+// One-shot expiration
+Cache::put('idempotency:' . $orderId, true, 300);
+if (Cache::has('idempotency:' . $orderId)) {
+    return;
+}
+```
+
+**When to choose what:**
+
+- `NB::setState` — use for **identity and configuration**: who is logged in, what locale the user picked, what onboarding step they finished. No TTL semantics, queryable by scope, intended to be the source of truth across the whole app.
+- `Cache::*` — use for **derived data** that's safe to recompute: API responses, expensive queries, throttle/rate-limit counters, idempotency markers, anything that has a "this is stale, fetch again" lifecycle.
+
+Both are persistent, both live in the same SQLite file, but the contract is different: state is "definitive", cache is "best effort and disposable".
+
+Override the default driver from your own service provider if you need something else (`config(['cache.default' => 'array']);` in a test, etc.) — NativeBlade only sets it during its own `boot()`.
 
 ### State wrappers are mandatory
 

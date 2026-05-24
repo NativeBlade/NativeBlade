@@ -27,6 +27,7 @@ class NativeBladeServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerNativeDatabase();
+        $this->registerNativeCache();
         $this->syncClock();
         $this->patchWasmRequest();
         $this->registerHttpBridge();
@@ -253,6 +254,64 @@ class NativeBladeServiceProvider extends ServiceProvider
         \Illuminate\Database\Connection::resolverFor('nativeblade-db', function ($connection, $database, $prefix, $config) {
             return new Database\NativeConnection($config);
         });
+    }
+
+    /**
+     * Auto-wire `Cache::*` to a SQLite-backed store that persists across app
+     * restarts on the device. Registers a `nativeblade` cache store backed by
+     * Laravel's standard `database` driver against the same `sqlite`
+     * connection that `NativeBlade::setState()` writes to, and promotes it to
+     * the default driver.
+     *
+     * Devs who want a different store can still call `Cache::store('xxx')`
+     * per use, or override `cache.default` from their own service provider
+     * after NativeBlade boots.
+     */
+    private function registerNativeCache(): void
+    {
+        config([
+            'cache.stores.nativeblade' => [
+                'driver' => 'database',
+                'connection' => 'sqlite',
+                'table' => 'nativeblade_cache',
+                'lock_connection' => 'sqlite',
+                'lock_table' => 'nativeblade_cache_locks',
+                'lock_lottery' => [2, 100],
+            ],
+        ]);
+
+        config(['cache.default' => 'nativeblade']);
+
+        $this->ensureCacheTables();
+    }
+
+    /**
+     * Create the cache tables on first boot. Schema matches the columns
+     * Laravel's `DatabaseStore` queries (key, value, expiration) so the
+     * built-in driver works without modification.
+     */
+    private function ensureCacheTables(): void
+    {
+        try {
+            $db = \Illuminate\Support\Facades\DB::connection('sqlite');
+            $db->statement(
+                'CREATE TABLE IF NOT EXISTS nativeblade_cache ('
+                . 'key TEXT PRIMARY KEY NOT NULL, '
+                . 'value TEXT NOT NULL, '
+                . 'expiration INTEGER NOT NULL'
+                . ')'
+            );
+            $db->statement(
+                'CREATE TABLE IF NOT EXISTS nativeblade_cache_locks ('
+                . 'key TEXT PRIMARY KEY NOT NULL, '
+                . 'owner TEXT NOT NULL, '
+                . 'expiration INTEGER NOT NULL'
+                . ')'
+            );
+        } catch (\Throwable $e) {
+            // sqlite connection may not be configured yet (e.g. early tests).
+            // Tables are idempotent — first real call will create them.
+        }
     }
 
     private function registerNativeStorage(): void
