@@ -29,17 +29,34 @@ async function tryFetchAt(base) {
     if (typeof DecompressionStream !== 'undefined') {
         try {
             const res = await fetch(base + 'laravel-bundle.json.gz');
-            if (res.ok) {
-                const stream = res.body.pipeThrough(new DecompressionStream('gzip'));
-                return await new Response(stream).text();
+            if (!res.ok) {
+                console.warn('[NB] bundle .json.gz fetch failed at', base, 'HTTP', res.status);
+            } else {
+                try {
+                    const stream = res.body.pipeThrough(new DecompressionStream('gzip'));
+                    return await new Response(stream).text();
+                } catch (e) {
+                    console.warn('[NB] bundle .json.gz decompression failed at', base, e?.message || e);
+                }
             }
-        } catch {}
+        } catch (e) {
+            console.warn('[NB] bundle .json.gz fetch threw at', base, e?.message || e);
+        }
+    } else {
+        console.warn('[NB] DecompressionStream not available in this webview, falling back to plain .json');
     }
+
     try {
         const res = await fetch(base + 'laravel-bundle.json');
-        if (res.ok) return await res.text();
-    } catch {}
-    return null;
+        if (!res.ok) {
+            console.warn('[NB] bundle .json fetch failed at', base, 'HTTP', res.status);
+            return null;
+        }
+        return await res.text();
+    } catch (e) {
+        console.warn('[NB] bundle .json fetch threw at', base, e?.message || e);
+        return null;
+    }
 }
 
 async function fetchBundleJson() {
@@ -52,13 +69,26 @@ async function fetchBundleJson() {
 
     // Fallback: if a custom (portal) base was saved and is now unreachable,
     // clear it and fall back to the bundled "./". This makes the app usable
-    // again — the portal's landing page boots, user can re-enter the URL.
+    // again, but record the failure so the Portal welcome screen (or any
+    // observer) can surface it instead of pretending everything is fine.
     if (base !== './') {
+        const failedBase = base;
         try { window.localStorage?.removeItem?.('nb:bundleBase'); } catch {}
         try { delete window.__NB_BUNDLE_BASE__; } catch {}
 
         const fallback = await tryFetchAt('./');
-        if (fallback) return fallback;
+        if (fallback) {
+            try {
+                window.__NB_BUNDLE_FALLBACK__ = {
+                    attemptedBase: failedBase,
+                    attemptedUrl: failedBase + 'laravel-bundle.json.gz',
+                    at: Date.now(),
+                };
+                window.localStorage?.setItem?.('nb:bundleFallback', JSON.stringify(window.__NB_BUNDLE_FALLBACK__));
+            } catch {}
+            console.warn('[NB] custom bundle base unreachable, fell back to embedded bundle. Tried:', failedBase);
+            return fallback;
+        }
     }
 
     throw new Error('Bundle fetch failed: unreachable and no fallback bundle available');
