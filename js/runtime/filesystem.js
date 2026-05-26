@@ -58,8 +58,6 @@ async function tryFetchAt(base) {
         if (!res.ok) {
             console.warn('[NB] bundle .json.gz fetch failed at', base, 'HTTP', res.status);
         } else {
-            // Buffer the entire response first (avoids stream-lock bugs on
-            // older WebViews) then decompress with whichever path works.
             try {
                 const bytes = await res.arrayBuffer();
                 return await decompressGzipBytes(bytes);
@@ -121,11 +119,6 @@ async function fetchBundleJson() {
         return text;
     }
 
-    // Fall back to the embedded bundle so the app can still boot. Unlike the
-    // old behavior, we DO NOT immediately wipe the user's saved URL: a
-    // single transient failure should not require them to re-enter it.
-    // After FAILURE_THRESHOLD consecutive misses we give up and clear, so
-    // a permanently dead URL stops blocking forever.
     if (base !== './') {
         const failures = bumpFailureCount();
         const shouldGiveUp = failures >= FAILURE_THRESHOLD;
