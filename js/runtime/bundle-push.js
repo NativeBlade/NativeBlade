@@ -81,7 +81,7 @@ async function loadConfig() {
         return window.__NB_BUNDLE_PUSH__;
     }
     try {
-        const r = await fetch(getBundleBase() + 'nativeblade-config.json', { cache: 'no-store' });
+        const r = await fetch('./nativeblade-config.json', { cache: 'no-store' });
         if (!r.ok) return null;
         const json = await r.json();
         return json?.bundlePush || null;
