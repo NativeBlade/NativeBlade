@@ -25,29 +25,54 @@ export function prepareDirs() {
     ].forEach(d => php.mkdirTree(d));
 }
 
-async function tryFetchAt(base) {
+const FETCH_TIMEOUT_MS = 60000;
+const FAILURE_COUNTER_KEY = 'nb:bundleBaseFailures';
+const FAILURE_THRESHOLD = 3;
+
+function timedFetch(url, ms = FETCH_TIMEOUT_MS) {
+    if (typeof AbortController === 'undefined') {
+        return fetch(url);
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(new Error('timeout')), ms);
+    return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
+}
+
+async function decompressGzipBytes(bytes) {
     if (typeof DecompressionStream !== 'undefined') {
         try {
-            const res = await fetch(base + 'laravel-bundle.json.gz');
-            if (!res.ok) {
-                console.warn('[NB] bundle .json.gz fetch failed at', base, 'HTTP', res.status);
-            } else {
-                try {
-                    const stream = res.body.pipeThrough(new DecompressionStream('gzip'));
-                    return await new Response(stream).text();
-                } catch (e) {
-                    console.warn('[NB] bundle .json.gz decompression failed at', base, e?.message || e);
-                }
-            }
+            const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+            return await new Response(stream).text();
         } catch (e) {
-            console.warn('[NB] bundle .json.gz fetch threw at', base, e?.message || e);
+            console.warn('[NB] DecompressionStream failed on bytes, falling back to fflate:', e?.message || e);
         }
-    } else {
-        console.warn('[NB] DecompressionStream not available in this webview, falling back to plain .json');
+    }
+
+    const { gunzipSync, strFromU8 } = await import('https://cdn.jsdelivr.net/npm/fflate@0.8.2/+esm');
+    return strFromU8(gunzipSync(new Uint8Array(bytes)));
+}
+
+async function tryFetchAt(base) {
+    try {
+        const res = await timedFetch(base + 'laravel-bundle.json.gz');
+        if (!res.ok) {
+            console.warn('[NB] bundle .json.gz fetch failed at', base, 'HTTP', res.status);
+        } else {
+            // Buffer the entire response first (avoids stream-lock bugs on
+            // older WebViews) then decompress with whichever path works.
+            try {
+                const bytes = await res.arrayBuffer();
+                return await decompressGzipBytes(bytes);
+            } catch (e) {
+                console.warn('[NB] bundle .json.gz decompression failed at', base, e?.message || e);
+            }
+        }
+    } catch (e) {
+        console.warn('[NB] bundle .json.gz fetch threw at', base, e?.message || e);
     }
 
     try {
-        const res = await fetch(base + 'laravel-bundle.json');
+        const res = await timedFetch(base + 'laravel-bundle.json');
         if (!res.ok) {
             console.warn('[NB] bundle .json fetch failed at', base, 'HTTP', res.status);
             return null;
@@ -59,34 +84,72 @@ async function tryFetchAt(base) {
     }
 }
 
+function readFailureCount() {
+    try {
+        const raw = window.localStorage?.getItem?.(FAILURE_COUNTER_KEY);
+        return raw ? parseInt(raw, 10) || 0 : 0;
+    } catch {
+        return 0;
+    }
+}
+
+function bumpFailureCount() {
+    try {
+        const next = readFailureCount() + 1;
+        window.localStorage?.setItem?.(FAILURE_COUNTER_KEY, String(next));
+        return next;
+    } catch {
+        return 0;
+    }
+}
+
+function clearFailureCount() {
+    try { window.localStorage?.removeItem?.(FAILURE_COUNTER_KEY); } catch {}
+}
+
 async function fetchBundleJson() {
     const cached = await tryLoadCachedBundle();
-    if (cached) return cached;
+    if (cached) {
+        clearFailureCount();
+        return cached;
+    }
 
     const base = getBundleBase();
     const text = await tryFetchAt(base);
-    if (text) return text;
+    if (text) {
+        clearFailureCount();
+        return text;
+    }
 
-    // Fallback: if a custom (portal) base was saved and is now unreachable,
-    // clear it and fall back to the bundled "./". This makes the app usable
-    // again, but record the failure so the Portal welcome screen (or any
-    // observer) can surface it instead of pretending everything is fine.
+    // Fall back to the embedded bundle so the app can still boot. Unlike the
+    // old behavior, we DO NOT immediately wipe the user's saved URL: a
+    // single transient failure should not require them to re-enter it.
+    // After FAILURE_THRESHOLD consecutive misses we give up and clear, so
+    // a permanently dead URL stops blocking forever.
     if (base !== './') {
-        const failedBase = base;
-        try { window.localStorage?.removeItem?.('nb:bundleBase'); } catch {}
-        try { delete window.__NB_BUNDLE_BASE__; } catch {}
+        const failures = bumpFailureCount();
+        const shouldGiveUp = failures >= FAILURE_THRESHOLD;
+
+        if (shouldGiveUp) {
+            try { window.localStorage?.removeItem?.('nb:bundleBase'); } catch {}
+            try { delete window.__NB_BUNDLE_BASE__; } catch {}
+            clearFailureCount();
+            console.warn('[NB] gave up on custom bundle base after', failures, 'failures. Cleared persisted URL.');
+        }
 
         const fallback = await tryFetchAt('./');
         if (fallback) {
             try {
                 window.__NB_BUNDLE_FALLBACK__ = {
-                    attemptedBase: failedBase,
-                    attemptedUrl: failedBase + 'laravel-bundle.json.gz',
+                    attemptedBase: base,
+                    attemptedUrl: base + 'laravel-bundle.json.gz',
+                    failures,
+                    cleared: shouldGiveUp,
                     at: Date.now(),
                 };
                 window.localStorage?.setItem?.('nb:bundleFallback', JSON.stringify(window.__NB_BUNDLE_FALLBACK__));
             } catch {}
-            console.warn('[NB] custom bundle base unreachable, fell back to embedded bundle. Tried:', failedBase);
+            console.warn('[NB] custom bundle base unreachable (failure', failures + '). Loaded embedded bundle. Will retry on next launch unless cleared.');
             return fallback;
         }
     }
