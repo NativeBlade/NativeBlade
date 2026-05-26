@@ -33,11 +33,24 @@ async function tx(mode) {
 export async function getCachedBundle() {
     try {
         const store = await tx('readonly');
-        return await new Promise((resolve, reject) => {
+        const record = await new Promise((resolve, reject) => {
             const req = store.get(KEY);
             req.onsuccess = () => resolve(req.result || null);
             req.onerror = () => reject(req.error);
         });
+        if (!record) return null;
+
+        if (record instanceof Blob) {
+            await clearCache();
+            return null;
+        }
+
+        const currentBase = getBundleBase();
+        if (record.sourceBase !== currentBase) {
+            await clearCache();
+            return null;
+        }
+        return record.blob;
     } catch {
         return null;
     }
@@ -46,7 +59,7 @@ export async function getCachedBundle() {
 async function putCachedBundle(blob) {
     const store = await tx('readwrite');
     return new Promise((resolve, reject) => {
-        const req = store.put(blob, KEY);
+        const req = store.put({ blob, sourceBase: getBundleBase() }, KEY);
         req.onsuccess = () => resolve();
         req.onerror = () => reject(req.error);
     });
