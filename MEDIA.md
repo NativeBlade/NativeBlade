@@ -166,7 +166,7 @@ Both platforms downsample to fit inside `maxWidth × maxHeight` while preserving
 
 ## Permissions
 
-- **Android** — `CAMERA` declared on the plugin manifest. Gallery picker (API 33+) is permission-free. The legacy fallback uses `READ_MEDIA_IMAGES` / `READ_EXTERNAL_STORAGE (maxSdk 32)`.
+- **Android** — `CAMERA` declared on the plugin manifest. Gallery picker is permission-free on every supported API level: `ACTION_PICK_IMAGES` (Photo Picker) on API 33+, `ACTION_GET_CONTENT` on older devices. Neither requires `READ_MEDIA_*` or `READ_EXTERNAL_STORAGE`, so apps publishing to Google Play are not flagged by the photo/video permission policy.
 - **iOS** — `PHPickerViewController` is permission-free. Camera capture goes through `AVCaptureDevice.requestAccess(.video)`. Add the usage strings in your `IosConfig::permissions([...])` block (typically `NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription`).
 
 ---
