@@ -2,6 +2,11 @@
     display: none;
     background: #111827;
     border-bottom: 1px solid #1f2937;
+    /* Pull up into the shell body's safe-area padding so the bar reaches the
+       screen top and its background fills behind the notch. padding-top then
+       keeps the bar content below the notch. Without the negative margin the
+       body padding and this padding stack into a double inset. */
+    margin-top: calc(-1 * env(safe-area-inset-top));
     padding-top: env(safe-area-inset-top);
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;

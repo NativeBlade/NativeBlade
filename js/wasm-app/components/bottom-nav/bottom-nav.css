@@ -2,6 +2,10 @@
     display: none;
     background: #111827;
     border-top: 1px solid #1f2937;
+    /* Mirror of #top-bar: pull down into the body's bottom safe-area padding
+       so the bar reaches the screen bottom and fills behind the home
+       indicator, while padding-bottom keeps its content above it. */
+    margin-bottom: calc(-1 * env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;

@@ -138,6 +138,31 @@ For pages without shell header/bottom-nav:
 <header class="fixed top-0" style="padding-top:max(var(--nb-safe-top), 12px)">
 ```
 
+You rarely need to handle safe areas yourself: the shell already pads its body
+so your app renders inside the safe region (above the notch, above the home
+indicator). A sticky header at `top: 0` or a sticky bottom nav at `bottom: 0`
+sits at the safe edge automatically. The `--nb-safe-*` variables exist as a
+minimum-padding helper (`max(var(--nb-safe-top), 12px)`) for the rare fixed
+element that needs it.
+
+### Software keyboard
+
+When the on-screen keyboard opens, the shell adds a `nb-keyboard-visible`
+class to the app `<body>` and sets a `--nb-keyboard-height` variable. Use it
+to get out of the keyboard's way, for example hiding a fixed bottom nav so it
+does not sit on top of the keyboard:
+
+```css
+body.nb-keyboard-visible .bottom-nav {
+    transform: translateY(100%);
+}
+```
+
+```blade
+{{-- Or pad a fixed footer up by the keyboard height --}}
+<div class="fixed bottom-0" style="padding-bottom:var(--nb-keyboard-height)">
+```
+
 ## Custom Components
 
 ### Shell (renders outside WebView)

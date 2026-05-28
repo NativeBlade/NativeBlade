@@ -57,6 +57,20 @@ build/
 | Android | Android SDK, Java 17+, Rust |
 | iOS | macOS, Xcode, Rust |
 
+## Tailwind CSS and older Android WebViews
+
+The default stub ships Tailwind CSS v4, which uses `@theme` and other modern
+CSS features that are not supported by older Android System WebView versions.
+If you set a low `minSdk` (e.g. 28) and ship to devices with an outdated
+WebView, the app can render unstyled or broken while looking fine on newer
+devices.
+
+If you target older devices, either pin Tailwind to v3 or test on an emulator
+that matches your minimum supported Android version before publishing. The
+WebView version is independent of the OS version (it updates through the Play
+Store), so a device on Android 9 may still have a recent WebView, but you
+cannot rely on it.
+
 ## Production Preview (`--build`)
 
 Run the app using the **pre-built production bundle** instead of the Vite dev server. No HMR, no dev server — exactly what ships to your users, but running locally so you can iterate on Rust code, native shell, and the boot flow without repackaging.
