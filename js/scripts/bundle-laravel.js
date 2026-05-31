@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, statSync, readdirSync, mkdirSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, statSync, readdirSync, mkdirSync, existsSync, renameSync } from 'fs';
 import { join, relative, extname, resolve } from 'path';
 import { execSync } from 'child_process';
 import { gzipSync } from 'zlib';
@@ -266,11 +266,17 @@ for (const dir of INCLUDE_DIRS) {
     }
 }
 
+function writeAtomic(target, data) {
+    const tmp = target + '.tmp';
+    writeFileSync(tmp, data);
+    renameSync(tmp, target);
+}
+
 const json = JSON.stringify(bundle);
-writeFileSync(OUTPUT, json);
+writeAtomic(OUTPUT, json);
 
 const gz = gzipSync(json, { level: 9 });
-writeFileSync(OUTPUT_GZ, gz);
+writeAtomic(OUTPUT_GZ, gz);
 
 const phpVersion = detectPhpVersion();
 const meta = {
@@ -278,7 +284,7 @@ const meta = {
     phpVersion: phpVersion || '8.3',
     generatedAt: new Date().toISOString(),
 };
-writeFileSync(META_OUTPUT, JSON.stringify(meta, null, 2));
+writeAtomic(META_OUTPUT, JSON.stringify(meta, null, 2));
 if (!phpVersion) {
     console.warn('Could not detect PHP version from resources/js/php-loader.js; defaulting bundle-meta.json to 8.3.');
 } else {
