@@ -175,13 +175,24 @@ class DevCommand extends Command
 
     private function runDesktop(string $port): void
     {
+        $this->info("Starting Vite dev server at http://localhost:{$port} ...");
+        $vite = $this->background("npx vite --config vite.wasm.config.js --port {$port}");
+
+        sleep(3);
+
         $this->info('Starting Tauri desktop dev...');
-        $this->exec("npx tauri dev " . $this->cargoFeaturesArg(), [
-            'TAURI_CONFIG' => json_encode(['build' => [
+        $configJson = json_encode([
+            'build' => [
                 'devUrl' => "http://localhost:{$port}",
-                'beforeDevCommand' => "npx vite --config vite.wasm.config.js --port {$port}",
-            ]]),
+                'beforeDevCommand' => '',
+            ],
         ]);
+        $escaped = PHP_OS_FAMILY === 'Windows'
+            ? '"' . str_replace('"', '\\"', $configJson) . '"'
+            : escapeshellarg($configJson);
+        $this->exec("npx tauri dev " . $this->cargoFeaturesArg() . " --config {$escaped}");
+
+        $vite->stop(0);
     }
 
     private function runAndroid(string $host, string $port): void
