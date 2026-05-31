@@ -50,28 +50,28 @@ async function tryFetchAt(base) {
     try {
         const res = await timedFetch(base + 'laravel-bundle.json.gz');
         if (!res.ok) {
-            console.warn('[NB] bundle .json.gz fetch failed at', base, 'HTTP', res.status);
+            console.debug('[NB] bundle .json.gz fetch failed at', base, 'HTTP', res.status);
         } else {
             try {
                 const bytes = await res.arrayBuffer();
                 return await decompressGzipBytes(bytes);
             } catch (e) {
-                console.warn('[NB] bundle .json.gz decompression failed at', base, e?.message || e);
+                console.debug('[NB] bundle .json.gz decompression failed at', base, e?.message || e);
             }
         }
     } catch (e) {
-        console.warn('[NB] bundle .json.gz fetch threw at', base, e?.message || e);
+        console.debug('[NB] bundle .json.gz fetch threw at', base, e?.message || e);
     }
 
     try {
         const res = await timedFetch(base + 'laravel-bundle.json');
         if (!res.ok) {
-            console.warn('[NB] bundle .json fetch failed at', base, 'HTTP', res.status);
+            console.debug('[NB] bundle .json fetch failed at', base, 'HTTP', res.status);
             return null;
         }
         return await res.text();
     } catch (e) {
-        console.warn('[NB] bundle .json fetch threw at', base, e?.message || e);
+        console.debug('[NB] bundle .json fetch threw at', base, e?.message || e);
         return null;
     }
 }
@@ -141,6 +141,7 @@ async function fetchBundleJson() {
         }
     }
 
+    console.error('[NB] Could not load the app bundle. Both laravel-bundle.json.gz and laravel-bundle.json failed at', base);
     throw new Error('Bundle fetch failed: unreachable and no fallback bundle available');
 }
 
