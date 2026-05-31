@@ -145,8 +145,8 @@ class PluginRegistry
                     [
                         'identifier' => 'http:default',
                         'allow' => [
-                            ['url' => 'http://*'],
-                            ['url' => 'https://*'],
+                            ['url' => 'http://*:*/*'],
+                            ['url' => 'https://*:*/*'],
                         ],
                     ],
                 ],
