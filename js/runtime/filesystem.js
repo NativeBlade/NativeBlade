@@ -39,17 +39,11 @@ function timedFetch(url, ms = FETCH_TIMEOUT_MS) {
 }
 
 async function decompressGzipBytes(bytes) {
-    if (typeof DecompressionStream !== 'undefined') {
-        try {
-            const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-            return await new Response(stream).text();
-        } catch (e) {
-            console.warn('[NB] DecompressionStream failed on bytes, falling back to fflate:', e?.message || e);
-        }
+    if (typeof DecompressionStream === 'undefined') {
+        throw new Error('DecompressionStream unavailable');
     }
-
-    const { gunzipSync, strFromU8 } = await import('https://cdn.jsdelivr.net/npm/fflate@0.8.2/+esm');
-    return strFromU8(gunzipSync(new Uint8Array(bytes)));
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return await new Response(stream).text();
 }
 
 async function tryFetchAt(base) {
