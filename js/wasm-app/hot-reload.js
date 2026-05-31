@@ -99,7 +99,7 @@ function setupHMR() {
 }
 
 function setupPolling(serverUrl) {
-    const nativeFetch = window.fetch.bind(window);
+    const fetchReady = resolvePollFetch(serverUrl);
     let backoffMs = 1000;
     const backoffCeil = 30000;
     let lastStatus = null;
@@ -115,10 +115,11 @@ function setupPolling(serverUrl) {
     }
 
     async function fetchJson(url) {
+        const doFetch = await fetchReady;
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
         try {
-            const res = await nativeFetch(url, { signal: ctrl.signal });
+            const res = await doFetch(url, { signal: ctrl.signal });
             if (!res.ok) throw new Error('HTTP ' + res.status);
             return await res.json();
         } finally {
@@ -163,4 +164,15 @@ function setupPolling(serverUrl) {
     }
 
     baseline();
+}
+
+async function resolvePollFetch(serverUrl) {
+    const isTauri = typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__;
+    if (isTauri && /^http:\/\//i.test(serverUrl)) {
+        try {
+            const mod = await import('@tauri-apps/plugin-http');
+            if (mod?.fetch) return mod.fetch;
+        } catch {}
+    }
+    return window.fetch.bind(window);
 }
