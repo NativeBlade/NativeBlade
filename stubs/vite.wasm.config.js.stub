@@ -37,6 +37,17 @@ export default defineConfig({
         fs: {
             allow: [nativebladeBase, projectRoot],
         },
+        watch: {
+            ignored: [
+                '**/public/laravel-bundle.json',
+                '**/public/laravel-bundle.json.gz',
+                '**/public/laravel-bundle.json.gz.tmp',
+                '**/public/laravel-bundle.json.tmp',
+                '**/public/bundle-meta.json',
+                '**/public/bundle-meta.json.tmp',
+                '**/public/nativeblade-config.json',
+            ],
+        },
     },
     optimizeDeps: {
         exclude: ['@php-wasm/web-8-3', '@php-wasm/web-8-4', '@php-wasm/web-8-5'],
