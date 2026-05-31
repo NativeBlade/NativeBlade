@@ -13,8 +13,15 @@ export function init(navigate, getCurrentPath) {
     getPathFn = getCurrentPath;
 
     const serverUrl = resolveServerUrl();
-    const hasWs = typeof import.meta.hot !== 'undefined' && import.meta.hot !== null;
 
+    const portalBase = (typeof window !== 'undefined' ? window.__NB_BUNDLE_BASE__ : null)
+        ?? readLocalStorage('nb:bundleBase');
+    if (portalBase) {
+        if (serverUrl) setupPolling(serverUrl);
+        return;
+    }
+
+    const hasWs = typeof import.meta.hot !== 'undefined' && import.meta.hot !== null;
     if (hasWs) {
         setupHMR();
         return;
