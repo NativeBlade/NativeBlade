@@ -171,7 +171,8 @@ class PluginsConfigGenerator
             $d = PluginRegistry::descriptor($plugin);
             foreach ($d['capabilities'] ?? [] as $perm) {
                 $sharedPerms[] = $perm;
-                $prefix = strtok($perm, ':');
+                $permId = is_array($perm) ? ($perm['identifier'] ?? '') : $perm;
+                $prefix = strtok($permId, ':');
                 if ($prefix !== false && !in_array($prefix, $allowedPrefixes, true)) {
                     $allowedPrefixes[] = $prefix;
                 }

@@ -141,7 +141,15 @@ class PluginRegistry
                 'feature' => 'http',
                 'feature_crate' => 'tauri-plugin-http',
                 'rust_init' => 'tauri_plugin_http::init()',
-                'capabilities' => ['http:default'],
+                 'capabilities' => [
+                    [
+                        'identifier' => 'http:default',
+                        'allow' => [
+                            ['url' => 'http://*'],
+                            ['url' => 'https://*'],
+                        ],
+                    ],
+                ],
                 'npm' => ['@tauri-apps/plugin-http' => '^2'],
                 'android_permissions' => ['INTERNET'],
             ],

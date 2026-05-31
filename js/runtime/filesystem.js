@@ -29,13 +29,27 @@ const FETCH_TIMEOUT_MS = 60000;
 const FAILURE_COUNTER_KEY = 'nb:bundleBaseFailures';
 const FAILURE_THRESHOLD = 3;
 
-function timedFetch(url, ms = FETCH_TIMEOUT_MS) {
+async function resolveFetch(url) {
+    const isTauri = typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__;
+    if (isTauri && /^http:\/\//i.test(url)) {
+        try {
+            const mod = await import('@tauri-apps/plugin-http');
+            if (mod?.fetch) return mod.fetch;
+        } catch {
+            // Plugin not bundled (app without the http plugin) — fall through.
+        }
+    }
+    return fetch;
+}
+
+async function timedFetch(url, ms = FETCH_TIMEOUT_MS) {
+    const doFetch = await resolveFetch(url);
     if (typeof AbortController === 'undefined') {
-        return fetch(url);
+        return doFetch(url);
     }
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(new Error('timeout')), ms);
-    return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
+    return doFetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
 }
 
 async function decompressGzipBytes(bytes) {
