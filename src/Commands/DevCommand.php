@@ -177,7 +177,10 @@ class DevCommand extends Command
     {
         $this->info('Starting Tauri desktop dev...');
         $this->exec("npx tauri dev " . $this->cargoFeaturesArg(), [
-            'TAURI_CONFIG' => json_encode(['build' => ['devUrl' => "http://localhost:{$port}"]]),
+            'TAURI_CONFIG' => json_encode(['build' => [
+                'devUrl' => "http://localhost:{$port}",
+                'beforeDevCommand' => "npx vite --config vite.wasm.config.js --port {$port}",
+            ]]),
         ]);
     }
 
