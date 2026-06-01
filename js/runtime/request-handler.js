@@ -144,9 +144,19 @@ async function fulfillInBackground(php, originalPath, originalOptions, type = 'h
 function inlineAssets(html, php) {
     let inlineJs = '';
 
+    // Rewrite url(/x.woff2|png|...) inside inlined CSS to base64 (WebView has no file server).
+    const cssMime = { woff2: 'font/woff2', woff: 'font/woff', ttf: 'font/ttf', otf: 'font/otf', eot: 'application/vnd.ms-fontobject', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml' };
+    const cssUrls = (css) => css.replace(/url\(\s*(['"]?)\/([^'")?#]+\.(woff2|woff|ttf|otf|eot|png|jpe?g|gif|svg))[^'")]*\1\s*\)/gi, (m, q, file, ext) => {
+        try {
+            const bytes = php.readFileAsBuffer('/app/public/' + file);
+            let bin = ''; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+            return "url('data:" + (cssMime[ext.toLowerCase()] || 'application/octet-stream') + ";base64," + btoa(bin) + "')";
+        } catch { return m; }
+    });
+
     html = html.replace(
         /<link[^>]*href="[^"]*\/build\/assets\/([^"]+\.css)"[^>]*\/?>/g,
-        (m, file) => { try { return '<style>' + php.readFileAsText('/app/public/build/assets/' + file) + '</style>'; } catch { return ''; } }
+        (m, file) => { try { return '<style>' + cssUrls(php.readFileAsText('/app/public/build/assets/' + file)) + '</style>'; } catch { return ''; } }
     );
 
     html = html.replace(/<link[^>]*href="[^"]*\/build\/assets\/([^"]+\.js)"[^>]*\/?>/g, () => '');
@@ -187,7 +197,7 @@ function inlineAssets(html, php) {
         /<link([^>]*)\shref="\/([^"]+\.css)"([^>]*)\/?>/g,
         (m, pre, file, post) => {
             if (file.indexOf('build/assets/') === 0 || !/stylesheet/i.test(pre + post)) return m;
-            try { return '<style>' + php.readFileAsText('/app/public/' + file) + '</style>'; }
+            try { return '<style>' + cssUrls(php.readFileAsText('/app/public/' + file)) + '</style>'; }
             catch { return m; }
         }
     );
