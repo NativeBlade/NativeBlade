@@ -172,6 +172,26 @@ function inlineAssets(html, php) {
 
     if (inlineJs) html = html.replace('</body>', '<script>' + inlineJs + '</script></body>');
 
+    // Inline local <script src="/x.js"> / <link href="/x.css"> from the bundle (WebView has no file server).
+    html = html.replace(
+        /<script([^>]*)\ssrc="\/([^"]+\.js)"([^>]*)><\/script>/g,
+        (m, pre, file, post) => {
+            if (file.indexOf('build/assets/') === 0) return m;
+            try {
+                const js = php.readFileAsText('/app/public/' + file).replace(/<\/script>/gi, '<\\/script>');
+                return '<script' + (pre + post).replace(/\stype=("|')module\1/i, '') + '>' + js + '</script>';
+            } catch { return m; }
+        }
+    );
+    html = html.replace(
+        /<link([^>]*)\shref="\/([^"]+\.css)"([^>]*)\/?>/g,
+        (m, pre, file, post) => {
+            if (file.indexOf('build/assets/') === 0 || !/stylesheet/i.test(pre + post)) return m;
+            try { return '<style>' + php.readFileAsText('/app/public/' + file) + '</style>'; }
+            catch { return m; }
+        }
+    );
+
     const mimeMap = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml' };
 
     html = html.replace(
