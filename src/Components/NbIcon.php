@@ -19,6 +19,13 @@ class NbIcon extends Component
 
     public function render()
     {
-        return $this->svg;
+        return function (array $data) {
+            $attributes = $data['attributes'] ?? null;
+            $extra = $attributes ? trim($attributes->toHtml()) : '';
+
+            return $extra === ''
+                ? $this->svg
+                : preg_replace('/<svg\b/', '<svg '.$extra, $this->svg, 1);
+        };
     }
 }
