@@ -26,18 +26,19 @@ export function t(key, replacements = {}) {
  * (en, pt-BR) so screen readers pick the correct reading voice.
  */
 export async function loadTranslations() {
-    let fallback = null;
+    let userLocale = null, fallback = null;
 
     try {
         const res = await fetch('./nativeblade-locale.json');
         if (res.ok) {
             const json = await res.json();
-            fallback = json.defaultLocale || json.locale || null;
+            userLocale = json.locale || null;
+            fallback = json.defaultLocale || null;
         }
     } catch {}
 
     const device = navigator.language || 'en';
-    const sources = [device, fallback, 'en'].filter(Boolean);
+    const sources = [userLocale, device, fallback, 'en'].filter(Boolean);
 
     const candidates = [];
     for (const src of sources) {

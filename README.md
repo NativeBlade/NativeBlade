@@ -24,6 +24,7 @@
   <a href="LIFECYCLE.md">Lifecycle</a> &bull;
   <a href="DATABASE.md">Database</a> &bull;
   <a href="CACHE.md">Cache</a> &bull;
+  <a href="MULTI-LANGUAGE.md">Languages</a> &bull;
   <a href="FILESYSTEM.md">Filesystem</a> &bull;
   <a href="BUILD.md">Build</a> &bull;
   <a href="SCHEDULER.md">Scheduler</a> &bull;
@@ -346,6 +347,7 @@ NativeBlade is a **client-side runtime**, so anything inherently server-side (se
 | [ANIMATIONS.md](ANIMATIONS.md) | nb-animation, Animate.css, custom animations, haptic feedback |
 | [DATABASE.md](DATABASE.md) | SQLite local, native MySQL/PostgreSQL/MariaDB via Rust bridge |
 | [CACHE.md](CACHE.md) | Cache::* auto-wired to SQLite, TTL/locks/remember, state vs cache decision |
+| [MULTI-LANGUAGE.md](MULTI-LANGUAGE.md) | Device-language-first locale resolution, shell + Laravel translation layers, `setLanguage()` runtime switching, accessibility |
 | [LIFECYCLE.md](LIFECYCLE.md) | Boot sequence, onBoot hook, clock sync, migrations |
 | [SCHEDULER.md](SCHEDULER.md) | Task scheduling with Rust native timers |
 | [FILESYSTEM.md](FILESYSTEM.md) | Native filesystem, Storage driver, camera integration |

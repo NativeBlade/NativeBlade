@@ -43,6 +43,7 @@ class NativeBladeServiceProvider extends ServiceProvider
         if (!$this->app->runningInConsole()) {
             $this->app->booted(function () {
                 $this->runMigrations();
+                app()->setLocale($this->app->make('nativeblade')->currentLanguage());
             });
         }
 

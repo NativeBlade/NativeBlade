@@ -113,6 +113,11 @@ use Illuminate\Support\Facades\Facade;
  * @method static mixed getState(string $key, mixed $default = null)
  * @method static array state(?string $scope = null)
  * @method static void forget(string $key)
+ *
+ * Language.
+ *
+ * @method static void setLanguage(string $locale)
+ * @method static string currentLanguage()
  * @method static void flush(?string $scope = null)
  * @method static array pool(callable $callback)
  *

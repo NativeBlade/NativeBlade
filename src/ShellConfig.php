@@ -544,6 +544,29 @@ class ShellConfig
     }
 
     /**
+     * Set the app language. Persists it (survives restarts), applies it to the
+     * current request via app()->setLocale(), and mirrors it to the boot locale
+     * file so the splash/loading screen (rendered by i18n.js before PHP boots)
+     * follows the user's choice on the next launch.
+     */
+    public function setLanguage(string $locale): void
+    {
+        $this->setState('app.locale', $locale);
+        app()->setLocale($locale);
+
+        @file_put_contents(public_path('nativeblade-locale.json'), json_encode([
+            'defaultLocale' => $locale,
+            'locale'        => $locale,
+        ]));
+    }
+
+    /** The persisted app language, or the config default when none was chosen yet. */
+    public function currentLanguage(): string
+    {
+        return $this->getState('app.locale', config('app.locale', 'en'));
+    }
+
+    /**
      * Return every key/value pair currently in the state table.
      *
      * @param  string|null  $scope  If provided, filters by scope.
