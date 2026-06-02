@@ -180,6 +180,10 @@ async function renderPage(text, path, options, version) {
     if (version !== navigationVersion) return;
 
     let html = text;
+    try {
+        const m = html.match(/<html[^>]*\blang="([^"]+)"/i);
+        if (m && m[1]) localStorage.setItem('nb:locale', m[1]);
+    } catch {}
     const config = extractShellConfig(html);
     const pageTransition = options.transition || config.transition || transition;
     html = inject(html);

@@ -29,10 +29,15 @@ export async function loadTranslations() {
     let userLocale = null, fallback = null;
 
     try {
+        const stored = localStorage.getItem('nb:locale');
+        if (stored) userLocale = stored;
+    } catch {}
+
+    try {
         const res = await fetch('./nativeblade-locale.json');
         if (res.ok) {
             const json = await res.json();
-            userLocale = json.locale || null;
+            userLocale = userLocale || json.locale || null;
             fallback = json.defaultLocale || null;
         }
     } catch {}
