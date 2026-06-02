@@ -148,6 +148,8 @@ function inlineAssets(html, php) {
     const cssMime = { woff2: 'font/woff2', woff: 'font/woff', ttf: 'font/ttf', otf: 'font/otf', eot: 'application/vnd.ms-fontobject', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml' };
     const cssUrls = (css) => css.replace(/url\(\s*(['"]?)\/([^'")?#]+\.(woff2|woff|ttf|otf|eot|png|jpe?g|gif|svg))[^'")]*\1\s*\)/gi, (m, q, file, ext) => {
         try {
+            const content = php.readFileAsText('/app/public/' + file);
+            if (content.startsWith('data:')) return "url('" + content + "')";
             const bytes = php.readFileAsBuffer('/app/public/' + file);
             let bin = ''; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
             return "url('data:" + (cssMime[ext.toLowerCase()] || 'application/octet-stream') + ";base64," + btoa(bin) + "')";
