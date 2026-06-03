@@ -13,8 +13,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import app.tauri.annotation.Command
@@ -27,7 +25,6 @@ import app.tauri.plugin.Plugin
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
@@ -67,6 +64,11 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
         super.load(webView)
         instance = this
 
+        // Clear legacy WorkManager-scheduled notifications from older app
+        // versions (one-shot and daily now run on AlarmManager). AlarmManager
+        // alarms are intentionally NOT cancelled here: they must survive cold
+        // starts so a reminder armed in one session still fires after the app
+        // is reopened and closed again.
         try {
             val wm = WorkManager.getInstance(activity.applicationContext)
             for (tag in ALL_WORK_TAGS) {
@@ -208,17 +210,20 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun cancelAll(invoke: Invoke) {
-        val wm = WorkManager.getInstance(activity.applicationContext)
+        val ctx = activity.applicationContext
+        val wm = WorkManager.getInstance(ctx)
         for (tag in ALL_WORK_TAGS) {
             wm.cancelAllWorkByTag(tag)
         }
-        NotificationManagerCompat.from(activity.applicationContext).cancelAll()
+        NotificationAlarms.cancelAll(ctx)
+        NotificationManagerCompat.from(ctx).cancelAll()
         invoke.resolve()
     }
 
     private fun cancelById(userId: String) {
         val ctx = activity.applicationContext
         WorkManager.getInstance(ctx).cancelUniqueWork(workName(userId))
+        NotificationAlarms.cancel(ctx, userId, NotificationDisplay.hashId(userId))
         NotificationManagerCompat.from(ctx).cancel(NotificationDisplay.hashId(userId))
     }
 
@@ -239,6 +244,35 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
         schedule: org.json.JSONObject,
     ) {
         val ctx = activity.applicationContext
+
+        // One-shot and daily schedules go through AlarmManager, not
+        // WorkManager: WorkManager defers deferrable work in Doze and would
+        // silently drop an overnight reminder. Recurring `every` schedules
+        // stay on WorkManager, where deferrable batching is acceptable.
+        when (schedule.optString("type")) {
+            "at" -> {
+                val whenMs = parseIsoUtc(schedule.optString("at"))
+                NotificationAlarms.schedule(
+                    context = ctx, userId = userId, tag = tag,
+                    triggerAtMs = whenMs.coerceAtLeast(System.currentTimeMillis()),
+                    title = title, body = body, channel = channel, sound = sound, icon = icon,
+                    dailyTime = null,
+                )
+                return
+            }
+
+            "dailyAt" -> {
+                val time = schedule.optString("time").ifBlank { "09:00" }
+                NotificationAlarms.schedule(
+                    context = ctx, userId = userId, tag = tag,
+                    triggerAtMs = NotificationAlarms.nextDailyTriggerMs(time),
+                    title = title, body = body, channel = channel, sound = sound, icon = icon,
+                    dailyTime = time,
+                )
+                return
+            }
+        }
+
         val workManager = WorkManager.getInstance(ctx)
         val workName = workName(userId)
 
@@ -253,17 +287,6 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
         }.build()
 
         when (schedule.optString("type")) {
-            "at" -> {
-                val whenMs = parseIsoUtc(schedule.optString("at"))
-                val delay = (whenMs - System.currentTimeMillis()).coerceAtLeast(0L)
-                val request = OneTimeWorkRequestBuilder<ScheduledNotificationWorker>()
-                    .setInitialDelay(delay, TimeUnit.MILLISECONDS)
-                    .setInputData(data)
-                    .addTag(WORK_TAG)
-                    .build()
-                workManager.enqueueUniqueWork(workName, ExistingWorkPolicy.REPLACE, request)
-            }
-
             "every" -> {
                 val kind = schedule.optString("kind").ifBlank { "day" }
                 val count = schedule.optInt("count", 1).coerceAtLeast(1)
@@ -288,24 +311,6 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
                 )
             }
 
-            "dailyAt" -> {
-                val time = schedule.optString("time").ifBlank { "09:00" }
-                val (hh, mm) = time.split(":").let {
-                    (it.getOrNull(0)?.toIntOrNull() ?: 9) to (it.getOrNull(1)?.toIntOrNull() ?: 0)
-                }
-                val initialDelay = millisUntilNextDailyAt(hh, mm)
-                val request = PeriodicWorkRequestBuilder<ScheduledNotificationWorker>(
-                    24, TimeUnit.HOURS
-                )
-                    .setInitialDelay(initialDelay, TimeUnit.MILLISECONDS)
-                    .setInputData(data)
-                    .addTag(WORK_TAG)
-                    .build()
-                workManager.enqueueUniquePeriodicWork(
-                    workName, ExistingPeriodicWorkPolicy.UPDATE, request
-                )
-            }
-
             else -> throw IllegalArgumentException("Unsupported schedule type")
         }
     }
@@ -321,20 +326,6 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
         } catch (e: Throwable) {
             System.currentTimeMillis()
         }
-    }
-
-    private fun millisUntilNextDailyAt(hh: Int, mm: Int): Long {
-        val now = Calendar.getInstance()
-        val target = (now.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, hh)
-            set(Calendar.MINUTE, mm)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-            if (timeInMillis <= now.timeInMillis) {
-                add(Calendar.DAY_OF_YEAR, 1)
-            }
-        }
-        return target.timeInMillis - now.timeInMillis
     }
 
     fun emitPush(payload: Map<String, Any?>) {
