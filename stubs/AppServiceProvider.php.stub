@@ -35,7 +35,7 @@ class AppServiceProvider extends ServiceProvider
             $config->identifier('{{IDENTIFIER}}')
                 ->version('1.0.0', 1)
                 ->minSdk(28)
-                ->targetSdk(34)
+                ->targetSdk(35)
                 ->orientation('portrait')
                 ->statusBar(style: 'dark')
                 ->splashBackground('#0a0a0a')
