@@ -90,7 +90,6 @@ need. Reach out to scope it.
 
 - **Polar:** [polar.sh/nativeblade](https://polar.sh/nativeblade) — recurring and
   one-time, handles invoicing and VAT
-- **GitHub Sponsors:** [github.com/sponsors/NativeBlade](https://github.com/sponsors/NativeBlade)
 
 Questions about sponsorship or sponsored features: reach out on
 [Discord](https://discord.gg/Vzpach5J2h) or by email at `jeffleyd@gmail.com`.
