@@ -399,6 +399,16 @@ cargo test --lib
 composer test && npm test && (cd rust && cargo test --lib)
 ```
 
+## Sponsor & Support
+
+NativeBlade is free and 100% open source, with no paid tier and no closed core.
+If it saves your team time, sponsoring is how you keep it that way.
+
+- **[Sponsor the project](SPONSORS.md)** — support tiers for individual
+  developers and companies, plus sponsored features
+- **[Business Support](SUPPORT.md)** — a private channel and a guaranteed
+  response time for teams running NativeBlade in production
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
