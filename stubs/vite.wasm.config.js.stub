@@ -17,6 +17,9 @@ for (const scope of ['@php-wasm', '@tauri-apps']) {
     } catch {}
 }
 
+// Installed @tauri-apps packages = the declared plugins (NativeBladeConfig::plugins).
+const installedScoped = new Set(Object.keys(scopedAliases));
+
 export default defineConfig({
     plugins: [phpHmrPlugin(projectRoot)],
     root: path.resolve(__dirname, 'resources/js'),
@@ -58,6 +61,12 @@ export default defineConfig({
         emptyOutDir: true,
         chunkSizeWarningLimit: 5000,
         rolldownOptions: {
+            // Externalize @tauri-apps plugins that aren't declared/installed —
+            // bridge.js try/catches each import, so absent ones no-op at runtime.
+            external(id) {
+                const pkg = id.match(/^(@tauri-apps\/[^/]+)/)?.[1];
+                return pkg ? !installedScoped.has(pkg) : false;
+            },
             onwarn(warning, warn) {
                 if (warning.code === 'EVAL') return;
                 if (warning.plugin === 'rolldown:vite-resolve') return;
