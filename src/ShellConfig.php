@@ -249,13 +249,21 @@ class ShellConfig
      * @param  string  $url        URL returning the version JSON.
      * @param  bool    $autoApply  When true, downloads in background and
      *                             swaps the bundle on the next boot.
+     * @param  string  $channel    Release channel baked into this build. The
+     *                             default 'stable' reads the top-level
+     *                             `bundle` entry; any other value reads
+     *                             `channels.{channel}` from the manifest.
      */
-    public function bundlePush(string $url, bool $autoApply = true): static
+    public function bundlePush(string $url, bool $autoApply = true, string $channel = 'stable'): static
     {
-        static::$appConfigs['bundlePush'] = [
+        $config = [
             'url' => $url,
             'autoApply' => $autoApply,
         ];
+        if ($channel !== 'stable') {
+            $config['channel'] = $channel;
+        }
+        static::$appConfigs['bundlePush'] = $config;
         return $this;
     }
 

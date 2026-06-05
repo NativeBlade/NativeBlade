@@ -16,6 +16,14 @@ const KEY = 'current';
 
 const VERSION_KEY = 'nb:bundleVersion';
 
+function getChannel(config) {
+    return config?.channel || 'stable';
+}
+
+function channelVersionKey(channel) {
+    return (!channel || channel === 'stable') ? VERSION_KEY : `${VERSION_KEY}:${channel}`;
+}
+
 function openDb() {
     return new Promise((resolve, reject) => {
         const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -50,16 +58,22 @@ export async function getCachedBundle() {
             await clearCache();
             return null;
         }
+
+        const currentChannel = getChannel(await loadConfig());
+        if ((record.channel || 'stable') !== currentChannel) {
+            await clearCache();
+            return null;
+        }
         return record.blob;
     } catch {
         return null;
     }
 }
 
-async function putCachedBundle(blob) {
+async function putCachedBundle(blob, channel) {
     const store = await tx('readwrite');
     return new Promise((resolve, reject) => {
-        const req = store.put({ blob, sourceBase: getBundleBase() }, KEY);
+        const req = store.put({ blob, sourceBase: getBundleBase(), channel: channel || 'stable' }, KEY);
         req.onsuccess = () => resolve();
         req.onerror = () => reject(req.error);
     });
@@ -122,12 +136,19 @@ export async function checkForUpdate() {
         return { available: false, reason: 'fetch-failed', error: e.message || String(e) };
     }
 
-    const next = manifest?.bundle;
+    const channel = getChannel(config);
+    let next;
+    if (channel !== 'stable') {
+        next = manifest?.channels?.[channel];
+        if (!next) return { available: false, reason: 'up-to-date' };
+    } else {
+        next = manifest?.bundle;
+    }
     if (!next?.version || !next?.url) {
         return { available: false, reason: 'invalid-manifest' };
     }
 
-    const currentVersion = localStorage.getItem(VERSION_KEY) || window.__NB_SHELL_BUNDLE_VERSION__ || '0.0.0';
+    const currentVersion = localStorage.getItem(channelVersionKey(channel)) || window.__NB_SHELL_BUNDLE_VERSION__ || '0.0.0';
     if (versionGte(currentVersion, next.version) && currentVersion === next.version) {
         return { available: false, reason: 'up-to-date', currentVersion };
     }
@@ -148,6 +169,7 @@ export async function checkForUpdate() {
         currentVersion,
         nextVersion: next.version,
         url: next.url,
+        channel,
     };
 }
 
@@ -172,8 +194,8 @@ export async function downloadUpdate() {
     }
 
     try {
-        await putCachedBundle(blob);
-        localStorage.setItem(VERSION_KEY, check.nextVersion);
+        await putCachedBundle(blob, check.channel);
+        localStorage.setItem(channelVersionKey(check.channel), check.nextVersion);
         return { applied: true, version: check.nextVersion };
     } catch (e) {
         return { applied: false, reason: 'persist-failed', error: e.message || String(e) };

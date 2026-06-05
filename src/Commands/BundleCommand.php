@@ -10,6 +10,7 @@ class BundleCommand extends Command
 {
     protected $signature = 'nativeblade:bundle
         {--tag= : Tag the output with a version (writes laravel-bundle-{tag}.json.gz alongside the canonical name)}
+        {--channel= : Publish under a release channel (e.g. beta). Omit for the default stable channel}
         {--no-dev : Run composer install --no-dev before bundling (default: true)}';
 
     protected $description = 'Build only the Laravel bundle (laravel-bundle.json.gz) — for OTA bundle push without rebuilding the native shell';
@@ -17,6 +18,7 @@ class BundleCommand extends Command
     public function handle(): int
     {
         $tag = $this->option('tag');
+        $channel = $this->option('channel');
         $noDev = $this->option('no-dev') !== false;
 
         $this->line('');
@@ -49,7 +51,7 @@ class BundleCommand extends Command
             $this->line("  <fg=green>✓</> public/laravel-bundle-{$tag}.json.gz");
         }
 
-        $this->printPostBundleInstructions($tag);
+        $this->printPostBundleInstructions($tag, $channel);
 
         return self::SUCCESS;
     }
@@ -68,7 +70,7 @@ class BundleCommand extends Command
      * is in the stores right now"). Devs bump it manually when they ship a
      * bundle that depends on a new native plugin or facade method.
      */
-    private function printPostBundleInstructions(?string $tag): void
+    private function printPostBundleInstructions(?string $tag, ?string $channel = null): void
     {
         $version = $tag ?: '1.0.0';
         $filename = "laravel-bundle-{$version}.json.gz";
@@ -77,27 +79,33 @@ class BundleCommand extends Command
         $configured = ShellConfig::getAppConfigs()['bundlePush'] ?? null;
         $manifestUrl = $configured['url'] ?? null;
 
-        $manifest = [
-            'bundle' => [
-                'version' => $version,
-                'url' => $manifestUrl
-                    ? $this->deriveBundleUrl($manifestUrl, $filename)
-                    : "https://releases.myapp.com/{$filename}",
-                'minShellVersion' => $minShellVersion,
-            ],
+        $entry = [
+            'version' => $version,
+            'url' => $manifestUrl
+                ? $this->deriveBundleUrl($manifestUrl, $filename)
+                : "https://releases.myapp.com/{$filename}",
+            'minShellVersion' => $minShellVersion,
         ];
+
+        $isStable = !$channel || $channel === 'stable';
+        $bundleUrl = $entry['url'];
+        $manifest = $isStable
+            ? ['bundle' => $entry]
+            : ['channels' => [$channel => $entry]];
 
         if ($manifestUrl) {
             $this->line('');
             $this->info('  Bundle built. Upload public/' . $filename . ' to:');
             $this->line('');
-            $this->line('    ' . $manifest['bundle']['url']);
+            $this->line('    ' . $bundleUrl);
             $this->line('');
             $this->info('  Then update your manifest at:');
             $this->line('');
             $this->line('    ' . $manifestUrl);
             $this->line('');
-            $this->info('  with this content (copy-paste):');
+            $this->info($isStable
+                ? '  with this content (copy-paste):'
+                : "  by merging this '{$channel}' channel entry (copy-paste):");
         } else {
             $this->line('');
             $this->info('  Bundle built. Upload it to your CDN and update version.json:');

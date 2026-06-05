@@ -155,4 +155,34 @@ final class ShellConfigBuildersTest extends TestCase
 
         self::assertSame($options, $stored['topBar']);
     }
+
+    #[Test]
+    public function bundle_push_stores_url_and_auto_apply_without_a_channel_by_default(): void
+    {
+        $this->config->bundlePush('https://releases.test/version.json');
+
+        $configs = ShellConfig::getAppConfigs();
+        self::assertArrayHasKey('bundlePush', $configs);
+        self::assertSame('https://releases.test/version.json', $configs['bundlePush']['url']);
+        self::assertTrue($configs['bundlePush']['autoApply']);
+        self::assertArrayNotHasKey('channel', $configs['bundlePush']);
+    }
+
+    #[Test]
+    public function bundle_push_records_a_non_default_channel(): void
+    {
+        $this->config->bundlePush('https://releases.test/version.json', channel: 'beta');
+
+        $configs = ShellConfig::getAppConfigs();
+        self::assertSame('beta', $configs['bundlePush']['channel']);
+    }
+
+    #[Test]
+    public function bundle_push_omits_the_channel_key_when_explicitly_stable(): void
+    {
+        $this->config->bundlePush('https://releases.test/version.json', channel: 'stable');
+
+        $configs = ShellConfig::getAppConfigs();
+        self::assertArrayNotHasKey('channel', $configs['bundlePush']);
+    }
 }

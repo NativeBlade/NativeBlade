@@ -158,6 +158,41 @@ The same `version.json` your Tauri shell update uses, plus a `bundle` block:
 | `bundle.url` | yes | URL to the new `laravel-bundle.json.gz`. |
 | `bundle.minShellVersion` | no | Skip the bundle if the shell is older. Useful when the bundle calls into a plugin you only added in a newer shell. |
 
+### Release channels
+
+By default the manifest has a single `bundle` entry, which is the stable channel. To ship pre-release bundles to testers without touching stable, bake a channel into the build and add a `channels` map to the manifest:
+
+```php
+NativeBladeConfig::bundlePush(
+    url: 'https://releases.myapp.com/version.json',
+    channel: 'beta',
+);
+```
+
+```json
+{
+    "bundle":   { "version": "1.0.1",       "url": ".../laravel-bundle-1.0.1.json.gz",       "minShellVersion": "1.0.5" },
+    "channels": {
+        "beta": { "version": "1.1.0-beta.2", "url": ".../laravel-bundle-1.1.0-beta.2.json.gz", "minShellVersion": "1.0.5" }
+    }
+}
+```
+
+A build configured with `channel: 'beta'` reads `channels.beta`. Every other build, and any older shell, reads `bundle` exactly as before, so existing apps are unaffected. The channel is build-time only: distribute the beta build through the store's test track (TestFlight, Play testing tracks), and the channel is just metadata matching that build to its bundles.
+
+Publish a channel bundle with `--channel`:
+
+```bash
+php artisan nativeblade:bundle --tag=1.1.0-beta.2 --channel=beta
+```
+
+The command prints the `channels.{channel}` block for you to merge into the existing `version.json` next to `bundle`.
+
+Notes:
+
+- Versions are tracked per channel, so promoting a beta build to stable through the store still picks up stable bundles correctly.
+- A channel build with no matching `channels` entry stays on its current bundle rather than dropping to stable.
+
 ### Storage
 
 Downloaded bundles are stored in IndexedDB (works on web, Tauri desktop, Android, iOS — no platform-specific code). On boot, the app loads from cache if present, otherwise falls back to the bundle that shipped in the binary.
