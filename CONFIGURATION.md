@@ -190,6 +190,7 @@ Action conventions (same for tray menus and menu bars):
 | `fullscreen(bool)` | Hide status bar and navigation bar |
 | `splashBackground(string)` | Native splash screen color |
 | `permissions(array)` | Permission declarations with descriptions |
+| `manifestMetaData(array)` | Custom `<meta-data>` entries in `<application>` (escape hatch, see below) |
 
 ### Note on native debug symbols & AAB size
 
@@ -228,6 +229,7 @@ Tracked upstream: <https://issuetracker.google.com/issues/172248255>.
 | `splashBackground(string)` | Native launch screen color |
 | `permissions(array)` | NSUsageDescription strings |
 | `privacyManifest(array)` | PrivacyInfo.xcprivacy API declarations |
+| `infoPlist(array)` | Merge arbitrary keys into Info.plist (escape hatch, see below) |
 
 ## Permissions
 
@@ -274,6 +276,43 @@ PrivacyApi::FILE_TIMESTAMP_DISPLAY      // Display to user
 PrivacyApi::BOOT_TIME_ELAPSED           // Calculate elapsed time
 PrivacyApi::DISK_SPACE_WRITE_CHECK      // Check before writing
 ```
+
+
+## Custom native config (escape hatch)
+
+NativeBlade models the common platform keys with dedicated methods (orientation, status bar, permissions, and so on). For anything it does not model, two escape hatches let you write raw native config from PHP without opening Xcode or Android Studio.
+
+> Use these only for app-specific needs. The built-in plugins already write the native keys they require, so reach for these methods only when you need a key that no plugin covers.
+
+### iOS: `infoPlist(array)`
+
+Merges arbitrary keys into the generated `Info.plist`. Values may be strings, booleans, integers, floats, and nested arrays (lists become `<array>`, associative arrays become `<dict>`).
+
+```php
+NativeBladeConfig::ios(function (IosConfig $config) {
+    $config->infoPlist([
+        'ITSAppUsesNonExemptEncryption' => false,
+        'LSApplicationQueriesSchemes' => ['whatsapp', 'tel'],
+        'UIBackgroundModes' => ['audio'],
+    ]);
+});
+```
+
+Keys NativeBlade already manages (orientation, status bar, version, app name) are ignored with a build warning. Use their dedicated methods instead.
+
+### Android: `manifestMetaData(array)`
+
+Adds `<meta-data>` entries to the `<application>` element of `AndroidManifest.xml`. Booleans are written as `"true"` / `"false"`.
+
+```php
+NativeBladeConfig::android(function (AndroidConfig $config) {
+    $config->manifestMetaData([
+        'com.google.android.gms.ads.APPLICATION_ID' => 'ca-app-pub-xxxxxxxx~yyyyyyyy',
+    ]);
+});
+```
+
+Both are written inside NativeBlade's config markers, so running `php artisan nativeblade:config` again replaces them cleanly and removing the call removes the entries. Anything you add manually outside the markers is preserved.
 
 
 ## Page Transitions

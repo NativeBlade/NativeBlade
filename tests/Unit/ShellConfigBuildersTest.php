@@ -185,4 +185,34 @@ final class ShellConfigBuildersTest extends TestCase
         $configs = ShellConfig::getAppConfigs();
         self::assertArrayNotHasKey('channel', $configs['bundlePush']);
     }
+
+    #[Test]
+    public function ios_info_plist_entries_are_stored_and_merge_across_calls(): void
+    {
+        $this->config->ios(function (IosConfig $cfg) {
+            $cfg->infoPlist(['ITSAppUsesNonExemptEncryption' => false])
+                ->infoPlist(['UIBackgroundModes' => ['audio']]);
+        });
+
+        $configs = ShellConfig::getAppConfigs();
+        self::assertSame([
+            'ITSAppUsesNonExemptEncryption' => false,
+            'UIBackgroundModes' => ['audio'],
+        ], $configs['ios']['infoPlist']);
+    }
+
+    #[Test]
+    public function android_manifest_meta_data_entries_are_stored_and_merge_across_calls(): void
+    {
+        $this->config->android(function (AndroidConfig $cfg) {
+            $cfg->manifestMetaData(['com.example.A' => 'one'])
+                ->manifestMetaData(['com.example.B' => 'two']);
+        });
+
+        $configs = ShellConfig::getAppConfigs();
+        self::assertSame([
+            'com.example.A' => 'one',
+            'com.example.B' => 'two',
+        ], $configs['android']['manifestMetaData']);
+    }
 }

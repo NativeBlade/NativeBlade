@@ -22,7 +22,61 @@ class AndroidConfigGenerator
         $this->generateProguard();
         $this->stripDebugSymbolsBlock();
         $this->generateNfcAutoLaunch($config);
+        $this->generateMetaData($config);
         $this->generatePushNotification($config);
+    }
+
+    private const META_START = '<!-- nativeblade:meta:start -->';
+    private const META_END = '<!-- nativeblade:meta:end -->';
+
+    /**
+     * App-specific `<meta-data>` escape hatch via `AndroidConfig::manifestMetaData()`.
+     *
+     * Entries are fenced inside `<!-- nativeblade:meta:start -->` markers right
+     * before `</application>`, so re-runs replace the block cleanly and dropping
+     * the config removes it. Built-in plugins write their own meta-data; this is
+     * only for keys the app needs directly (e.g. an AdMob application id).
+     */
+    private function generateMetaData(array $config): void
+    {
+        $manifestPath = base_path('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
+        if (!file_exists($manifestPath)) return;
+
+        $manifest = file_get_contents($manifestPath);
+        $original = $manifest;
+
+        // Strip the previous block first so re-runs and removals are clean.
+        $startQ = preg_quote(self::META_START, '/');
+        $endQ = preg_quote(self::META_END, '/');
+        $manifest = preg_replace("/\s*{$startQ}.*?{$endQ}/s", '', $manifest);
+
+        $entries = $config['manifestMetaData'] ?? [];
+
+        if (!empty($entries) && str_contains($manifest, '</application>')) {
+            $lines = ['        ' . self::META_START];
+            foreach ($entries as $name => $value) {
+                $n = htmlspecialchars((string) $name, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                $v = htmlspecialchars($this->metaValueToString($value), ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                $lines[] = '        <meta-data android:name="' . $n . '" android:value="' . $v . '" />';
+            }
+            $lines[] = '        ' . self::META_END;
+            $block = implode("\n", $lines);
+
+            $manifest = preg_replace('/(\s*<\/application>)/', "\n" . $block . "$1", $manifest, 1);
+        }
+
+        if ($manifest !== $original) {
+            file_put_contents($manifestPath, $manifest);
+            $this->cmd->line(empty($entries)
+                ? "  <fg=green>✓</> Stripped manifest meta-data block"
+                : "  <fg=green>✓</> Android manifest meta-data: " . count($entries) . " entries");
+        }
+    }
+
+    private function metaValueToString(mixed $value): string
+    {
+        if (is_bool($value)) return $value ? 'true' : 'false';
+        return (string) $value;
     }
 
     private const NFC_START = '<!-- nativeblade:nfc:start -->';

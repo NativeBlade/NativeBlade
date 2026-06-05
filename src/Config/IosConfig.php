@@ -126,6 +126,27 @@ class IosConfig
     }
 
     /**
+     * Merge arbitrary keys into the generated Info.plist.
+     *
+     * Escape hatch for plist keys NativeBlade does not model with a dedicated
+     * method, e.g. `ITSAppUsesNonExemptEncryption`, `LSApplicationQueriesSchemes`,
+     * `UIBackgroundModes`. Most apps never need this: the built-in plugins write
+     * the keys they require automatically. Use it only for app-specific needs.
+     *
+     * Values may be strings, booleans, integers, floats, and nested arrays
+     * (lists become `<array>`, associative arrays become `<dict>`). Keys that
+     * NativeBlade already manages (orientation, status bar, version, app name)
+     * are ignored with a build warning; use their dedicated methods instead.
+     *
+     * @param  array<string, mixed>  $entries
+     */
+    public function infoPlist(array $entries): static
+    {
+        $this->config['infoPlist'] = array_merge($this->config['infoPlist'] ?? [], $entries);
+        return $this;
+    }
+
+    /**
      * Configure iOS push notifications (APNS) via a fluent builder.
      *
      * @param  Closure(IosPushNotificationConfig): void  $callback

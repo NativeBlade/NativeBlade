@@ -166,6 +166,23 @@ class AndroidConfig
     }
 
     /**
+     * Add `<meta-data>` entries to the Android `<application>` element.
+     *
+     * Escape hatch for SDK keys that live in the manifest as meta-data, e.g.
+     * `com.google.android.gms.ads.APPLICATION_ID`. Most apps never need this:
+     * the built-in plugins add the meta-data they require automatically. Use it
+     * only for app-specific needs. Values are written as `android:value`
+     * (booleans become `"true"`/`"false"`).
+     *
+     * @param  array<string, scalar>  $entries  Keyed by meta-data name.
+     */
+    public function manifestMetaData(array $entries): static
+    {
+        $this->config['manifestMetaData'] = array_merge($this->config['manifestMetaData'] ?? [], $entries);
+        return $this;
+    }
+
+    /**
      * Configure Android push notifications (FCM) via a fluent builder.
      *
      * @param  Closure(AndroidPushNotificationConfig): void  $callback

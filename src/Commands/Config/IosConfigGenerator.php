@@ -9,6 +9,19 @@ class IosConfigGenerator
     private const START_XML = '<!-- nativeblade:config:start -->';
     private const END_XML = '<!-- nativeblade:config:end -->';
 
+    /** Keys NativeBlade owns; infoPlist() may not override them. */
+    private const RESERVED_KEYS = [
+        'UISupportedInterfaceOrientations',
+        'UIStatusBarStyle',
+        'UIViewControllerBasedStatusBarAppearance',
+        'UIStatusBarHidden',
+        'MinimumOSVersion',
+        'CFBundleName',
+        'CFBundleDisplayName',
+        'CFBundleShortVersionString',
+        'CFBundleVersion',
+    ];
+
     public function __construct(private Command $cmd) {}
 
     public function generate(array $config): void
@@ -85,6 +98,18 @@ class IosConfigGenerator
             $entries[] = "    <string>{$config['minIosVersion']}</string>";
         }
 
+        $customApplied = 0;
+        foreach ($config['infoPlist'] ?? [] as $key => $value) {
+            if (in_array($key, self::RESERVED_KEYS, true)) {
+                $this->cmd->line("  <fg=yellow>→</> iOS Info.plist: ignoring '{$key}' (managed by NativeBlade — use the dedicated config method)");
+                continue;
+            }
+            $escapedKey = htmlspecialchars((string) $key, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+            $entries[] = "    <key>{$escapedKey}</key>";
+            $entries[] = $this->plistValue($value, 1);
+            $customApplied++;
+        }
+
         $body = empty($entries) ? '' : "\n" . implode("\n", $entries);
         $newBlock = "    " . self::START_XML . $body . "\n    " . self::END_XML;
 
@@ -100,7 +125,50 @@ class IosConfigGenerator
             isset($config['fullscreen']),
             isset($config['minIosVersion']),
         ]));
-        $this->cmd->line("  <fg=green>✓</> iOS Info.plist: {$count} config entries");
+        $suffix = $customApplied > 0 ? " (+{$customApplied} custom)" : '';
+        $this->cmd->line("  <fg=green>✓</> iOS Info.plist: {$count} config entries{$suffix}");
+    }
+
+    /**
+     * Serialize an arbitrary PHP value into indented plist XML. Supports
+     * strings, booleans, integers, floats, lists (`<array>`) and associative
+     * arrays (`<dict>`). `$depth` is measured in 4-space units.
+     */
+    private function plistValue(mixed $value, int $depth): string
+    {
+        $pad = str_repeat('    ', $depth);
+
+        if (is_bool($value)) {
+            return $pad . ($value ? '<true/>' : '<false/>');
+        }
+        if (is_int($value)) {
+            return $pad . "<integer>{$value}</integer>";
+        }
+        if (is_float($value)) {
+            return $pad . "<real>{$value}</real>";
+        }
+        if (is_array($value)) {
+            $lines = [];
+            if (array_is_list($value)) {
+                $lines[] = $pad . '<array>';
+                foreach ($value as $item) {
+                    $lines[] = $this->plistValue($item, $depth + 1);
+                }
+                $lines[] = $pad . '</array>';
+            } else {
+                $lines[] = $pad . '<dict>';
+                foreach ($value as $k => $v) {
+                    $key = htmlspecialchars((string) $k, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                    $lines[] = $pad . '    <key>' . $key . '</key>';
+                    $lines[] = $this->plistValue($v, $depth + 1);
+                }
+                $lines[] = $pad . '</dict>';
+            }
+            return implode("\n", $lines);
+        }
+
+        $escaped = htmlspecialchars((string) $value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+        return $pad . "<string>{$escaped}</string>";
     }
 
     private function stripLegacyKeys(string $plist): string
