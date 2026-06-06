@@ -26,6 +26,50 @@ class AndroidConfigGenerator
         $this->generateAppLinks();
         $this->generateAnalyticsDefault();
         $this->generateFirebase($config);
+        $this->ensureKotlinVersion();
+    }
+
+    private const KOTLIN_TARGET = '2.2.0';
+
+    /**
+     * Tauri's Android scaffold pins the Kotlin Gradle plugin at 1.9.x, but
+     * modern Google and AndroidX artifacts (Firebase 34.x being the first to
+     * bite here) ship modules compiled with Kotlin 2.x metadata that a 1.9
+     * toolchain cannot read ("incompatible version of Kotlin ... metadata is
+     * 2.2.0, expected 1.9.0").
+     *
+     * Standardize every project on a 2.x toolchain so these errors never
+     * surface, regardless of which plugins are enabled. Only raises a version
+     * older than the target, never downgrades a newer toolchain the dev set.
+     */
+    private function ensureKotlinVersion(): void
+    {
+        $rootGradle = base_path('src-tauri/gen/android/build.gradle.kts');
+        if (!file_exists($rootGradle)) return;
+
+        $root = file_get_contents($rootGradle);
+        $original = $root;
+
+        $root = preg_replace_callback(
+            '/(classpath\(\s*"org\.jetbrains\.kotlin:kotlin-gradle-plugin:)(\d+\.\d+\.\d+)("\s*\))/',
+            fn($m) => $m[1] . $this->maxKotlin($m[2]) . $m[3],
+            $root
+        );
+        $root = preg_replace_callback(
+            '/(id\(\s*"org\.jetbrains\.kotlin\.android"\s*\)\s*version\s*")(\d+\.\d+\.\d+)(")/',
+            fn($m) => $m[1] . $this->maxKotlin($m[2]) . $m[3],
+            $root
+        );
+
+        if ($root !== $original) {
+            file_put_contents($rootGradle, $root);
+            $this->cmd->line("  <fg=green>✓</> Kotlin toolchain raised to " . self::KOTLIN_TARGET);
+        }
+    }
+
+    private function maxKotlin(string $current): string
+    {
+        return version_compare($current, self::KOTLIN_TARGET, '<') ? self::KOTLIN_TARGET : $current;
     }
 
     private const ANALYTICS_START = '<!-- nativeblade:analytics:start -->';

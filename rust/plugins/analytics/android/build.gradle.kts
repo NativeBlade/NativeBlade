@@ -29,6 +29,9 @@ android {
 
     kotlinOptions {
         jvmTarget = "1.8"
+        // Firebase 34.x ships modules built with Kotlin 2.2 metadata; allow the
+        // host project's older Kotlin compiler to consume them.
+        freeCompilerArgs = freeCompilerArgs + "-Xskip-metadata-version-check"
     }
 }
 
