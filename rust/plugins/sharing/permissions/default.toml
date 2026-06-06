@@ -1,0 +1,11 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = """
+Default permission set for the NativeBlade sharing plugin.
+Allows opening the native share sheet.
+"""
+
+permissions = [
+  "allow-share",
+]

@@ -53,6 +53,7 @@ const EXPECTED_ACTIONS = [
     'set_secure',
     'get_secure',
     'forget_secure',
+    'share',
 ];
 
 describe('actions/index', () => {

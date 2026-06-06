@@ -26,6 +26,7 @@ import * as tauri from './tauri.js';
 import * as updateMod from './update.js';
 import * as review from './review.js';
 import * as secure from './secure.js';
+import * as shareMod from './share.js';
 
 export const actions = {
     // dialog
@@ -116,4 +117,7 @@ export const actions = {
     set_secure: secure.set_secure,
     get_secure: secure.get_secure,
     forget_secure: secure.forget_secure,
+
+    // sharing
+    share: shareMod.share,
 };

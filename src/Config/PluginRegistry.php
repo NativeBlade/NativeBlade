@@ -67,6 +67,14 @@ class PluginRegistry
                 'mobile_capabilities' => ['nativeblade-secure-storage:default'],
             ],
 
+            Plugin::SHARING => [
+                'feature' => 'sharing',
+                'feature_crate' => 'tauri-plugin-nativeblade-sharing',
+                'rust_init' => 'tauri_plugin_nativeblade_sharing::init()',
+                'mobile_only' => true,
+                'mobile_capabilities' => ['nativeblade-sharing:default'],
+            ],
+
             Plugin::GEOLOCATION => [
                 'feature' => 'geolocation',
                 'feature_crate' => 'tauri-plugin-geolocation',

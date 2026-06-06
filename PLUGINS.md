@@ -21,6 +21,7 @@ This document lists every built-in bridge, what it does, and how to call it from
 - [OS Info](#os-info)
 - [In-App Review](#in-app-review)
 - [Secure Storage](#secure-storage)
+- [Sharing](#sharing)
 - [Camera & Gallery](#camera--gallery)
 - [Navigation](#navigation)
 - [Modal](#modal)
@@ -80,6 +81,7 @@ When you run `nativeblade:dev` or `nativeblade:build`, the CLI passes `--feature
 | `Plugin::PUSH` | FCM (Android) and APNS (iOS) push **and** all local / scheduled notifications via `NativeBlade::notification()` (mobile only) |
 | `Plugin::IN_APP_REVIEW` | Native review prompt via `NativeBlade::requestReview()` (mobile only) |
 | `Plugin::SECURE_STORAGE` | Encrypted key-value via `NativeBlade::setSecure()` / `getSecure()` (mobile only) |
+| `Plugin::SHARING` | Native share sheet via `NativeBlade::share()` (mobile only) |
 | `Plugin::GEOLOCATION` | `nb:geolocation` event with current position |
 | `Plugin::BIOMETRIC` | `NativeBlade::biometric()` (mobile only) |
 | `Plugin::BARCODE_SCANNER` | `NativeBlade::scan()` (mobile only) |
@@ -172,6 +174,7 @@ return NativeBlade::notification(fn (Notification $n) => $n->title('Saved')->bod
 | OS | `osInfo()` |
 | In-App Review | `requestReview()` |
 | Secure Storage | `setSecure($key, $value)`, `getSecure($key, $id = null)`, `forgetSecure($key)` |
+| Sharing | `share($text = null, $url = null)` |
 | Camera | `camera(?Closure)`, `gallery(?Closure)` |
 | Navigation | `navigate($path, $replace = false)` |
 | Modal | `showModal()`, `hideModal()` |
@@ -1002,6 +1005,35 @@ public function onSecure($value = null, $id = null)
 `$value` is `null` when the key is absent. Pass `id` to route the result when a component reads more than one key in the same component.
 
 > **Desktop is a no-op in v1.** There is no native keystore binding on desktop yet, so `setSecure()` / `forgetSecure()` do nothing and `getSecure()` returns `null`. Branch with `NativeBlade::isMobile()` if your desktop build needs a different path.
+
+---
+
+## Sharing
+
+Backed by the NativeBlade `nativeblade-sharing` native plugin: `UIActivityViewController` on iOS, `Intent.ACTION_SEND` on Android. Mobile only. Requires `Plugin::SHARING`.
+
+Opens the OS share sheet so the user can send text and/or a link to other apps (messages, mail, social, clipboard). v1 shares text and URLs; file sharing comes later.
+
+**Blade:**
+```blade
+<button wire:nb-bridge="share"
+        wire:nb-payload='{"text":"Check this out","url":"https://myapp.com/p/42"}'>
+    Share
+</button>
+```
+
+**PHP:**
+```php
+public function invite()
+{
+    return NativeBlade::share(
+        text: 'Join me on MyApp',
+        url: 'https://myapp.com/invite/abc',
+    );
+}
+```
+
+Pass at least one of `text` / `url`. It is fire-and-forget: the OS sheet appears and there is no result back. No-op on desktop.
 
 ---
 

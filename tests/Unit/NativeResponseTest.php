@@ -48,6 +48,7 @@ final class NativeResponseTest extends TestCase
         self::assertSame($r, $r->setSecure('k', 'v'));
         self::assertSame($r, $r->getSecure('k'));
         self::assertSame($r, $r->forgetSecure('k'));
+        self::assertSame($r, $r->share('hi'));
     }
 
     #[Test]
@@ -107,6 +108,26 @@ final class NativeResponseTest extends TestCase
         $r = (new NativeResponse())->forgetSecure('auth.token');
         self::assertSame(
             [['action' => 'forget_secure', 'data' => ['key' => 'auth.token']]],
+            $r->toArray()
+        );
+    }
+
+    #[Test]
+    public function share_queues_the_text_and_url(): void
+    {
+        $r = (new NativeResponse())->share('Join me', 'https://myapp.com/i/abc');
+        self::assertSame(
+            [['action' => 'share', 'data' => ['text' => 'Join me', 'url' => 'https://myapp.com/i/abc']]],
+            $r->toArray()
+        );
+    }
+
+    #[Test]
+    public function share_defaults_missing_fields_to_empty_strings(): void
+    {
+        $r = (new NativeResponse())->share('Just text');
+        self::assertSame(
+            [['action' => 'share', 'data' => ['text' => 'Just text', 'url' => '']]],
             $r->toArray()
         );
     }

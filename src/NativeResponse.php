@@ -332,6 +332,22 @@ class NativeResponse
     }
 
     // ------------------------------------------------------------------
+    // Sharing
+    // ------------------------------------------------------------------
+
+    /**
+     * Open the native share sheet (UIActivityViewController on iOS,
+     * Intent.ACTION_SEND on Android) to share text and/or a URL with other
+     * apps. Mobile only; a no-op on desktop. Requires `Plugin::SHARING`.
+     *
+     * Pass at least one of `$text` / `$url`. File sharing is not in v1.
+     */
+    public function share(?string $text = null, ?string $url = null): static
+    {
+        return $this->push('share', ['text' => $text ?? '', 'url' => $url ?? '']);
+    }
+
+    // ------------------------------------------------------------------
     // OS info
     // ------------------------------------------------------------------
 

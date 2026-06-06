@@ -25,6 +25,9 @@ enum Plugin: string
     /** Encrypted key-value storage (Keychain on iOS, Tink AEAD sealed by the Android Keystore). Powers `NativeBlade::setSecure()`/`getSecure()`. NativeBlade native plugin. */
     case SECURE_STORAGE = 'secure_storage';
 
+    /** Native share sheet (UIActivityViewController on iOS, Intent.ACTION_SEND on Android). Powers `NativeBlade::share()`. NativeBlade native plugin. */
+    case SHARING = 'sharing';
+
     /** Device GPS / network-based location. Powers `NativeBlade::geolocation()`. */
     case GEOLOCATION = 'geolocation';
 

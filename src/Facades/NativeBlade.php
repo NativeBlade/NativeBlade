@@ -47,6 +47,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \NativeBlade\NativeResponse setSecure(string $key, string $value)
  * @method static \NativeBlade\NativeResponse getSecure(string $key, ?string $id = null)
  * @method static \NativeBlade\NativeResponse forgetSecure(string $key)
+ * @method static \NativeBlade\NativeResponse share(?string $text = null, ?string $url = null)
  *
  * OS info.
  *
