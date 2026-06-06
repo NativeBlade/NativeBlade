@@ -228,7 +228,7 @@ final class ShellConfigBuildersTest extends TestCase
     #[Test]
     public function analytics_config_stores_flags(): void
     {
-        $this->config->analytics(autoScreenTracking: true, collectionEnabledByDefault: false);
+        $this->config->analyticsConfig(autoScreenTracking: true, collectionEnabledByDefault: false);
 
         $configs = ShellConfig::getAppConfigs();
         self::assertSame(

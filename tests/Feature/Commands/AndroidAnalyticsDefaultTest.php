@@ -76,7 +76,7 @@ XML;
     #[Test]
     public function writes_collection_disabled_meta_data_for_consent_first(): void
     {
-        (new ShellConfig())->analytics(collectionEnabledByDefault: false);
+        (new ShellConfig())->analyticsConfig(collectionEnabledByDefault: false);
 
         $this->generator->generate([]);
 
@@ -91,7 +91,7 @@ XML;
     #[Test]
     public function defaults_collection_enabled_when_not_consent_first(): void
     {
-        (new ShellConfig())->analytics(autoScreenTracking: true);
+        (new ShellConfig())->analyticsConfig(autoScreenTracking: true);
 
         $this->generator->generate([]);
 
@@ -102,7 +102,7 @@ XML;
     #[Test]
     public function removes_the_block_when_analytics_not_configured(): void
     {
-        (new ShellConfig())->analytics(collectionEnabledByDefault: false);
+        (new ShellConfig())->analyticsConfig(collectionEnabledByDefault: false);
         $this->generator->generate([]);
         self::assertStringContainsString('nativeblade:analytics', file_get_contents($this->manifestPath));
 
