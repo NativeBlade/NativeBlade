@@ -55,6 +55,7 @@ tauri-plugin-barcode-scanner = { version = "2", optional = true }
 tauri-plugin-nfc = { version = "2", optional = true }
 tauri-plugin-nativeblade-push = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/push", optional = true }
 tauri-plugin-nativeblade-media = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/media", optional = true }
+tauri-plugin-nativeblade-review = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/review", optional = true }
 
 # nativeblade:plugins:start
 [features]

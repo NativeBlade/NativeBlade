@@ -276,6 +276,25 @@ class NativeResponse
     }
 
     // ------------------------------------------------------------------
+    // In-app review
+    // ------------------------------------------------------------------
+
+    /**
+     * Ask the OS to show its native in-app review prompt (StoreKit on iOS,
+     * Play In-App Review on Android). Mobile only; a no-op on desktop.
+     * Requires `Plugin::IN_APP_REVIEW`.
+     *
+     * The OS decides whether to actually display the prompt (it is heavily
+     * rate-limited and may show nothing), and you get no result back, so do
+     * not tie any reward to it. For a "rate us" link on desktop, call
+     * `openUrl()` with your store listing yourself.
+     */
+    public function requestReview(): static
+    {
+        return $this->push('request_review', []);
+    }
+
+    // ------------------------------------------------------------------
     // OS info
     // ------------------------------------------------------------------
 

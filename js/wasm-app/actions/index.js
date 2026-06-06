@@ -24,6 +24,7 @@ import * as shellMod from './shell.js';
 import * as system from './system.js';
 import * as tauri from './tauri.js';
 import * as updateMod from './update.js';
+import * as review from './review.js';
 
 export const actions = {
     // dialog
@@ -106,4 +107,7 @@ export const actions = {
     // bundle update (OTA)
     check_update: updateMod.checkUpdate,
     force_update: updateMod.forceUpdate,
+
+    // in-app review
+    request_review: review.request_review,
 };

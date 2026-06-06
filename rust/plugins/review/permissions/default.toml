@@ -1,0 +1,11 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = """
+Default permission set for the NativeBlade in-app review plugin.
+Allows requesting the native review prompt.
+"""
+
+permissions = [
+  "allow-request-review",
+]

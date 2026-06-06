@@ -19,6 +19,9 @@ enum Plugin: string
     /** Push notifications via FCM (Android) and APNS (iOS) plus local/scheduled notifications. NativeBlade native plugin. */
     case PUSH = 'push';
 
+    /** Native in-app review prompt (StoreKit on iOS, Play In-App Review on Android). Powers `NativeBlade::requestReview()`. NativeBlade native plugin. */
+    case IN_APP_REVIEW = 'in_app_review';
+
     /** Device GPS / network-based location. Powers `NativeBlade::geolocation()`. */
     case GEOLOCATION = 'geolocation';
 

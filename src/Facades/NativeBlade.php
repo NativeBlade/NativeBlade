@@ -43,6 +43,7 @@ use Illuminate\Support\Facades\Facade;
  *
  * @method static \NativeBlade\NativeResponse openUrl(string $url)
  * @method static \NativeBlade\NativeResponse openFile(string $path)
+ * @method static \NativeBlade\NativeResponse requestReview()
  *
  * OS info.
  *

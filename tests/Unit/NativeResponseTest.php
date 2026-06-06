@@ -44,6 +44,7 @@ final class NativeResponseTest extends TestCase
         self::assertSame($r, $r->replace());
         self::assertSame($r, $r->checkUpdate());
         self::assertSame($r, $r->forceUpdate());
+        self::assertSame($r, $r->requestReview());
     }
 
     #[Test]
@@ -58,6 +59,13 @@ final class NativeResponseTest extends TestCase
     {
         $r = (new NativeResponse())->forceUpdate();
         self::assertSame([['action' => 'force_update', 'data' => []]], $r->toArray());
+    }
+
+    #[Test]
+    public function request_review_queues_a_request_review_action(): void
+    {
+        $r = (new NativeResponse())->requestReview();
+        self::assertSame([['action' => 'request_review', 'data' => []]], $r->toArray());
     }
 
     #[Test]

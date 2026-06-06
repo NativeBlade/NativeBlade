@@ -19,6 +19,7 @@ This document lists every built-in bridge, what it does, and how to call it from
 - [NFC](#nfc)
 - [Opener](#opener)
 - [OS Info](#os-info)
+- [In-App Review](#in-app-review)
 - [Camera & Gallery](#camera--gallery)
 - [Navigation](#navigation)
 - [Modal](#modal)
@@ -76,6 +77,7 @@ When you run `nativeblade:dev` or `nativeblade:build`, the CLI passes `--feature
 |------|------------------|
 | `Plugin::MEDIA` | `NativeBlade::camera()`, `gallery()`, `video()` (mobile only) |
 | `Plugin::PUSH` | FCM (Android) and APNS (iOS) push **and** all local / scheduled notifications via `NativeBlade::notification()` (mobile only) |
+| `Plugin::IN_APP_REVIEW` | Native review prompt via `NativeBlade::requestReview()` (mobile only) |
 | `Plugin::GEOLOCATION` | `nb:geolocation` event with current position |
 | `Plugin::BIOMETRIC` | `NativeBlade::biometric()` (mobile only) |
 | `Plugin::BARCODE_SCANNER` | `NativeBlade::scan()` (mobile only) |
@@ -166,6 +168,7 @@ return NativeBlade::notification(fn (Notification $n) => $n->title('Saved')->bod
 | NFC | `nfcRead(?Closure)` |
 | Opener | `openUrl($url)`, `openFile($path)` |
 | OS | `osInfo()` |
+| In-App Review | `requestReview()` |
 | Camera | `camera(?Closure)`, `gallery(?Closure)` |
 | Navigation | `navigate($path, $replace = false)` |
 | Modal | `showModal()`, `hideModal()` |
@@ -920,6 +923,31 @@ public function onOsInfo($info)
     $this->isMobile = in_array($info['platform'], ['android', 'ios']);
 }
 ```
+
+---
+
+## In-App Review
+
+Backed by the NativeBlade `nativeblade-review` native plugin: `SKStoreReviewController` on iOS and Google Play In-App Review on Android. Mobile only. Requires `Plugin::IN_APP_REVIEW`.
+
+Asks the OS to show its own in-place review card so the user can rate the app without leaving for the store.
+
+**Blade:**
+```blade
+<button wire:nb-bridge="request_review">Rate this app</button>
+```
+
+**PHP:**
+```php
+public function rateApp()
+{
+    return NativeBlade::requestReview();
+}
+```
+
+On mobile the OS already knows which app to show (it is identified by your bundle id / package name from the store listing), so there is nothing to pass. On **desktop this is a no-op** — there is no native in-place review, so for a "rate us" link there just call `NativeBlade::openUrl(...)` with your store page yourself.
+
+> **The OS decides whether it shows.** Both StoreKit and Play heavily rate-limit the prompt (roughly a few times per year) and may display nothing at all. You get **no result back** about whether the user reviewed, and you must **not** reward or gate anything on it. Apple and Google forbid incentivizing reviews. Call it at a natural, positive moment, never in a loop or on every launch.
 
 ---
 

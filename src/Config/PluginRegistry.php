@@ -51,6 +51,14 @@ class PluginRegistry
                 'ios_plist' => [],
             ],
 
+            Plugin::IN_APP_REVIEW => [
+                'feature' => 'in_app_review',
+                'feature_crate' => 'tauri-plugin-nativeblade-review',
+                'rust_init' => 'tauri_plugin_nativeblade_review::init()',
+                'mobile_only' => true,
+                'mobile_capabilities' => ['nativeblade-review:default'],
+            ],
+
             Plugin::GEOLOCATION => [
                 'feature' => 'geolocation',
                 'feature_crate' => 'tauri-plugin-geolocation',
