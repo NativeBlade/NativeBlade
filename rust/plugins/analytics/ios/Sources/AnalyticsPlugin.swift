@@ -1,4 +1,4 @@
-#if os(iOS)
+#if canImport(FirebaseAnalytics)
 import FirebaseAnalytics
 #endif
 import SwiftRs
@@ -48,9 +48,10 @@ struct NBApplyArgs: Decodable {
 
 class AnalyticsPlugin: Plugin {
     @objc public func apply(_ invoke: Invoke) throws {
-        // Firebase ships iOS-only; on the macOS pass swift-rs runs, this is a
-        // no-op so the package still compiles without the Firebase frameworks.
-        #if os(iOS)
+        // Compiled against Firebase only where the module is available; on the
+        // macOS pass swift-rs runs (no Firebase there) this is a no-op so the
+        // package still compiles.
+        #if canImport(FirebaseAnalytics)
         let args = try invoke.parseArgs(NBApplyArgs.self)
 
         for op in args.ops {
