@@ -23,7 +23,58 @@ class AndroidConfigGenerator
         $this->stripDebugSymbolsBlock();
         $this->generateNfcAutoLaunch($config);
         $this->generateMetaData($config);
+        $this->generateAppLinks();
         $this->generatePushNotification($config);
+    }
+
+    private const APPLINKS_START = '<!-- nativeblade:applinks:start -->';
+    private const APPLINKS_END = '<!-- nativeblade:applinks:end -->';
+
+    /**
+     * Verified Android App Links via `NativeBladeConfig::deepLinks([...])`.
+     *
+     * Emits one autoVerify intent-filter (with a `<data>` per domain) inside the
+     * main activity, fenced by `<!-- nativeblade:applinks:start -->` markers so
+     * re-runs replace it cleanly and dropping the config removes it. Pair with a
+     * hosted `.well-known/assetlinks.json` for the links to actually verify.
+     */
+    private function generateAppLinks(): void
+    {
+        $manifestPath = base_path('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
+        if (!file_exists($manifestPath)) return;
+
+        $manifest = file_get_contents($manifestPath);
+        $original = $manifest;
+
+        $startQ = preg_quote(self::APPLINKS_START, '/');
+        $endQ = preg_quote(self::APPLINKS_END, '/');
+        $manifest = preg_replace("/\s*{$startQ}.*?{$endQ}/s", '', $manifest);
+
+        $domains = \NativeBlade\ShellConfig::getAppConfigs()['deepLinks']['domains'] ?? [];
+
+        if (!empty($domains) && str_contains($manifest, '</activity>')) {
+            $lines = ['            ' . self::APPLINKS_START];
+            $lines[] = '            <intent-filter android:autoVerify="true">';
+            $lines[] = '                <action android:name="android.intent.action.VIEW" />';
+            $lines[] = '                <category android:name="android.intent.category.DEFAULT" />';
+            $lines[] = '                <category android:name="android.intent.category.BROWSABLE" />';
+            foreach ($domains as $domain) {
+                $d = htmlspecialchars((string) $domain, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                $lines[] = '                <data android:scheme="https" android:host="' . $d . '" />';
+            }
+            $lines[] = '            </intent-filter>';
+            $lines[] = '            ' . self::APPLINKS_END;
+            $block = implode("\n", $lines);
+
+            $manifest = preg_replace('/(\s*<\/activity>)/', "\n" . $block . "$1", $manifest, 1);
+        }
+
+        if ($manifest !== $original) {
+            file_put_contents($manifestPath, $manifest);
+            $this->cmd->line(empty($domains)
+                ? "  <fg=green>✓</> Stripped App Links intent-filter"
+                : "  <fg=green>✓</> Android App Links: " . count($domains) . " domain(s)");
+        }
     }
 
     private const META_START = '<!-- nativeblade:meta:start -->';

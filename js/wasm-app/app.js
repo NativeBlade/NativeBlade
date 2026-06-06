@@ -11,6 +11,7 @@ import { init as initRouter, navigate, getCurrentPath, goBack, runBoot } from '.
 import { init as initHotReload } from './hot-reload.js';
 import { init as initStore, restoreToWasm, startAutoSync } from './state-store.js';
 import { init as initPush } from './push.js';
+import { init as initDeepLink } from './deep-link.js';
 import { init as initMedia } from './media.js';
 import { init as initViewport } from './viewport.js';
 import { checkAndDownload as checkBundlePush } from '../runtime/bundle-push.js';
@@ -34,6 +35,7 @@ async function main() {
         initShell(appFrame, navigate);
         await initBridge(appFrame);
         await initPush(appFrame, handleNativeAction);
+        await initDeepLink(appFrame, handleNativeAction);
         await initMedia();
         initHotReload(navigate, getCurrentPath);
         startAutoSync();

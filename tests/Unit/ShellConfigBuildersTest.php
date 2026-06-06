@@ -7,6 +7,7 @@ namespace NativeBlade\Tests\Unit;
 use NativeBlade\Config\AndroidConfig;
 use NativeBlade\Config\DesktopConfig;
 use NativeBlade\Config\IosConfig;
+use NativeBlade\Plugins\DeepLinkRegistry;
 use NativeBlade\ShellConfig;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -42,6 +43,8 @@ final class ShellConfigBuildersTest extends TestCase
         $p = $ref->getProperty('transition');
         $p->setAccessible(true);
         $p->setValue(null, 'none');
+
+        DeepLinkRegistry::reset();
     }
 
     #[Test]
@@ -184,6 +187,32 @@ final class ShellConfigBuildersTest extends TestCase
 
         $configs = ShellConfig::getAppConfigs();
         self::assertArrayNotHasKey('channel', $configs['bundlePush']);
+    }
+
+    #[Test]
+    public function deep_links_stores_domains_and_registers_the_handler(): void
+    {
+        $seen = null;
+        $this->config->deepLinks(['myapp.com', 'www.myapp.com'], function (string $url) use (&$seen) {
+            $seen = $url;
+            return null;
+        });
+
+        $configs = ShellConfig::getAppConfigs();
+        self::assertSame(['myapp.com', 'www.myapp.com'], $configs['deepLinks']['domains']);
+
+        DeepLinkRegistry::handle('https://myapp.com/x');
+        self::assertSame('https://myapp.com/x', $seen);
+    }
+
+    #[Test]
+    public function deep_links_without_a_handler_only_stores_domains(): void
+    {
+        $this->config->deepLinks(['myapp.com']);
+
+        $configs = ShellConfig::getAppConfigs();
+        self::assertSame(['myapp.com'], $configs['deepLinks']['domains']);
+        self::assertNull(DeepLinkRegistry::handle('https://myapp.com/x'));
     }
 
     #[Test]

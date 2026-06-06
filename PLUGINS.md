@@ -88,7 +88,7 @@ When you run `nativeblade:dev` or `nativeblade:build`, the CLI passes `--feature
 | `Plugin::CLIPBOARD` | `NativeBlade::clipboardWrite()`, `clipboardRead()` |
 | `Plugin::UPLOAD` | `NativeBlade::upload($path, $url)` streaming uploads |
 | `Plugin::HTTP` | Native HTTP requests (bypasses CORS) |
-| `Plugin::DEEP_LINK` | URL scheme handling |
+| `Plugin::DEEP_LINK` | Verified universal / app links via `NativeBladeConfig::deepLinks()` (see [CONFIGURATION.md](CONFIGURATION.md#deep-links-universal--app-links)) |
 | `Plugin::SHELL` | Run external commands (desktop only — disabled by default) |
 
 > **Behavior when missing:** if a Livewire action calls `NativeBlade::camera()` without declaring `Plugin::MEDIA`, the build fails with a Cargo error pointing at the missing permission. This is intentional — fail at build time, not at runtime.

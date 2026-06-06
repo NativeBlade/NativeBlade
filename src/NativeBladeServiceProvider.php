@@ -57,6 +57,7 @@ class NativeBladeServiceProvider extends ServiceProvider
                 Commands\IconCommand::class,
                 Commands\BuildCommand::class,
                 Commands\BundleCommand::class,
+                Commands\DeepLinksCommand::class,
                 Commands\SignCommand::class,
                 Commands\PhpVersionCommand::class,
                 Commands\McpCommand::class,
@@ -226,6 +227,20 @@ class NativeBladeServiceProvider extends ServiceProvider
             }
 
             $result = Plugins\PushRegistry::handleTokenRefresh($token);
+
+            if ($result instanceof NativeResponse) {
+                return $result->toResponse() ?? response()->json(['ok' => true]);
+            }
+            return response()->json(['ok' => true]);
+        })->withoutMiddleware($skipCsrf);
+
+        \Illuminate\Support\Facades\Route::post('/_nativeblade/deep-link', function () use ($readJsonBody) {
+            $url = (string) ($readJsonBody()['url'] ?? '');
+            if ($url === '') {
+                return response()->json(['ok' => false, 'error' => 'invalid url'], 422);
+            }
+
+            $result = Plugins\DeepLinkRegistry::handle($url);
 
             if ($result instanceof NativeResponse) {
                 return $result->toResponse() ?? response()->json(['ok' => true]);
