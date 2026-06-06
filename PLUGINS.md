@@ -128,17 +128,18 @@ public function save()
     // ... business logic
     return NativeBlade::notification(function (Notification $n) {
         $n->title('Saved!')->body('Your changes are safe.');
-    });
+    })->toResponse();
 }
 ```
 
-The facade returns a `NativeResponse` that is Responsable — return it directly from a Livewire action or controller and it dispatches the native actions. Every method is **chainable**, so you can queue multiple actions into a single response:
+The facade returns a `NativeResponse`. From a Livewire component action you must call `->toResponse()` on it to dispatch the native actions; returning it bare does **not** dispatch. (Inside a push or deep-link handler you return the bare `NativeResponse` instead, because the internal route calls `->toResponse()` for you.) Every method is **chainable**, so you can queue multiple actions into one response and call `->toResponse()` once at the end:
 
 ```php
 return NativeBlade::alert(fn (Dialog $d) => $d->title('Hey')->message('Welcome back!'))
     ->notification(fn (Notification $n) => $n->title('Heads up')->body('3 new lessons available'))
     ->navigate('/dashboard')
-    ->transition('fade');
+    ->transition('fade')
+    ->toResponse();
 ```
 
 Both paths end up in the same JavaScript dispatcher (`js/wasm-app/bridge.js`) and call the same native API. The difference is purely where the trigger comes from.
@@ -159,7 +160,8 @@ NativeBlade::vibrate(200);
 
 // Chained (appends to an existing response):
 return NativeBlade::notification(fn (Notification $n) => $n->title('Saved')->body('Changes persisted'))
-    ->vibrate(200);
+    ->vibrate(200)
+    ->toResponse();
 ```
 
 | Category | Methods |
@@ -284,7 +286,7 @@ return NativeBlade::alert(function (Dialog $d) {
     $d->title('Heads up')
       ->message('Your session will expire soon')
       ->kind('warning');
-});
+})->toResponse();
 ```
 
 ### confirm
@@ -308,7 +310,7 @@ return NativeBlade::confirm(function (Dialog $d) {
       ->kind('warning')
       ->confirmLabel('Delete')
       ->cancelLabel('Keep');
-});
+})->toResponse();
 ```
 
 ### Handling multiple confirms in the same component
@@ -387,7 +389,7 @@ public function completeLesson()
           ->sound('default')
           ->icon('lesson_icon')
           ->channel('lessons');
-    })->vibrate(150)->navigate('/profile');
+    })->vibrate(150)->navigate('/profile')->toResponse();
 }
 ```
 
@@ -475,7 +477,8 @@ Backed by [`tauri-plugin-clipboard-manager`](https://v2.tauri.app/plugin/clipboa
 **PHP:**
 ```php
 return NativeBlade::clipboardWrite($this->shareUrl)
-    ->notification(fn (Notification $n) => $n->title('Copied')->body('Link copied to clipboard!'));
+    ->notification(fn (Notification $n) => $n->title('Copied')->body('Link copied to clipboard!'))
+    ->toResponse();
 ```
 
 ### Read
@@ -502,12 +505,12 @@ use NativeBlade\Plugins\Clipboard;
 public function paste()
 {
     // Simple case — no id needed:
-    return NativeBlade::clipboardRead();
+    return NativeBlade::clipboardRead()->toResponse();
 }
 
 public function pastePassword()
 {
-    return NativeBlade::clipboardRead(fn (Clipboard $c) => $c->id('password_field'));
+    return NativeBlade::clipboardRead(fn (Clipboard $c) => $c->id('password_field'))->toResponse();
 }
 
 #[On('nb:clipboard')]
@@ -548,12 +551,12 @@ use NativeBlade\Plugins\Geolocation;
 
 public function findNearby()
 {
-    return NativeBlade::geolocation(fn (Geolocation $g) => $g->id('nearby_users'));
+    return NativeBlade::geolocation(fn (Geolocation $g) => $g->id('nearby_users'))->toResponse();
 }
 
 public function useCurrentAddress()
 {
-    return NativeBlade::geolocation(fn (Geolocation $g) => $g->id('delivery_address'));
+    return NativeBlade::geolocation(fn (Geolocation $g) => $g->id('delivery_address'))->toResponse();
 }
 
 #[On('nb:geolocation')]
@@ -601,7 +604,8 @@ NativeBlade::selection();
 
 // Or chained with other actions:
 return NativeBlade::notification(fn (Notification $n) => $n->title('Saved')->body('Profile updated'))
-    ->vibrate(150);
+    ->vibrate(150)
+    ->toResponse();
 ```
 
 ---
@@ -777,7 +781,7 @@ public function scanProduct()
     return NativeBlade::scan(function (Scan $s) {
         $s->id('product_lookup')
           ->formats(['QR_CODE', 'EAN_13', 'CODE_128']);
-    });
+    })->toResponse();
 }
 
 public function scanTicket()
@@ -785,7 +789,7 @@ public function scanTicket()
     return NativeBlade::scan(function (Scan $s) {
         $s->id('event_ticket')
           ->formats(['QR_CODE']);
-    });
+    })->toResponse();
 }
 
 #[On('nb:scan')]
@@ -820,12 +824,12 @@ use NativeBlade\Plugins\Nfc;
 
 public function readProductTag()
 {
-    return NativeBlade::nfcRead(fn (Nfc $n) => $n->id('identify_product'));
+    return NativeBlade::nfcRead(fn (Nfc $n) => $n->id('identify_product'))->toResponse();
 }
 
 public function readTicketTag()
 {
-    return NativeBlade::nfcRead(fn (Nfc $n) => $n->id('scan_ticket'));
+    return NativeBlade::nfcRead(fn (Nfc $n) => $n->id('scan_ticket'))->toResponse();
 }
 
 #[On('nb:nfc')]
@@ -922,7 +926,7 @@ Backed by [`tauri-plugin-os`](https://v2.tauri.app/plugin/os-info/). Returns pla
 ```php
 public function detectPlatform()
 {
-    return NativeBlade::osInfo();
+    return NativeBlade::osInfo()->toResponse();
 }
 
 #[On('nb:os-info')]
@@ -950,7 +954,7 @@ Asks the OS to show its own in-place review card so the user can rate the app wi
 ```php
 public function rateApp()
 {
-    return NativeBlade::requestReview();
+    return NativeBlade::requestReview()->toResponse();
 }
 ```
 
@@ -972,12 +976,12 @@ Use this for secrets that must survive at rest in encrypted, OS-protected storag
 public function signIn()
 {
     // ... validate ...
-    return NativeBlade::setSecure('auth.token', $token);
+    return NativeBlade::setSecure('auth.token', $token)->toResponse();
 }
 
 public function signOut()
 {
-    return NativeBlade::forgetSecure('auth.token');
+    return NativeBlade::forgetSecure('auth.token')->toResponse();
 }
 ```
 
@@ -1032,7 +1036,7 @@ public function invite()
     return NativeBlade::share(
         text: 'Join me on MyApp',
         url: 'https://myapp.com/invite/abc',
-    );
+    )->toResponse();
 }
 ```
 
@@ -1090,7 +1094,7 @@ public function takeAvatar()
           ->maxWidth(400)
           ->maxHeight(400)
           ->quality(0.5);
-    });
+    })->toResponse();
 }
 
 public function scanDocument()
@@ -1100,7 +1104,7 @@ public function scanDocument()
           ->maxWidth(1600)
           ->maxHeight(1600)
           ->quality(0.9);
-    });
+    })->toResponse();
 }
 
 #[On('nb:camera-result')]
@@ -1146,7 +1150,8 @@ public function goToDashboard()
 {
     return NativeBlade::navigate('/dashboard')
         ->replace()
-        ->transition('fade');
+        ->transition('fade')
+        ->toResponse();
 }
 ```
 
@@ -1174,7 +1179,7 @@ Controls a shell-level modal component (`<x-nativeblade-modal>`) pre-rendered on
 ```php
 public function confirmDelete()
 {
-    return NativeBlade::showModal();
+    return NativeBlade::showModal()->toResponse();
 }
 ```
 
@@ -1211,7 +1216,7 @@ public function checkDocker()
 {
     return NativeBlade::shell(function (Shell $s) {
         $s->id('docker_check')->run('docker ps');
-    });
+    })->toResponse();
 }
 
 public function gitPull()
@@ -1222,7 +1227,7 @@ public function gitPull()
           ->env(['GIT_PAGER' => 'cat'])
           ->timeout(30)
           ->run('git pull');
-    });
+    })->toResponse();
 }
 
 #[On('nb:shell-result')]
@@ -1243,7 +1248,7 @@ public function connectSsh()
 {
     return NativeBlade::shell(function (Shell $s) {
         $s->openTerminal()->run('ssh prod-server');
-    });
+    })->toResponse();
 }
 ```
 
@@ -1273,7 +1278,7 @@ Backed by [`tauri-plugin-process`](https://v2.tauri.app/plugin/process/). Quits 
 
 **PHP:**
 ```php
-return NativeBlade::exit();
+return NativeBlade::exit()->toResponse();
 ```
 
 ---
@@ -1291,12 +1296,12 @@ Control the main window (desktop only — mobile platforms ignore these). Backed
 
 **PHP:**
 ```php
-return NativeBlade::minimize();
-return NativeBlade::maximize();
-return NativeBlade::unmaximize();
-return NativeBlade::toggleMaximize();
-return NativeBlade::hide();
-return NativeBlade::show();
+return NativeBlade::minimize()->toResponse();
+return NativeBlade::maximize()->toResponse();
+return NativeBlade::unmaximize()->toResponse();
+return NativeBlade::toggleMaximize()->toResponse();
+return NativeBlade::hide()->toResponse();
+return NativeBlade::show()->toResponse();
 ```
 
 | Method | Description |
@@ -1312,7 +1317,8 @@ Chain with other actions when you want a side-effect after work completes:
 
 ```php
 return NativeBlade::notification(fn (Notification $n) => $n->title('Done'))
-    ->toggleMaximize();
+    ->toggleMaximize()
+    ->toResponse();
 ```
 
 The hide / show pair is what enables the "minimize to tray" pattern. Configure the tray with `Tray::hideOnClose()` (see [CONFIGURATION.md → System Tray](./CONFIGURATION.md#system-tray)) so the close button calls `hide()` automatically, and add a `Show` entry in the tray context menu that maps to the `show` action:
