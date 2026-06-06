@@ -2,6 +2,30 @@
 
 Firebase Analytics through the **native SDK** (not the web SDK), so events feed Firebase's app analytics: install attribution, audiences, and the AdMob / Google Ads integration. A web SDK inside the WebView would be logged as web traffic and lose all of that. Requires `Plugin::ANALYTICS`.
 
+## Platforms
+
+This plugin is **mobile-only** (Android + iOS). Desktop is a WebView and web mode is the browser, neither has a native Firebase SDK, so `NativeBlade::analytics(...)` is a **no-op** there.
+
+To track analytics on web and desktop, load the **Firebase JS SDK** in your frontend with the web config object and call it directly:
+
+```html
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js';
+  import { getAnalytics, logEvent } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-analytics.js';
+
+  const app = initializeApp({
+    apiKey: '...',
+    projectId: '...',
+    appId: '...',
+    measurementId: 'G-XXXXXXX', // Analytics id
+  });
+  const analytics = getAnalytics(app);
+  // logEvent(analytics, 'add_to_cart', { item_id: 'sku_123' });
+</script>
+```
+
+That config object is a separate **Web app** registration in the same Firebase project (Android uses `google-services.json`, iOS `GoogleService-Info.plist`, web this snippet), so it is one project with three platform registrations. Native `google-services` files do not apply to desktop or web.
+
 ## Setup
 
 Analytics shares the Firebase project config with push and any other Firebase service, so it lives at the top level:
@@ -23,7 +47,7 @@ NativeBladeConfig::plugins([Plugin::ANALYTICS, /* ... */]);
 NativeBladeConfig::analytics(autoScreenTracking: true);
 ```
 
-Run `php artisan nativeblade:config`. On Android this copies `google-services.json` and enables the `google-services` Gradle plugin (shared with push). On iOS add the `GoogleService-Info.plist` to the Xcode project.
+Run `php artisan nativeblade:config`. On Android this copies `google-services.json` and enables the `google-services` Gradle plugin (shared with push). On iOS it copies `GoogleService-Info.plist` into the Xcode project and registers it in the app's bundle resources, so Firebase finds it at launch.
 
 > **Migrating from push:** the deprecated `->fcmConfig(...)` still works, but move the `google-services.json` path to `NativeBladeConfig::firebase(...)`. The same file backs every Firebase service, so it does not belong under push.
 
