@@ -307,18 +307,22 @@ class ShellConfig
     }
 
     /**
-     * Enable Firebase Analytics. Needs `firebase(...)` configured.
+     * Enable Firebase Analytics (build-time config). Needs `firebase(...)`.
      *
-     * `$autoScreenTracking` logs a `screen_view` automatically on every
-     * router navigation, using the raw path as the screen name (the native
-     * SDK can't auto-detect screen changes inside a single WebView). You can
-     * still log custom screens via `NativeBlade::analytics(fn ($a) => $a->screen(...))`.
+     * Named `analyticsConfig` — not `analytics` — on purpose: the runtime action
+     * `NativeBlade::analytics(fn ($a) => ...)` owns that name, and a same-named
+     * config method here would shadow it (the facade resolves both to this class).
+     *
+     * `$autoScreenTracking` logs a `screen_view` automatically on every router
+     * navigation, using the raw path as the screen name (the native SDK can't
+     * auto-detect screen changes inside a single WebView). You can still log
+     * custom screens via `NativeBlade::analytics(fn ($a) => $a->screen(...))`.
      *
      * `$collectionEnabledByDefault` sets the build-time default. Pass `false`
      * for consent-first apps so nothing is collected until you call
      * `->enable()` after the user opts in.
      */
-    public function analytics(bool $autoScreenTracking = false, bool $collectionEnabledByDefault = true): static
+    public function analyticsConfig(bool $autoScreenTracking = false, bool $collectionEnabledByDefault = true): static
     {
         static::$appConfigs['analytics'] = [
             'autoScreenTracking' => $autoScreenTracking,

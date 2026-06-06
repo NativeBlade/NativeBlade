@@ -373,7 +373,7 @@ NativeBladeConfig::firebase(
 Enable Firebase Analytics (needs `Plugin::ANALYTICS` and the firebase config above):
 
 ```php
-NativeBladeConfig::analytics(
+NativeBladeConfig::analyticsConfig(
     autoScreenTracking: true,          // log screen_view on every router navigation
     collectionEnabledByDefault: true,  // false ships with collection off (consent-first)
 );

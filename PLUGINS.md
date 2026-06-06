@@ -1103,7 +1103,7 @@ return NativeBlade::analytics(function (Analytics $a) {
 })->toResponse();
 ```
 
-Builder methods: `event()`, `screen()`, `setUserId()`, `setUserProperty()`, `enable()`, `disable()`. Enable automatic screen tracking and the consent default in config (`NativeBladeConfig::analytics(...)`). Full guide, including the consent flow, in [ANALYTICS.md](ANALYTICS.md).
+Builder methods: `event()`, `screen()`, `setUserId()`, `setUserProperty()`, `enable()`, `disable()`. Enable automatic screen tracking and the consent default in config (`NativeBladeConfig::analyticsConfig(...)`). Full guide, including the consent flow, in [ANALYTICS.md](ANALYTICS.md).
 
 ---
 

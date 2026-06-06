@@ -44,7 +44,7 @@ NativeBladeConfig::firebase(
 NativeBladeConfig::plugins([Plugin::ANALYTICS, /* ... */]);
 
 // 3. Enable analytics, with optional auto screen tracking
-NativeBladeConfig::analytics(autoScreenTracking: true);
+NativeBladeConfig::analyticsConfig(autoScreenTracking: true);
 ```
 
 Run `php artisan nativeblade:config`. On Android this copies `google-services.json` and enables the `google-services` Gradle plugin (shared with push). On iOS it copies `GoogleService-Info.plist` into the Xcode project and registers it in the app's bundle resources, so Firebase finds it at launch.
@@ -80,7 +80,7 @@ The `->toResponse()` rule applies: inside a Livewire component action call `->to
 
 The native SDK auto-collects screen views from native screen changes, but a NativeBlade app is a single WebView, so it only ever sees one screen. Two ways to fix that:
 
-- **Automatic:** `NativeBladeConfig::analytics(autoScreenTracking: true)` logs a `screen_view` on every router navigation, using the raw path as the screen name.
+- **Automatic:** `NativeBladeConfig::analyticsConfig(autoScreenTracking: true)` logs a `screen_view` on every router navigation, using the raw path as the screen name.
 - **Manual:** `NativeBlade::analytics(fn ($a) => $a->screen('Checkout'))` for a custom name.
 
 ## Consent (LGPD / GDPR)
@@ -90,7 +90,7 @@ The native SDK auto-collects screen views from native screen changes, but a Nati
 For consent-first apps, ship with collection off and turn it on only after the user opts in:
 
 ```php
-NativeBladeConfig::analytics(collectionEnabledByDefault: false); // build-time default: off
+NativeBladeConfig::analyticsConfig(collectionEnabledByDefault: false); // build-time default: off
 ```
 ```php
 // after the user accepts
@@ -103,6 +103,6 @@ return NativeBlade::analytics(fn ($a) => $a->enable())->toResponse();
 
 ## See Also
 
-- [CONFIGURATION.md](CONFIGURATION.md) — `firebase()` and `analytics()` config
+- [CONFIGURATION.md](CONFIGURATION.md) — `firebase()` and `analyticsConfig()` config
 - [PLUGINS.md](PLUGINS.md) — the `NativeBlade` facade
 - [PUSH.md](PUSH.md) — the other Firebase service
