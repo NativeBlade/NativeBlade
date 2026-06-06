@@ -1,0 +1,44 @@
+/* Transparent path to the camera while a scan is active. */
+body.nb-scanning,
+body.nb-scanning iframe {
+    background: transparent !important;
+}
+
+#nb-scanner-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 2147483000;
+    pointer-events: none;
+}
+
+/* Viewfinder: a clear, slightly rounded square with a thin border and a
+   dimmed surround (the big box-shadow). */
+#nb-scanner-overlay .nb-scanner-frame {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 64vw;
+    max-width: 280px;
+    aspect-ratio: 1 / 1;
+    transform: translate(-50%, -50%);
+    border: 1.5px solid rgba(255, 255, 255, 0.92);
+    border-radius: 10px;
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.4);
+}
+
+#nb-scanner-overlay .nb-scanner-cancel {
+    position: absolute;
+    left: 50%;
+    bottom: calc(40px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    pointer-events: auto;
+    padding: 12px 28px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    -webkit-tap-highlight-color: transparent;
+}

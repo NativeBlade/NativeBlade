@@ -12,5 +12,6 @@
     "boot.state": "Restoring data...",
     "boot.rendering": "Rendering...",
     "boot.loading": "Loading...",
-    "boot.ready": "Ready!"
+    "boot.ready": "Ready!",
+    "scanner.cancel": "Cancel"
 }

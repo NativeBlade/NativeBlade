@@ -805,6 +805,12 @@ public function onScan($result, $id = null)
 }
 ```
 
+> **Scanning overlay (automatic).** The underlying Tauri plugin is headless: it shows the camera behind a transparent webview and expects the app to draw the scanning UI, so on its own a scan opens a bare fullscreen camera with no way out. NativeBlade renders that UI for you: when a scan starts it shows a viewfinder and a **Cancel** button, and removes them when a code is read or the user cancels. You do not call anything extra. To cancel from your own button instead, fire the `scan_cancel` bridge:
+>
+> ```blade
+> <button wire:nb-bridge="scan_cancel">Stop scanning</button>
+> ```
+
 ---
 
 ## NFC

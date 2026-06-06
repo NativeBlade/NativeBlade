@@ -1,5 +1,7 @@
 // Barcode action — scan
-// Uses: ctx.barcodeApi, ctx.post
+// Uses: ctx.barcodeApi, ctx.post, ctx.appFrame
+
+import { showScanner, hideScanner } from '../components/scanner/scanner.js';
 
 const FORMAT_ALIASES = {
     QRCode: 'QR_CODE',
@@ -34,10 +36,19 @@ export async function scan(payload, ctx) {
             state = await ctx.barcodeApi.requestPermissions();
         }
         if (state !== 'granted') return;
+
+        // The Tauri scanner is headless; show our overlay (viewfinder + Cancel)
+        // so the user is not stuck on a bare fullscreen camera.
+        showScanner(ctx.appFrame, () => {
+            try { ctx.barcodeApi.cancel?.(); } catch {}
+        });
+
         const result = await ctx.barcodeApi.scan({ formats: normalizeFormats(payload.formats) });
         ctx.post('nativeblade-scan', { result, id: payload.id || null });
     } catch (e) {
-        console.warn('[NB Scan] failed:', e);
+        if (!/cancel/i.test(e?.message || '')) console.warn('[NB Scan] failed:', e);
+    } finally {
+        hideScanner();
     }
 }
 
