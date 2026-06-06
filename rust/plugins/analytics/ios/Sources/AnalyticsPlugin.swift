@@ -1,3 +1,4 @@
+import Foundation
 #if canImport(FirebaseAnalytics)
 import FirebaseAnalytics
 #endif
