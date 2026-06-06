@@ -1,54 +1,67 @@
+#if os(iOS)
 import FirebaseAnalytics
+#endif
 import SwiftRs
 import Tauri
-import UIKit
 
-enum ParamValue: Decodable {
+enum NBParamValue: Decodable {
     case string(String)
     case int(Int)
     case double(Double)
     case bool(Bool)
 
     init(from decoder: Decoder) throws {
-        let c = try decoder.singleValueContainer()
-        if let b = try? c.decode(Bool.self) { self = .bool(b); return }
-        if let i = try? c.decode(Int.self) { self = .int(i); return }
-        if let d = try? c.decode(Double.self) { self = .double(d); return }
-        self = .string((try? c.decode(String.self)) ?? "")
+        let container = try decoder.singleValueContainer()
+        if let value = try? container.decode(Bool.self) {
+            self = .bool(value)
+        } else if let value = try? container.decode(Int.self) {
+            self = .int(value)
+        } else if let value = try? container.decode(Double.self) {
+            self = .double(value)
+        } else {
+            self = .string((try? container.decode(String.self)) ?? "")
+        }
     }
 
-    var asAny: Any {
+    var firebaseValue: Any {
         switch self {
-        case .string(let s): return s
-        case .int(let i): return i
-        case .double(let d): return d
-        case .bool(let b): return b
+        case .string(let value): return value
+        case .int(let value): return value
+        case .double(let value): return value
+        case .bool(let value): return value
         }
     }
 }
 
-class AnalyticsOp: Decodable {
-    var op: String
-    var name: String?
-    var key: String?
-    var value: String?
-    var enabled: Bool?
-    var params: [String: ParamValue]?
+struct NBAnalyticsOp: Decodable {
+    let op: String
+    let name: String?
+    let key: String?
+    let value: String?
+    let enabled: Bool?
+    let params: [String: NBParamValue]?
 }
 
-class ApplyArgs: Decodable {
-    var ops: [AnalyticsOp]
+struct NBApplyArgs: Decodable {
+    let ops: [NBAnalyticsOp]
 }
 
 class AnalyticsPlugin: Plugin {
     @objc public func apply(_ invoke: Invoke) throws {
-        let args = try invoke.parseArgs(ApplyArgs.self)
+        // Firebase ships iOS-only; on the macOS pass swift-rs runs, this is a
+        // no-op so the package still compiles without the Firebase frameworks.
+        #if os(iOS)
+        let args = try invoke.parseArgs(NBApplyArgs.self)
 
         for op in args.ops {
             switch op.op {
             case "event":
                 var params: [String: Any] = [:]
-                op.params?.forEach { params[$0.key] = $0.value.asAny }
+                if let opParams = op.params {
+                    for (paramKey, paramValue) in opParams {
+                        params[paramKey] = paramValue.firebaseValue
+                    }
+                }
                 Analytics.logEvent(op.name ?? "", parameters: params.isEmpty ? nil : params)
             case "screen":
                 Analytics.logEvent(
@@ -65,6 +78,7 @@ class AnalyticsPlugin: Plugin {
                 break
             }
         }
+        #endif
 
         invoke.resolve()
     }

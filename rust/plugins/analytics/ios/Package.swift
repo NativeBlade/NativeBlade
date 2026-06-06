@@ -23,7 +23,13 @@ let package = Package(
             name: "tauri-plugin-nativeblade-analytics",
             dependencies: [
                 .byName(name: "Tauri"),
-                .product(name: "FirebaseAnalytics", package: "firebase-ios-sdk"),
+                // iOS-only: the macOS slice of Firebase pulls Cocoa.h and breaks
+                // the macOS pass swift-rs runs. The plugin only ships on iOS.
+                .product(
+                    name: "FirebaseAnalytics",
+                    package: "firebase-ios-sdk",
+                    condition: .when(platforms: [.iOS])
+                ),
             ],
             path: "Sources"
         ),
