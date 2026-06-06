@@ -1,0 +1,3 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Analytics needs no permissions; collection default is set on the app manifest. -->
+</manifest>

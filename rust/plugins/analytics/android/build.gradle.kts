@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "app.nativeblade.push"
+    namespace = "app.nativeblade.analytics"
     compileSdk = 36
 
     defaultConfig {
@@ -35,9 +35,7 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation(platform("com.google.firebase:firebase-bom:34.14.0"))
-    implementation("com.google.firebase:firebase-messaging-ktx")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.15.3")
+    implementation("com.google.firebase:firebase-analytics-ktx")
     implementation(project(":tauri-android"))
 }

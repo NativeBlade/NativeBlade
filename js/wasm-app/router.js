@@ -8,6 +8,7 @@ import { setOnBridgeComplete } from '../runtime/request-handler.js';
 import { init as initAutoUpdate } from './auto-update.js';
 import { init as initScheduler } from './scheduler.js';
 import { setFrame as setPushFrame } from './push.js';
+import { logScreenIfEnabled } from '../runtime/analytics-screen.js';
 
 let appFrame = null;
 let bufferFrame = null;
@@ -178,6 +179,8 @@ async function navigateInternal(path, options = {}) {
 async function renderPage(text, path, options, version) {
     if (!text || text.trim() === '') return;
     if (version !== navigationVersion) return;
+
+    logScreenIfEnabled(path);
 
     let html = text;
     try {

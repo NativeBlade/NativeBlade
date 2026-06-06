@@ -22,6 +22,7 @@ This document lists every built-in bridge, what it does, and how to call it from
 - [In-App Review](#in-app-review)
 - [Secure Storage](#secure-storage)
 - [Sharing](#sharing)
+- [Analytics](#analytics)
 - [Camera & Gallery](#camera--gallery)
 - [Navigation](#navigation)
 - [Modal](#modal)
@@ -82,6 +83,7 @@ When you run `nativeblade:dev` or `nativeblade:build`, the CLI passes `--feature
 | `Plugin::IN_APP_REVIEW` | Native review prompt via `NativeBlade::requestReview()` (mobile only) |
 | `Plugin::SECURE_STORAGE` | Encrypted key-value via `NativeBlade::setSecure()` / `getSecure()` (mobile only) |
 | `Plugin::SHARING` | Native share sheet via `NativeBlade::share()` (mobile only) |
+| `Plugin::ANALYTICS` | Firebase Analytics via `NativeBlade::analytics()` (mobile only) |
 | `Plugin::GEOLOCATION` | `nb:geolocation` event with current position |
 | `Plugin::BIOMETRIC` | `NativeBlade::biometric()` (mobile only) |
 | `Plugin::BARCODE_SCANNER` | `NativeBlade::scan()` (mobile only) |
@@ -175,6 +177,7 @@ return NativeBlade::notification(fn (Notification $n) => $n->title('Saved')->bod
 | In-App Review | `requestReview()` |
 | Secure Storage | `setSecure($key, $value)`, `getSecure($key, $id = null)`, `forgetSecure($key)` |
 | Sharing | `share($text = null, $url = null)` |
+| Analytics | `analytics(Closure)` |
 | Camera | `camera(?Closure)`, `gallery(?Closure)` |
 | Navigation | `navigate($path, $replace = false)` |
 | Modal | `showModal()`, `hideModal()` |
@@ -1034,6 +1037,23 @@ public function invite()
 ```
 
 Pass at least one of `text` / `url`. It is fire-and-forget: the OS sheet appears and there is no result back. No-op on desktop.
+
+---
+
+## Analytics
+
+Firebase Analytics through the native SDK. Mobile only. Requires `Plugin::ANALYTICS` and `NativeBladeConfig::firebase(...)`.
+
+```php
+use NativeBlade\Plugins\Analytics;
+
+return NativeBlade::analytics(function (Analytics $a) {
+    $a->event('add_to_cart', ['item_id' => 'sku_123', 'value' => 9.99])
+      ->setUserProperty('plan', 'pro');
+})->toResponse();
+```
+
+Builder methods: `event()`, `screen()`, `setUserId()`, `setUserProperty()`, `enable()`, `disable()`. Enable automatic screen tracking and the consent default in config (`NativeBladeConfig::analytics(...)`). Full guide, including the consent flow, in [ANALYTICS.md](ANALYTICS.md).
 
 ---
 

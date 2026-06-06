@@ -58,6 +58,7 @@ tauri-plugin-nativeblade-media = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/med
 tauri-plugin-nativeblade-review = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/review", optional = true }
 tauri-plugin-nativeblade-secure-storage = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/secure-storage", optional = true }
 tauri-plugin-nativeblade-sharing = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/sharing", optional = true }
+tauri-plugin-nativeblade-analytics = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/analytics", optional = true }
 
 # nativeblade:plugins:start
 [features]

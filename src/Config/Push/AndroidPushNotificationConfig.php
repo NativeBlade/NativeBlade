@@ -42,9 +42,12 @@ class AndroidPushNotificationConfig
 
     /**
      * Absolute path to the `google-services.json` file downloaded from
-     * the Firebase console. The NativeBlade build step copies this file
-     * into the Android project before Gradle runs, so the Google Services
-     * Gradle plugin can pick it up and generate the FCM project stubs.
+     * the Firebase console.
+     *
+     * @deprecated Use `NativeBladeConfig::firebase(google-services.json path)`
+     *             instead. That same file backs every Firebase service
+     *             (Messaging, Analytics, ...), so it belongs at the top level,
+     *             not under push. This still works for backward compatibility.
      */
     public function fcmConfig(string $path): static
     {

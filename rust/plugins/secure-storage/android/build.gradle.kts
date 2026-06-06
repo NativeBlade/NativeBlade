@@ -35,8 +35,6 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
-    // Google Tink replaces the deprecated androidx.security:security-crypto.
-    // Pin to the latest stable when building.
-    implementation("com.google.crypto.tink:tink-android:1.15.0")
+    implementation("com.google.crypto.tink:tink-android:1.19.0")
     implementation(project(":tauri-android"))
 }

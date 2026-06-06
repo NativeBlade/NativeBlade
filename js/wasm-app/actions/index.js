@@ -27,6 +27,7 @@ import * as updateMod from './update.js';
 import * as review from './review.js';
 import * as secure from './secure.js';
 import * as shareMod from './share.js';
+import * as analyticsMod from './analytics.js';
 
 export const actions = {
     // dialog
@@ -120,4 +121,7 @@ export const actions = {
 
     // sharing
     share: shareMod.share,
+
+    // analytics
+    analytics: analyticsMod.analytics,
 };

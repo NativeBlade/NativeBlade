@@ -49,6 +49,7 @@ final class NativeResponseTest extends TestCase
         self::assertSame($r, $r->getSecure('k'));
         self::assertSame($r, $r->forgetSecure('k'));
         self::assertSame($r, $r->share('hi'));
+        self::assertSame($r, $r->analytics(fn ($a) => $a->event('x')));
     }
 
     #[Test]
@@ -130,6 +131,29 @@ final class NativeResponseTest extends TestCase
             [['action' => 'share', 'data' => ['text' => 'Just text', 'url' => '']]],
             $r->toArray()
         );
+    }
+
+    #[Test]
+    public function analytics_builds_the_ops_and_queues_an_analytics_action(): void
+    {
+        $r = (new NativeResponse())->analytics(function (\NativeBlade\Plugins\Analytics $a) {
+            $a->event('add_to_cart', ['value' => 9.99])
+                ->screen('Checkout')
+                ->setUserId('u1')
+                ->setUserProperty('plan', 'pro')
+                ->disable();
+        });
+
+        self::assertSame([[
+            'action' => 'analytics',
+            'data' => ['ops' => [
+                ['op' => 'event', 'name' => 'add_to_cart', 'params' => ['value' => 9.99]],
+                ['op' => 'screen', 'name' => 'Checkout'],
+                ['op' => 'userId', 'value' => 'u1'],
+                ['op' => 'userProperty', 'key' => 'plan', 'value' => 'pro'],
+                ['op' => 'setEnabled', 'enabled' => false],
+            ]],
+        ]], $r->toArray());
     }
 
     #[Test]

@@ -28,6 +28,9 @@ enum Plugin: string
     /** Native share sheet (UIActivityViewController on iOS, Intent.ACTION_SEND on Android). Powers `NativeBlade::share()`. NativeBlade native plugin. */
     case SHARING = 'sharing';
 
+    /** Firebase Analytics via the native SDK (events, screens, user properties, consent). Powers `NativeBlade::analytics()`. Needs `NativeBladeConfig::firebase(...)`. NativeBlade native plugin. */
+    case ANALYTICS = 'analytics';
+
     /** Device GPS / network-based location. Powers `NativeBlade::geolocation()`. */
     case GEOLOCATION = 'geolocation';
 

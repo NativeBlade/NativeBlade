@@ -47,6 +47,9 @@ class ConfigCommand extends Command
         if (isset($configs['bundlePush'])) {
             $runtime['bundlePush'] = $configs['bundlePush'];
         }
+        if (isset($configs['analytics'])) {
+            $runtime['analytics'] = ['autoScreenTracking' => (bool) ($configs['analytics']['autoScreenTracking'] ?? false)];
+        }
 
         $path = base_path('public/nativeblade-config.json');
         if (empty($runtime)) {

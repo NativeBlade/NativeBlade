@@ -289,6 +289,44 @@ class ShellConfig
         return $this;
     }
 
+    /**
+     * Point NativeBlade at your Firebase project config. The same files back
+     * every Firebase service (Messaging/FCM, Analytics, Crashlytics, ...), so
+     * this lives at the top level rather than under any single plugin.
+     *
+     * @param  string       $googleServices  Absolute path to google-services.json (Android).
+     * @param  string|null  $plist           Absolute path to GoogleService-Info.plist (iOS).
+     */
+    public function firebase(string $googleServices, ?string $plist = null): static
+    {
+        static::$appConfigs['firebase'] = [
+            'googleServices' => $googleServices,
+            'plist' => $plist,
+        ];
+        return $this;
+    }
+
+    /**
+     * Enable Firebase Analytics. Needs `firebase(...)` configured.
+     *
+     * `$autoScreenTracking` logs a `screen_view` automatically on every
+     * router navigation, using the raw path as the screen name (the native
+     * SDK can't auto-detect screen changes inside a single WebView). You can
+     * still log custom screens via `NativeBlade::analytics(fn ($a) => $a->screen(...))`.
+     *
+     * `$collectionEnabledByDefault` sets the build-time default. Pass `false`
+     * for consent-first apps so nothing is collected until you call
+     * `->enable()` after the user opts in.
+     */
+    public function analytics(bool $autoScreenTracking = false, bool $collectionEnabledByDefault = true): static
+    {
+        static::$appConfigs['analytics'] = [
+            'autoScreenTracking' => $autoScreenTracking,
+            'collectionEnabledByDefault' => $collectionEnabledByDefault,
+        ];
+        return $this;
+    }
+
     // ------------------------------------------------------------------
     // Boot & transitions
     // ------------------------------------------------------------------

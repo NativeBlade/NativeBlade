@@ -24,7 +24,48 @@ class AndroidConfigGenerator
         $this->generateNfcAutoLaunch($config);
         $this->generateMetaData($config);
         $this->generateAppLinks();
-        $this->generatePushNotification($config);
+        $this->generateAnalyticsDefault();
+        $this->generateFirebase($config);
+    }
+
+    private const ANALYTICS_START = '<!-- nativeblade:analytics:start -->';
+    private const ANALYTICS_END = '<!-- nativeblade:analytics:end -->';
+
+    /**
+     * Build-time Firebase Analytics collection default via
+     * `NativeBladeConfig::analytics(collectionEnabledByDefault: ...)`. Writes
+     * the `firebase_analytics_collection_enabled` meta-data into the
+     * application element, fenced with markers. Removed when analytics is not
+     * configured.
+     */
+    private function generateAnalyticsDefault(): void
+    {
+        $manifestPath = base_path('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
+        if (!file_exists($manifestPath)) return;
+
+        $manifest = file_get_contents($manifestPath);
+        $original = $manifest;
+
+        $startQ = preg_quote(self::ANALYTICS_START, '/');
+        $endQ = preg_quote(self::ANALYTICS_END, '/');
+        $manifest = preg_replace("/\s*{$startQ}.*?{$endQ}/s", '', $manifest);
+
+        $analytics = \NativeBlade\ShellConfig::getAppConfigs()['analytics'] ?? null;
+
+        if ($analytics !== null && str_contains($manifest, '</application>')) {
+            $value = ($analytics['collectionEnabledByDefault'] ?? true) ? 'true' : 'false';
+            $block = implode("\n", [
+                '        ' . self::ANALYTICS_START,
+                '        <meta-data android:name="firebase_analytics_collection_enabled" android:value="' . $value . '" />',
+                '        ' . self::ANALYTICS_END,
+            ]);
+            $manifest = preg_replace('/(\s*<\/application>)/', "\n" . $block . "$1", $manifest, 1);
+        }
+
+        if ($manifest !== $original) {
+            file_put_contents($manifestPath, $manifest);
+            $this->cmd->line("  <fg=green>✓</> Android analytics collection default");
+        }
     }
 
     private const APPLINKS_START = '<!-- nativeblade:applinks:start -->';
@@ -700,12 +741,12 @@ XML;
         }
     }
 
-    private function generatePushNotification(array $config): void
+    private function generateFirebase(array $config): void
     {
-        $push = $config['notification'] ?? null;
-        if (!$push || !isset($push['fcmConfig'])) return;
+        $source = \NativeBlade\ShellConfig::getAppConfigs()['firebase']['googleServices']
+            ?? ($config['notification']['fcmConfig'] ?? null);
+        if (!$source) return;
 
-        $source = $push['fcmConfig'];
         if (!file_exists($source)) {
             $this->cmd->line("  <fg=yellow>→</> google-services.json not found at {$source}");
             return;

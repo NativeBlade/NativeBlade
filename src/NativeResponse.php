@@ -348,6 +348,25 @@ class NativeResponse
     }
 
     // ------------------------------------------------------------------
+    // Analytics
+    // ------------------------------------------------------------------
+
+    /**
+     * Log Firebase Analytics operations (events, screens, user id/properties,
+     * consent on/off) via a closure builder. The ops are applied natively in
+     * order. Mobile only; a no-op on desktop. Requires `Plugin::ANALYTICS`
+     * and `NativeBladeConfig::firebase(...)`.
+     *
+     * @param  \Closure(\NativeBlade\Plugins\Analytics): void  $callback
+     */
+    public function analytics(\Closure $callback): static
+    {
+        $analytics = new \NativeBlade\Plugins\Analytics();
+        $callback($analytics);
+        return $this->push('analytics', $analytics->toArray());
+    }
+
+    // ------------------------------------------------------------------
     // OS info
     // ------------------------------------------------------------------
 

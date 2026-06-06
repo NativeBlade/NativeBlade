@@ -216,6 +216,28 @@ final class ShellConfigBuildersTest extends TestCase
     }
 
     #[Test]
+    public function firebase_config_stores_both_paths(): void
+    {
+        $this->config->firebase('/abs/google-services.json', '/abs/GoogleService-Info.plist');
+
+        $configs = ShellConfig::getAppConfigs();
+        self::assertSame('/abs/google-services.json', $configs['firebase']['googleServices']);
+        self::assertSame('/abs/GoogleService-Info.plist', $configs['firebase']['plist']);
+    }
+
+    #[Test]
+    public function analytics_config_stores_flags(): void
+    {
+        $this->config->analytics(autoScreenTracking: true, collectionEnabledByDefault: false);
+
+        $configs = ShellConfig::getAppConfigs();
+        self::assertSame(
+            ['autoScreenTracking' => true, 'collectionEnabledByDefault' => false],
+            $configs['analytics']
+        );
+    }
+
+    #[Test]
     public function ios_info_plist_entries_are_stored_and_merge_across_calls(): void
     {
         $this->config->ios(function (IosConfig $cfg) {

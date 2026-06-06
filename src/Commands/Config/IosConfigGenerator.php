@@ -16,6 +16,7 @@ class IosConfigGenerator
         'UIViewControllerBasedStatusBarAppearance',
         'UIStatusBarHidden',
         'MinimumOSVersion',
+        'FIREBASE_ANALYTICS_COLLECTION_ENABLED',
         'CFBundleName',
         'CFBundleDisplayName',
         'CFBundleShortVersionString',
@@ -96,6 +97,13 @@ class IosConfigGenerator
         if (isset($config['minIosVersion'])) {
             $entries[] = "    <key>MinimumOSVersion</key>";
             $entries[] = "    <string>{$config['minIosVersion']}</string>";
+        }
+
+        $analytics = \NativeBlade\ShellConfig::getAppConfigs()['analytics'] ?? null;
+        if ($analytics !== null) {
+            $value = ($analytics['collectionEnabledByDefault'] ?? true) ? 'true' : 'false';
+            $entries[] = "    <key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>";
+            $entries[] = "    <{$value}/>";
         }
 
         $customApplied = 0;

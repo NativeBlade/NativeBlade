@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Facade;
  * @method static void topBar(array $options) Configure the global top app bar (title, leading/trailing actions).
  * @method static static bundlePush(string $url, bool $autoApply = true, string $channel = 'stable') Enable OTA Laravel-bundle updates from the given URL. When `$autoApply` is true, downloaded bundles are activated on next launch. `$channel` (default 'stable') reads the top-level `bundle` entry; any other value reads `channels.{channel}`.
  * @method static static deepLinks(array $domains, ?\Closure $handler = null) Enable verified https universal/app links for the given domains. The optional handler receives each incoming URL and returns a NativeResponse to route it.
+ * @method static static firebase(string $googleServices, ?string $plist = null) Point NativeBlade at your Firebase project config (google-services.json + GoogleService-Info.plist), shared by push, analytics, and other Firebase services.
+ * @method static static analytics(bool $autoScreenTracking = false, bool $collectionEnabledByDefault = true) Enable Firebase Analytics. `$autoScreenTracking` logs a screen_view per router navigation. `$collectionEnabledByDefault` false ships with collection off for consent-first apps.
  * @method static static onBoot(callable $callback) Run a callback the first time the shell hands control to PHP after boot.
  * @method static static transition(string $type = 'fade') Default page transition for `NativeBlade::navigate()`. One of: `'none'`, `'slide'`, `'fade'`.
  * @method static array getAppConfigs() Returns the resolved per-platform configs (used by build commands).

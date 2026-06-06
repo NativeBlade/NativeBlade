@@ -19,6 +19,7 @@
   <a href="NAVIGATE.md">Navigate</a> &bull;
   <a href="PLUGINS.md">Plugins</a> &bull;
   <a href="PUSH.md">Push</a> &bull;
+  <a href="ANALYTICS.md">Analytics</a> &bull;
   <a href="MEDIA.md">Media</a> &bull;
   <a href="ANIMATIONS.md">Animations</a> &bull;
   <a href="LIFECYCLE.md">Lifecycle</a> &bull;
@@ -52,6 +53,7 @@ NativeBlade lets Laravel developers build **desktop** and **mobile** apps using 
 - **Desktop** — Windows, macOS, Linux with native menus and system tray
 - **Mobile** — Android & iOS with status bar, safe area, orientation control
 - **Push Notifications** — Server-pushed notifications via FCM (Android) and APNS (iOS) that wake the app even when closed
+- **Analytics:** Firebase Analytics via the native SDK (events, screens, user properties), with auto screen tracking and consent controls
 - **Animations** — 90+ [Animate.css](https://animate.style/) animations + custom NativeBlade animations via `nb-animation` attribute
 - **Offline-First** — SQLite persisted to IndexedDB, works without a server
 - **Hot Reload** — Vite HMR for instant feedback during development, plus `--build` mode to preview the production bundle locally
