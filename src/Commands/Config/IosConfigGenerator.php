@@ -60,6 +60,55 @@ class IosConfigGenerator
 
         copy($plist, $appleDir . '/GoogleService-Info.plist');
         $this->cmd->line("  <fg=green>✓</> GoogleService-Info.plist copied to iOS project root");
+
+        $this->registerPlistInXcodeBundle($appleDir);
+    }
+
+    /**
+     * Add GoogleService-Info.plist to the app target's Copy Bundle Resources.
+     *
+     * Android finds google-services.json by convention; iOS has none, so the
+     * plist only ships in the .app when the Xcode project references it. The
+     * pbxproj format is brittle to edit by hand, so this drives the xcodeproj
+     * Ruby gem (bundled with CocoaPods, present in every Tauri iOS toolchain).
+     * Idempotent: re-runs reuse the existing reference. On any failure it
+     * degrades to a manual hint instead of breaking the config run.
+     */
+    private function registerPlistInXcodeBundle(string $appleDir): void
+    {
+        $projects = glob($appleDir . '/*.xcodeproj');
+        if (empty($projects)) {
+            $this->cmd->line("  <fg=yellow>→</> No .xcodeproj found — skipping Firebase resource registration");
+            return;
+        }
+
+        $ruby = <<<'RUBY'
+        require 'xcodeproj'
+        project = Xcodeproj::Project.open(ARGV[0])
+        target  = project.targets.find { |t| t.name.end_with?('_iOS') } || project.targets.first
+        name = 'GoogleService-Info.plist'
+        ref  = project.files.find { |f| f.path == name } || project.main_group.new_file(name)
+        target.resources_build_phase.add_file_reference(ref, true)
+        project.save
+        RUBY;
+
+        $scriptPath = $appleDir . '/.nativeblade-firebase-resource.rb';
+        file_put_contents($scriptPath, $ruby);
+
+        exec(
+            sprintf('ruby %s %s 2>&1', escapeshellarg($scriptPath), escapeshellarg($projects[0])),
+            $output,
+            $code
+        );
+        @unlink($scriptPath);
+
+        if ($code === 0) {
+            $this->cmd->line("  <fg=green>✓</> GoogleService-Info.plist registered in Xcode bundle resources");
+            return;
+        }
+
+        $this->cmd->line("  <fg=yellow>→</> Could not auto-register GoogleService-Info.plist: " . trim(implode(' ', $output)));
+        $this->cmd->line("  <fg=yellow>→</> Add it to the app target's 'Copy Bundle Resources' in Xcode manually");
     }
 
     private function generateAppName(): void
