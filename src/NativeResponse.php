@@ -295,6 +295,43 @@ class NativeResponse
     }
 
     // ------------------------------------------------------------------
+    // Secure storage
+    // ------------------------------------------------------------------
+
+    /**
+     * Store a secret in the OS keystore (Keychain on iOS, Tink AEAD sealed by
+     * the Android Keystore). Mobile only; a no-op on desktop.
+     * Requires `Plugin::SECURE_STORAGE`.
+     *
+     * For small secrets (tokens, keys), not large blobs. For structured data,
+     * `json_encode()` it yourself and `json_decode()` what `getSecure()` gives
+     * back.
+     */
+    public function setSecure(string $key, string $value): static
+    {
+        return $this->push('set_secure', ['key' => $key, 'value' => $value]);
+    }
+
+    /**
+     * Read a secret back. The value is delivered asynchronously via the
+     * `nb:secure` Livewire event: `#[On('nb:secure')] onSecure($value, $id)`.
+     * `$value` is `null` when the key is absent (or on desktop). Pass `$id`
+     * to route the result when a component reads more than one key.
+     */
+    public function getSecure(string $key, ?string $id = null): static
+    {
+        return $this->push('get_secure', ['key' => $key, 'id' => $id]);
+    }
+
+    /**
+     * Remove a secret from the OS keystore. Mobile only; a no-op on desktop.
+     */
+    public function forgetSecure(string $key): static
+    {
+        return $this->push('forget_secure', ['key' => $key]);
+    }
+
+    // ------------------------------------------------------------------
     // OS info
     // ------------------------------------------------------------------
 

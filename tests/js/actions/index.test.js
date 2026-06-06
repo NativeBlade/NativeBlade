@@ -50,6 +50,9 @@ const EXPECTED_ACTIONS = [
     'check_update',
     'force_update',
     'request_review',
+    'set_secure',
+    'get_secure',
+    'forget_secure',
 ];
 
 describe('actions/index', () => {

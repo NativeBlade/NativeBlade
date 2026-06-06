@@ -44,6 +44,9 @@ use Illuminate\Support\Facades\Facade;
  * @method static \NativeBlade\NativeResponse openUrl(string $url)
  * @method static \NativeBlade\NativeResponse openFile(string $path)
  * @method static \NativeBlade\NativeResponse requestReview()
+ * @method static \NativeBlade\NativeResponse setSecure(string $key, string $value)
+ * @method static \NativeBlade\NativeResponse getSecure(string $key, ?string $id = null)
+ * @method static \NativeBlade\NativeResponse forgetSecure(string $key)
  *
  * OS info.
  *

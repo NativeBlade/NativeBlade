@@ -25,6 +25,7 @@ import * as system from './system.js';
 import * as tauri from './tauri.js';
 import * as updateMod from './update.js';
 import * as review from './review.js';
+import * as secure from './secure.js';
 
 export const actions = {
     // dialog
@@ -110,4 +111,9 @@ export const actions = {
 
     // in-app review
     request_review: review.request_review,
+
+    // secure storage
+    set_secure: secure.set_secure,
+    get_secure: secure.get_secure,
+    forget_secure: secure.forget_secure,
 };

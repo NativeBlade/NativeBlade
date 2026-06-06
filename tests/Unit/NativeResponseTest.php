@@ -45,6 +45,9 @@ final class NativeResponseTest extends TestCase
         self::assertSame($r, $r->checkUpdate());
         self::assertSame($r, $r->forceUpdate());
         self::assertSame($r, $r->requestReview());
+        self::assertSame($r, $r->setSecure('k', 'v'));
+        self::assertSame($r, $r->getSecure('k'));
+        self::assertSame($r, $r->forgetSecure('k'));
     }
 
     #[Test]
@@ -66,6 +69,46 @@ final class NativeResponseTest extends TestCase
     {
         $r = (new NativeResponse())->requestReview();
         self::assertSame([['action' => 'request_review', 'data' => []]], $r->toArray());
+    }
+
+    #[Test]
+    public function set_secure_queues_the_key_and_value(): void
+    {
+        $r = (new NativeResponse())->setSecure('auth.token', 'abc');
+        self::assertSame(
+            [['action' => 'set_secure', 'data' => ['key' => 'auth.token', 'value' => 'abc']]],
+            $r->toArray()
+        );
+    }
+
+    #[Test]
+    public function get_secure_queues_the_key_and_optional_id(): void
+    {
+        $r = (new NativeResponse())->getSecure('auth.token', 'auth');
+        self::assertSame(
+            [['action' => 'get_secure', 'data' => ['key' => 'auth.token', 'id' => 'auth']]],
+            $r->toArray()
+        );
+    }
+
+    #[Test]
+    public function get_secure_defaults_id_to_null(): void
+    {
+        $r = (new NativeResponse())->getSecure('auth.token');
+        self::assertSame(
+            [['action' => 'get_secure', 'data' => ['key' => 'auth.token', 'id' => null]]],
+            $r->toArray()
+        );
+    }
+
+    #[Test]
+    public function forget_secure_queues_the_key(): void
+    {
+        $r = (new NativeResponse())->forgetSecure('auth.token');
+        self::assertSame(
+            [['action' => 'forget_secure', 'data' => ['key' => 'auth.token']]],
+            $r->toArray()
+        );
     }
 
     #[Test]

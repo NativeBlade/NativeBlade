@@ -59,6 +59,14 @@ class PluginRegistry
                 'mobile_capabilities' => ['nativeblade-review:default'],
             ],
 
+            Plugin::SECURE_STORAGE => [
+                'feature' => 'secure_storage',
+                'feature_crate' => 'tauri-plugin-nativeblade-secure-storage',
+                'rust_init' => 'tauri_plugin_nativeblade_secure_storage::init()',
+                'mobile_only' => true,
+                'mobile_capabilities' => ['nativeblade-secure-storage:default'],
+            ],
+
             Plugin::GEOLOCATION => [
                 'feature' => 'geolocation',
                 'feature_crate' => 'tauri-plugin-geolocation',

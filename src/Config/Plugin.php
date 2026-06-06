@@ -22,6 +22,9 @@ enum Plugin: string
     /** Native in-app review prompt (StoreKit on iOS, Play In-App Review on Android). Powers `NativeBlade::requestReview()`. NativeBlade native plugin. */
     case IN_APP_REVIEW = 'in_app_review';
 
+    /** Encrypted key-value storage (Keychain on iOS, Tink AEAD sealed by the Android Keystore). Powers `NativeBlade::setSecure()`/`getSecure()`. NativeBlade native plugin. */
+    case SECURE_STORAGE = 'secure_storage';
+
     /** Device GPS / network-based location. Powers `NativeBlade::geolocation()`. */
     case GEOLOCATION = 'geolocation';
 

@@ -1,0 +1,3 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Secure storage needs no permissions; the Keystore is app-private. -->
+</manifest>

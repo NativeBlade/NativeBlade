@@ -1,0 +1,28 @@
+[package]
+name = "tauri-plugin-nativeblade-secure-storage"
+version = "0.1.0"
+edition = "2021"
+description = "Encrypted key-value storage (Keychain / Tink + Android Keystore) for NativeBlade"
+license = "MIT"
+build = "build.rs"
+links = "tauri-plugin-nativeblade-secure-storage"
+
+[lib]
+name = "tauri_plugin_nativeblade_secure_storage"
+path = "src/lib.rs"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(mobile)', 'cfg(desktop)'] }
+
+[dependencies]
+tauri = { version = "2", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+log = "0.4"
+
+[build-dependencies]
+tauri-plugin = { version = "2.4", features = ["build"] }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+tauri = { version = "2", default-features = false, features = ["wry"] }
