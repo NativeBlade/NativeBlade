@@ -1,6 +1,7 @@
 import Foundation
 #if canImport(FirebaseAnalytics)
 import FirebaseAnalytics
+import FirebaseCore
 #endif
 import SwiftRs
 import Tauri
@@ -53,6 +54,12 @@ class AnalyticsPlugin: Plugin {
         // macOS pass swift-rs runs (no Firebase there) this is a no-op so the
         // package still compiles.
         #if canImport(FirebaseAnalytics)
+        // iOS has no google-services auto-init; configure on first use. Reads
+        // GoogleService-Info.plist from the app bundle.
+        if FirebaseApp.app() == nil {
+            FirebaseApp.configure()
+        }
+
         let args = try invoke.parseArgs(NBApplyArgs.self)
 
         for op in args.ops {

@@ -32,6 +32,34 @@ class IosConfigGenerator
         $this->generateVersion($config);
         $this->generatePrivacyManifest($config);
         $this->generateSplash($config);
+        $this->generateFirebase();
+    }
+
+    /**
+     * Copy GoogleService-Info.plist into the iOS project root so Firebase
+     * (Analytics) can find it in the app bundle. Unlike Android, iOS has no
+     * auto-init plugin: the file must also be referenced by the Xcode project
+     * to ship in the .app, and FirebaseApp.configure() must run at launch
+     * (handled lazily inside the analytics plugin's Swift).
+     */
+    private function generateFirebase(): void
+    {
+        $plist = \NativeBlade\ShellConfig::getAppConfigs()['firebase']['plist'] ?? null;
+        if (!$plist) return;
+
+        if (!file_exists($plist)) {
+            $this->cmd->line("  <fg=yellow>→</> GoogleService-Info.plist not found at {$plist}");
+            return;
+        }
+
+        $appleDir = base_path('src-tauri/gen/apple');
+        if (!is_dir($appleDir)) {
+            $this->cmd->line("  <fg=yellow>→</> src-tauri/gen/apple missing — run 'nativeblade:add ios' first");
+            return;
+        }
+
+        copy($plist, $appleDir . '/GoogleService-Info.plist');
+        $this->cmd->line("  <fg=green>✓</> GoogleService-Info.plist copied to iOS project root");
     }
 
     private function generateAppName(): void
