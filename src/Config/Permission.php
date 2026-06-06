@@ -50,6 +50,14 @@ class Permission
     /** Android `POST_NOTIFICATIONS` (Android 13+). iOS handles this via the push opt-in prompt. */
     const NOTIFICATIONS = 'notifications';
 
+    /**
+     * Android `SCHEDULE_EXACT_ALARM` + `USE_EXACT_ALARM`. Opt-in: only declare it
+     * if your app's purpose is reminders/alarms — it lets `scheduleNotification()`
+     * fire on the exact second even in Doze. Google Play scrutinizes it, so the
+     * push plugin does NOT add it by default. No iOS equivalent (already exact).
+     */
+    const EXACT_ALARM = 'exact_alarm';
+
     /** Android `VIBRATE`. Required for haptic feedback on Android. iOS has no equivalent permission. */
     const VIBRATE = 'vibrate';
 

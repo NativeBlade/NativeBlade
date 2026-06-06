@@ -21,6 +21,7 @@ class NotificationAlarmReceiver : BroadcastReceiver() {
         val icon = intent.getStringExtra(NotificationAlarms.EXTRA_ICON)
         val tag = intent.getIntExtra(NotificationAlarms.EXTRA_TAG, System.currentTimeMillis().toInt())
         val dailyTime = intent.getStringExtra(NotificationAlarms.EXTRA_DAILY_TIME)
+        val exact = intent.getBooleanExtra(NotificationAlarms.EXTRA_EXACT, false)
 
         NotificationDisplay.show(
             context = ctx,
@@ -46,6 +47,7 @@ class NotificationAlarmReceiver : BroadcastReceiver() {
                 sound = sound,
                 icon = icon,
                 dailyTime = dailyTime,
+                exact = exact,
             )
         } else {
             NotificationAlarms.forget(ctx, userId)

@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Facade;
  * Notifications.
  *
  * @method static \NativeBlade\NativeResponse notification(\Closure $callback)
+ * @method static \NativeBlade\NativeResponse scheduleNotification(\Closure $callback)
  * @method static \NativeBlade\NativeResponse cancelNotification(string $id)
  * @method static \NativeBlade\NativeResponse cancelAllNotifications()
  *

@@ -44,6 +44,14 @@ class Notification
     private ?array $schedule = null;
 
     /**
+     * When true, the native layer schedules an *exact* alarm (fires on time
+     * even in Doze) instead of the default inexact one. Set via
+     * `NativeBlade::scheduleNotification()`; needs Permission::EXACT_ALARM on
+     * Android, otherwise it degrades to inexact. No effect on iOS (already exact).
+     */
+    private bool $exact = false;
+
+    /**
      * Set the notification title (top line, bold).
      */
     public function title(string $title): static
@@ -121,6 +129,17 @@ class Notification
     }
 
     /**
+     * Request exact delivery (fires on time even in Doze). Normally set for you
+     * by `NativeBlade::scheduleNotification()`. Android needs Permission::EXACT_ALARM
+     * or it degrades to inexact; no effect on iOS (already exact).
+     */
+    public function exact(bool $exact = true): static
+    {
+        $this->exact = $exact;
+        return $this;
+    }
+
+    /**
      * Schedule the notification to repeat every N units of the given kind.
      *
      * @param  string  $kind  One of `'minute'`, `'hour'`, `'day'`, `'week'`, `'month'`.
@@ -179,6 +198,7 @@ class Notification
         if ($this->channel !== null)  $payload['channel'] = $this->channel;
         if ($this->id !== null)       $payload['id'] = $this->id;
         if ($this->schedule !== null) $payload['schedule'] = $this->schedule;
+        if ($this->exact)             $payload['exact'] = true;
 
         return $payload;
     }

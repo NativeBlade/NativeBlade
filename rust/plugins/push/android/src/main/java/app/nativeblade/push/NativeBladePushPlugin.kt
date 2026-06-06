@@ -169,6 +169,9 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
         val schedule = if (args.has("schedule") && !args.isNull("schedule")) {
             args.getJSONObject("schedule")
         } else null
+        // Opt-in exact delivery (from NativeBlade::scheduleNotification). Honored
+        // only when USE_EXACT_ALARM is granted; otherwise degrades to inexact.
+        val exact = args.optBoolean("exact", false)
 
         val tag = NotificationDisplay.hashId(userId)
 
@@ -189,7 +192,7 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
         }
 
         try {
-            scheduleNotification(userId, tag, title, body, channel, sound, icon, schedule)
+            scheduleNotification(userId, tag, title, body, channel, sound, icon, schedule, exact)
             invoke.resolve(JSObject().apply { put("id", userId) })
         } catch (e: Throwable) {
             Log.w(TAG, "Failed to schedule notification '$userId'", e)
@@ -242,6 +245,7 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
         sound: String?,
         icon: String?,
         schedule: org.json.JSONObject,
+        exact: Boolean,
     ) {
         val ctx = activity.applicationContext
 
@@ -256,7 +260,7 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
                     context = ctx, userId = userId, tag = tag,
                     triggerAtMs = whenMs.coerceAtLeast(System.currentTimeMillis()),
                     title = title, body = body, channel = channel, sound = sound, icon = icon,
-                    dailyTime = null,
+                    dailyTime = null, exact = exact,
                 )
                 return
             }
@@ -267,7 +271,7 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
                     context = ctx, userId = userId, tag = tag,
                     triggerAtMs = NotificationAlarms.nextDailyTriggerMs(time),
                     title = title, body = body, channel = channel, sound = sound, icon = icon,
-                    dailyTime = time,
+                    dailyTime = time, exact = exact,
                 )
                 return
             }

@@ -97,6 +97,25 @@ class NativeResponse
     }
 
     /**
+     * Like notification(), but a *committed* scheduled reminder: it asks the OS
+     * to fire at the exact time even in deep Doze (Android exact alarm; iOS is
+     * already exact). Requires a schedule (->at()/->dailyAt()/->every()).
+     *
+     * Android exact alarms need the opt-in Permission::EXACT_ALARM in your
+     * AndroidConfig; without it the OS quietly falls back to inexact timing
+     * (a few minutes of slack) rather than failing.
+     *
+     * @param  Closure(Notification): void  $callback
+     */
+    public function scheduleNotification(Closure $callback): static
+    {
+        $notification = new Notification();
+        $callback($notification);
+        $notification->exact();
+        return $this->push('notification', $notification->toArray());
+    }
+
+    /**
      * Cancel a previously scheduled or active notification by its id.
      *
      * The id is the one passed to `Notification::id($id)` when the

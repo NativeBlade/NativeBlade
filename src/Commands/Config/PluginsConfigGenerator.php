@@ -43,6 +43,7 @@ class PluginsConfigGenerator
         'storage' => 'READ_EXTERNAL_STORAGE',
         'storage_write' => 'WRITE_EXTERNAL_STORAGE',
         'notifications' => 'POST_NOTIFICATIONS',
+        'exact_alarm' => ['SCHEDULE_EXACT_ALARM', 'USE_EXACT_ALARM'],
         'vibrate' => 'VIBRATE',
         'biometric' => 'USE_BIOMETRIC',
         'nfc' => 'NFC',
@@ -351,7 +352,10 @@ class PluginsConfigGenerator
 
         foreach (array_keys($androidConfig['permissions'] ?? []) as $key) {
             $mapped = self::ANDROID_PERMISSION_MAP[$key] ?? null;
-            if ($mapped) $perms[$mapped] = true;
+            if ($mapped === null) continue;
+            foreach ((array) $mapped as $entry) {
+                $perms[$entry] = true;
+            }
         }
 
         $perms['INTERNET'] = true;

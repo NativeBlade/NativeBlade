@@ -167,7 +167,7 @@ return NativeBlade::notification(fn (Notification $n) => $n->title('Saved')->bod
 | Category | Methods |
 |---|---|
 | Dialogs | `alert(Closure)`, `confirm(Closure)` |
-| Notifications | `notification(Closure)` |
+| Notifications | `notification(Closure)`, `scheduleNotification(Closure)` |
 | Clipboard | `clipboardWrite($text)`, `clipboardRead(?Closure)` |
 | Geolocation | `geolocation(?Closure)` |
 | Haptics | `vibrate($ms = 100)`, `impact($style = 'medium')`, `selection()` |
@@ -437,6 +437,46 @@ The `Notification` builder supports:
 | `->at($dateTime)` | Fire once at the given `DateTimeInterface`, serialised in UTC ISO 8601 |
 | `->every($kind, $count = 1)` | Repeat every N units; kind is `'minute'`, `'hour'`, `'day'`, `'week'`, `'month'`. Android `every('minute')` is clamped to a 15-minute minimum by WorkManager. iOS requires a minimum 60-second interval. |
 | `->dailyAt($time)` | Repeat daily at the given `'HH:MM'` (24-hour, device local time) |
+| `->exact()` | Ask for *exact* delivery (fires on the second even in Doze). Normally set for you by `scheduleNotification()` — see below. Needs `Permission::EXACT_ALARM` on Android or it degrades to inexact; no effect on iOS (already exact). |
+
+### Reliable scheduled reminders — `scheduleNotification()`
+
+By default a scheduled notification on Android uses an **inexact** alarm: it
+pierces Doze but can land a few minutes late (the OS batches it). That needs no
+special permission and is fine for most nudges.
+
+When timing must be precise (a habit reminder at exactly 17:00), use
+`scheduleNotification()` instead of `notification()`. It is identical except it
+flags the notification as exact, so Android uses `setExactAndAllowWhileIdle`:
+
+```php
+NativeBlade::scheduleNotification(function (Notification $n) {
+    $n->title('Time to practice')
+      ->body("Don't lose your streak")
+      ->id('practice-reminder')
+      ->at(now()->setTime(17, 0));
+});
+```
+
+Exact alarms are **opt-in** because Google Play scrutinizes them — they're only
+allowed for apps whose core purpose is alarms / reminders / calendars. So the
+`PUSH` plugin does **not** request the permission by default. To use
+`scheduleNotification()` on Android, declare it yourself:
+
+```php
+NativeBladeConfig::android(function (AndroidConfig $config) {
+    $config->permissions([
+        Permission::EXACT_ALARM => 'Deliver your reminders on time.',
+    ]);
+});
+```
+
+This adds `SCHEDULE_EXACT_ALARM` + `USE_EXACT_ALARM` to the manifest. Apps that
+only use remote push or best-effort `notification()->at()` stay clean — they
+never inherit the scrutinized permission. If you call `scheduleNotification()`
+*without* declaring the permission, it still works: the OS silently falls back to
+the inexact alarm rather than failing. On iOS there's nothing to opt into —
+`UNUserNotificationCenter` triggers are already exact.
 
 > NativeBlade automatically creates the Android notification channel the first time you use one, so `->channel('lessons')` Just Works without registering the channel explicitly. The auto-created channel uses the default importance, lights and vibration settings.
 
@@ -447,7 +487,7 @@ The `Notification` builder supports:
 >
 > The safe default on desktop is to skip `->icon()` and let the OS use your app's installed icon (which you configure once via `NativeBladeConfig::desktop()->icon(...)`).
 
-> **About scheduling internals.** On Android, scheduled notifications are dispatched by `WorkManager` so the OS handles waking the app — no `AlarmManager` exact-alarm permission needed. On iOS, `UNUserNotificationCenter` triggers fire even when the app is suspended. Both survive reboots. Pass `->id($tag)` if you want to cancel or replace a pending schedule later.
+> **About scheduling internals.** On Android, one-shot (`->at()`) and daily (`->dailyAt()`) notifications are armed with `AlarmManager` so they wake the app even in Doze — inexact by default (`setAndAllowWhileIdle`), or exact when you opt in via `scheduleNotification()` + `Permission::EXACT_ALARM` (`setExactAndAllowWhileIdle`). Recurring `->every()` schedules use `WorkManager` (deferrable batching is acceptable there). On iOS, `UNUserNotificationCenter` triggers fire even when the app is suspended and are always exact. AlarmManager alarms do **not** survive a reboot, so the app should re-arm its schedules on launch; pass `->id($tag)` to cancel or replace a pending schedule later.
 
 Combine with the [Scheduler](./SCHEDULER.md) for local reminders:
 

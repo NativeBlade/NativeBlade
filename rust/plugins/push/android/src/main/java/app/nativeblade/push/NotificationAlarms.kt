@@ -17,10 +17,11 @@ import java.util.Calendar
  * (`dailyAt`) notifications: it batches deferrable work and skips exact timing
  * during Doze, which silently drops an overnight reminder.
  *
- * `setAndAllowWhileIdle` is inexact (a few minutes of slack, rate-limited to
- * roughly once every 9 minutes in deep idle) but needs no special permission,
- * unlike `setExactAndAllowWhileIdle` which requires the scrutinized
- * USE_EXACT_ALARM on Android 12+. For habit/reminder timing the slack is fine.
+ * By default alarms are inexact (`setAndAllowWhileIdle`: a few minutes of slack,
+ * no special permission). When the caller opts in via `exact = true` and the app
+ * holds USE_EXACT_ALARM (Permission::EXACT_ALARM), they use
+ * `setExactAndAllowWhileIdle` and land on the exact second even in deep Doze;
+ * if exact isn't permitted at runtime it degrades back to inexact.
  *
  * Alarms do not survive a device reboot; the app re-arms them on next launch
  * through its own reconcile pass.
@@ -38,11 +39,16 @@ object NotificationAlarms {
     const val EXTRA_ICON = "icon"
     const val EXTRA_TAG = "tag"
     const val EXTRA_DAILY_TIME = "daily_time"
+    const val EXTRA_EXACT = "exact"
 
     /**
      * Arm an alarm for [triggerAtMs]. When [dailyTime] is non-null the receiver
      * re-arms the next occurrence after firing, turning a one-shot alarm into a
-     * self-chaining daily reminder.
+     * self-chaining daily reminder. When [exact] is true the alarm fires on the
+     * exact second even in Doze (needs the USE_EXACT_ALARM permission — the app
+     * opts in via Permission::EXACT_ALARM); otherwise it is inexact (a few
+     * minutes of slack, no permission required). The flag is carried in the
+     * intent so a daily re-arm keeps the same precision.
      */
     fun schedule(
         context: Context,
@@ -55,6 +61,7 @@ object NotificationAlarms {
         sound: String?,
         icon: String?,
         dailyTime: String?,
+        exact: Boolean = false,
     ) {
         val intent = intentFor(context, userId).apply {
             putExtra(EXTRA_USER_ID, userId)
@@ -64,15 +71,30 @@ object NotificationAlarms {
             putExtra(EXTRA_SOUND, sound)
             putExtra(EXTRA_ICON, icon)
             putExtra(EXTRA_TAG, tag)
+            putExtra(EXTRA_EXACT, exact)
             if (dailyTime != null) putExtra(EXTRA_DAILY_TIME, dailyTime)
         }
         val pending = pendingIntent(context, tag, intent)
         try {
             val am = alarmManager(context)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, pending)
-            } else {
-                am.set(AlarmManager.RTC_WAKEUP, triggerAtMs, pending)
+            when {
+                // Exact requested: use it when the OS allows (USE_EXACT_ALARM on
+                // 12+), else fall back to inexact rather than dropping the alarm.
+                exact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+                    if (am.canScheduleExactAlarms()) {
+                        am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, pending)
+                    } else {
+                        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, pending)
+                    }
+                exact && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ->
+                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, pending)
+                exact ->
+                    am.setExact(AlarmManager.RTC_WAKEUP, triggerAtMs, pending)
+                // Default (inexact): Doze-piercing, no special permission.
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ->
+                    am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, pending)
+                else ->
+                    am.set(AlarmManager.RTC_WAKEUP, triggerAtMs, pending)
             }
             remember(context, userId)
         } catch (e: Throwable) {
