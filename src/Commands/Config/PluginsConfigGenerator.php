@@ -90,6 +90,14 @@ class PluginsConfigGenerator
 
         $content = file_get_contents($path);
 
+        // The path-based nativeblade-* plugin crates are seeded into the
+        // Cargo.toml from the stub at scaffold time. Plugins added to the
+        // framework after a project was created have their [features] entry
+        // regenerated below, but their dependency line is missing — which
+        // makes Cargo fail with "dep:... is not listed as a dependency".
+        // Add any missing ones here so existing projects self-heal on config.
+        $content = $this->ensureNativebladeDeps($content, $plugins);
+
         $featureLines = [];
         foreach ($plugins as $plugin) {
             $d = PluginRegistry::descriptor($plugin);
@@ -115,6 +123,56 @@ class PluginsConfigGenerator
 
         file_put_contents($path, $content);
         $this->cmd->line("  <fg=green>✓</> Cargo.toml features: " . (empty($featureLines) ? '(none)' : implode(', ', array_keys($featureLines))));
+    }
+
+    /**
+     * Ensure every declared path-based `tauri-plugin-nativeblade-*` crate has a
+     * dependency line. The base path is derived from an existing nativeblade
+     * dep (push/media are always seeded by the stub), and new lines are added
+     * right after the last nativeblade dep so they land in the same target
+     * section. Missing-only: existing lines are left untouched.
+     *
+     * @param  Plugin[]  $plugins
+     */
+    private function ensureNativebladeDeps(string $content, array $plugins): string
+    {
+        $prefix = 'tauri-plugin-nativeblade-';
+
+        // Derive the base path (everything before `/plugins/<name>`) from any
+        // existing nativeblade path-dep. Bail if none is present yet.
+        if (!preg_match('#' . preg_quote($prefix, '#') . '[\w-]+\s*=\s*\{\s*path\s*=\s*"([^"]*)/plugins/[\w-]+"#', $content, $m)) {
+            return $content;
+        }
+        $base = $m[1];
+
+        $missing = [];
+        foreach ($plugins as $plugin) {
+            $crate = PluginRegistry::descriptor($plugin)['feature_crate'] ?? null;
+            if ($crate === null || !str_starts_with($crate, $prefix)) continue;
+            if (str_contains($content, "{$crate} = ")) continue;
+            $subdir = substr($crate, strlen($prefix));
+            $missing[] = sprintf(
+                '%s = { path = "%s/plugins/%s", optional = true }',
+                $crate,
+                $base,
+                $subdir
+            );
+        }
+        if (empty($missing)) return $content;
+
+        $lines = explode("\n", $content);
+        $lastIdx = -1;
+        foreach ($lines as $i => $line) {
+            if (preg_match('/^' . preg_quote($prefix, '/') . '[\w-]+\s*=/', $line)) {
+                $lastIdx = $i;
+            }
+        }
+        if ($lastIdx === -1) return $content;
+
+        array_splice($lines, $lastIdx + 1, 0, $missing);
+        $this->cmd->line("  <fg=green>✓</> Cargo.toml deps: added " . count($missing) . " nativeblade plugin crate(s)");
+
+        return implode("\n", $lines);
     }
 
     /**
