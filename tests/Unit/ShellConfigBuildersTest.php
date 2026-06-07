@@ -232,9 +232,18 @@ final class ShellConfigBuildersTest extends TestCase
 
         $configs = ShellConfig::getAppConfigs();
         self::assertSame(
-            ['autoScreenTracking' => true, 'collectionEnabledByDefault' => false],
+            ['autoScreenTracking' => true, 'collectionEnabledByDefault' => false, 'advertisingId' => false],
             $configs['analytics']
         );
+    }
+
+    #[Test]
+    public function analytics_config_advertising_id_opt_in(): void
+    {
+        $this->config->analyticsConfig(advertisingId: true);
+
+        $configs = ShellConfig::getAppConfigs();
+        self::assertTrue($configs['analytics']['advertisingId']);
     }
 
     #[Test]
