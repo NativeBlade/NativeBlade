@@ -256,6 +256,10 @@ class ShellConfig
      */
     public function bundlePush(string $url, bool $autoApply = true, string $channel = 'stable'): static
     {
+        if (in_array('nativeblade:dev', $_SERVER['argv'] ?? [], true)) {
+            return $this;
+        }
+
         $config = [
             'url' => $url,
             'autoApply' => $autoApply,
@@ -321,12 +325,18 @@ class ShellConfig
      * `$collectionEnabledByDefault` sets the build-time default. Pass `false`
      * for consent-first apps so nothing is collected until you call
      * `->enable()` after the user opts in.
+     *
+     * `$advertisingId` false (default) removes the `AD_ID` permission Firebase
+     * pulls in, so the app needs no Play "advertising id" data-safety
+     * declaration. Pass `true` if you use ad attribution / Google Ads, then
+     * declare it in Play.
      */
-    public function analyticsConfig(bool $autoScreenTracking = false, bool $collectionEnabledByDefault = true): static
+    public function analyticsConfig(bool $autoScreenTracking = false, bool $collectionEnabledByDefault = true, bool $advertisingId = false): static
     {
         static::$appConfigs['analytics'] = [
             'autoScreenTracking' => $autoScreenTracking,
             'collectionEnabledByDefault' => $collectionEnabledByDefault,
+            'advertisingId' => $advertisingId,
         ];
         return $this;
     }

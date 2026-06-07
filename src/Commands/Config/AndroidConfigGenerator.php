@@ -25,8 +25,62 @@ class AndroidConfigGenerator
         $this->generateMetaData($config);
         $this->generateAppLinks();
         $this->generateAnalyticsDefault();
+        $this->generateAdId();
         $this->generateFirebase($config);
         $this->ensureKotlinVersion();
+    }
+
+    private const ADID_START = '<!-- nativeblade:adid:start -->';
+    private const ADID_END = '<!-- nativeblade:adid:end -->';
+
+    /**
+     * Firebase Analytics pulls in `com.google.android.gms.permission.AD_ID`,
+     * which forces a Play Console "advertising ID" data-safety declaration on
+     * Android 13+. Apps that only use Analytics (no ads) can drop the
+     * permission with `tools:node="remove"` and declare "no advertising id".
+     *
+     * Removed by default when analytics is enabled; opt back in with
+     * `analyticsConfig(advertisingId: true)` (then declare "yes" in Play).
+     */
+    private function generateAdId(): void
+    {
+        $manifestPath = base_path('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
+        if (!file_exists($manifestPath)) return;
+
+        $manifest = file_get_contents($manifestPath);
+        $original = $manifest;
+
+        $startQ = preg_quote(self::ADID_START, '/');
+        $endQ = preg_quote(self::ADID_END, '/');
+        $manifest = preg_replace("/\s*{$startQ}.*?{$endQ}/s", '', $manifest);
+
+        $analytics = \NativeBlade\ShellConfig::getAppConfigs()['analytics'] ?? null;
+        $removeAdId = $analytics !== null && !($analytics['advertisingId'] ?? false);
+
+        if ($removeAdId && preg_match('/<manifest\b[^>]*>/', $manifest)) {
+            if (!str_contains($manifest, 'xmlns:tools=')) {
+                $manifest = preg_replace(
+                    '/<manifest\b/',
+                    '<manifest xmlns:tools="http://schemas.android.com/tools"',
+                    $manifest,
+                    1
+                );
+            }
+
+            $block = implode("\n", [
+                '    ' . self::ADID_START,
+                '    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />',
+                '    ' . self::ADID_END,
+            ]);
+            $manifest = preg_replace('/(<manifest\b[^>]*>)/', "$1\n" . $block, $manifest, 1);
+        }
+
+        if ($manifest !== $original) {
+            file_put_contents($manifestPath, $manifest);
+            $this->cmd->line($removeAdId
+                ? "  <fg=green>✓</> AD_ID permission removed (analytics without advertising id)"
+                : "  <fg=green>✓</> Restored AD_ID permission");
+        }
     }
 
     private const KOTLIN_TARGET = '2.2.0';

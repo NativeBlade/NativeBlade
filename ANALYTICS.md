@@ -101,6 +101,15 @@ return NativeBlade::analytics(fn ($a) => $a->enable())->toResponse();
 
 > Ad and attribution features (IDFA on iOS) additionally need App Tracking Transparency, the same consent layer used by AdMob.
 
+## Advertising ID (Play Store)
+
+Firebase Analytics pulls in the `com.google.android.gms.permission.AD_ID` permission, and Google Play requires every app targeting Android 13+ to declare whether it uses the advertising ID, or it rejects the submission. Two ways to satisfy it:
+
+- **No ads (default):** `analyticsConfig(advertisingId: false)` removes the permission with `tools:node="remove"`, so you declare **no advertising id** in the Play data-safety form. Analytics keeps working; you only lose ad attribution you are not using.
+- **Ad attribution / Google Ads:** `analyticsConfig(advertisingId: true)` keeps the permission, and you declare **yes** in Play.
+
+The declaration itself is always a one-time action in the Play Console; the config only controls whether the permission is present, which decides whether you answer yes or no.
+
 ## See Also
 
 - [CONFIGURATION.md](CONFIGURATION.md) — `firebase()` and `analyticsConfig()` config
