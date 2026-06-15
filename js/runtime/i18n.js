@@ -1,5 +1,6 @@
 let translations = {};
 let resolvedLocale = 'en';
+let loaded = false;
 
 export function t(key, replacements = {}) {
     let text = translations[key] || key;
@@ -26,6 +27,8 @@ export function t(key, replacements = {}) {
  * (en, pt-BR) so screen readers pick the correct reading voice.
  */
 export async function loadTranslations() {
+    if (loaded) return;
+
     let userLocale = null, fallback = null;
 
     try {
@@ -34,7 +37,7 @@ export async function loadTranslations() {
     } catch {}
 
     try {
-        const res = await fetch('./nativeblade-locale.json');
+        const res = await fetch('./nativeblade-locale.json', { cache: 'no-store' });
         if (res.ok) {
             const json = await res.json();
             userLocale = userLocale || json.locale || null;
@@ -53,10 +56,11 @@ export async function loadTranslations() {
 
     for (const lang of candidates) {
         try {
-            const res = await fetch(`./lang/${lang}.json`);
+            const res = await fetch(`./lang/${lang}.json`, { cache: 'no-store' });
             if (res.ok) {
                 translations = await res.json();
                 resolvedLocale = lang;
+                loaded = true;
                 applyLangAttribute(lang);
                 return;
             }

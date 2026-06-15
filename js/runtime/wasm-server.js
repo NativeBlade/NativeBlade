@@ -3,7 +3,7 @@ import { prepareDirs, loadBundle, patchEnv, runMigrations } from './filesystem.j
 import { handleRequest } from './request-handler.js';
 import { loadTranslations, t } from './i18n.js';
 
-export { getInstance, t };
+export { getInstance, t, loadTranslations };
 
 export async function boot(onProgress) {
     await loadTranslations();

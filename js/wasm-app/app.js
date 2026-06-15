@@ -5,7 +5,7 @@ import './components/camera/camera.css';
 import './components/drawer/drawer.css';
 import './components/scanner/scanner.css';
 
-import { boot, t } from '../runtime/wasm-server.js';
+import { boot, t, loadTranslations } from '../runtime/wasm-server.js';
 import { init as initShell } from './shell.js';
 import { init as initBridge, handleNativeAction } from './bridge.js';
 import { init as initRouter, navigate, getCurrentPath, goBack, runBoot } from './router.js';
@@ -24,6 +24,8 @@ const status = document.getElementById('status');
 
 async function main() {
     try {
+        await loadTranslations();
+
         status.textContent = t('boot.update_checking') || 'Checking for updates...';
         await checkBundlePush((received, total) => {
             if (!total) return;
