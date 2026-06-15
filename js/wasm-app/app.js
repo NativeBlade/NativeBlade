@@ -24,6 +24,13 @@ const status = document.getElementById('status');
 
 async function main() {
     try {
+        status.textContent = t('boot.update_checking') || 'Checking for updates...';
+        await checkBundlePush((received, total) => {
+            if (!total) return;
+            const percent = Math.floor((received / total) * 100);
+            status.textContent = t('boot.update_downloading', { percent }) || `Updating... ${percent}%`;
+        }).catch(() => {});
+
         await boot((msg) => { status.textContent = msg; });
 
         status.textContent = t('boot.state');
@@ -40,10 +47,6 @@ async function main() {
         await initMedia();
         initHotReload(navigate, getCurrentPath);
         startAutoSync();
-
-        // Bundle push runs in the background — never blocks boot. Downloaded
-        // updates apply on the next reload, not the current session.
-        checkBundlePush().catch(() => {});
 
         try {
             if (window.__TAURI_INTERNALS__) {

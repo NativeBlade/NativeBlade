@@ -6,8 +6,8 @@ NativeBlade has two complementary update mechanisms:
 |---|---|---|
 | **What updates** | The native binary (Rust, plugins, Tauri shell) | Just the Laravel bundle (PHP, Blade, Livewire, CSS, JS) |
 | **Size** | 50–200MB | 5–15MB |
-| **Desktop** | Tauri updater downloads + restarts | Auto-applied on next reload |
-| **Mobile** | Modal → redirect to store | Auto-applied on next reload |
+| **Desktop** | Tauri updater downloads + restarts | Downloaded on boot (splash held), applied same session |
+| **Mobile** | Modal → redirect to store | Downloaded on boot (splash held), applied same session |
 | **Store review** | Required (mobile) | **Not required** |
 | **Frequency** | Rare (when plugins/Rust change) | Frequent (any Laravel-side fix) |
 
@@ -134,7 +134,7 @@ NativeBladeConfig::bundlePush(
 );
 ```
 
-Run `php artisan nativeblade:config` once to publish the runtime config to `public/nativeblade-config.json`. From there, every app boot checks the URL and downloads new bundles in the background.
+Run `php artisan nativeblade:config` once to publish the runtime config to `public/nativeblade-config.json`. From there, every app boot checks the URL and, when a strictly newer bundle is available, holds the splash while it downloads (showing progress) and applies it in the same session — no reload needed. A failed or absent update never blocks boot: the app falls back to the bundle already on disk and continues.
 
 ### Manifest format
 
@@ -154,7 +154,7 @@ The same `version.json` your Tauri shell update uses, plus a `bundle` block:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `bundle.version` | yes | Semver. Compared against the locally installed bundle version. |
+| `bundle.version` | yes | Semver. Downloaded only when strictly higher than the locally installed bundle version (an equal or lower version is ignored, so there is no accidental downgrade). |
 | `bundle.url` | yes | URL to the new `laravel-bundle.json.gz`. |
 | `bundle.minShellVersion` | no | Skip the bundle if the shell is older. Useful when the bundle calls into a plugin you only added in a newer shell. |
 
@@ -249,7 +249,7 @@ php artisan nativeblade:bundle --tag=1.0.5
 
 ## User-driven update controls
 
-By default the bundle check runs in the background on boot and silently downloads when a new version is available. If you want to expose the flow as a UI button ("Check for updates", "Update now"), wire up the dedicated actions on the facade.
+By default the bundle check runs on boot and downloads a newer bundle while the splash is held. If you also want to expose the flow as a UI button ("Check for updates", "Update now") from inside the running app, wire up the dedicated actions on the facade.
 
 ### `NativeBlade::checkUpdate()`
 

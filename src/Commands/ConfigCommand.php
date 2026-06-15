@@ -46,6 +46,12 @@ class ConfigCommand extends Command
         $runtime = [];
         if (isset($configs['bundlePush'])) {
             $runtime['bundlePush'] = $configs['bundlePush'];
+
+            $version = $this->detectAppVersion($configs);
+            if ($version !== null) {
+                $runtime['bundlePush']['shellVersion'] = $version;
+                $runtime['bundlePush']['bundleVersion'] = $version;
+            }
         }
         if (isset($configs['analytics'])) {
             $runtime['analytics'] = ['autoScreenTracking' => (bool) ($configs['analytics']['autoScreenTracking'] ?? false)];
@@ -60,5 +66,21 @@ class ConfigCommand extends Command
         @mkdir(dirname($path), 0755, true);
         file_put_contents($path, json_encode($runtime, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $this->line("  <fg=green>✓</> public/nativeblade-config.json");
+    }
+
+    /**
+     * Resolve the declared app version. Devs usually set the same version on
+     * every platform, so we take the first one present. Null when no platform
+     * declared a version (the runtime then keeps its 0.0.0 fallback).
+     */
+    private function detectAppVersion(array $configs): ?string
+    {
+        foreach (['desktop', 'android', 'ios'] as $platform) {
+            $version = $configs[$platform]['version'] ?? null;
+            if (!empty($version)) {
+                return (string) $version;
+            }
+        }
+        return null;
     }
 }

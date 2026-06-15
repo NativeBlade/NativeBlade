@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 
 globalThis.window ??= {};
 
-import { checkForUpdate } from '../../../js/runtime/bundle-push.js';
+import { checkForUpdate, downloadUpdate } from '../../../js/runtime/bundle-push.js';
 
 const URL = 'https://releases.test/version.json';
 
-function setup({ channel, manifest = {}, stored = {}, shellVersion } = {}) {
-    globalThis.window.__NB_BUNDLE_PUSH__ = channel ? { url: URL, channel } : { url: URL };
+function setup({ channel, manifest = {}, stored = {}, shellVersion, config = {} } = {}) {
+    globalThis.window.__NB_BUNDLE_PUSH__ = { url: URL, ...(channel ? { channel } : {}), ...config };
     globalThis.window.__NB_SHELL_VERSION__ = shellVersion;
     globalThis.window.__NB_SHELL_BUNDLE_VERSION__ = undefined;
     globalThis.localStorage = {
@@ -97,16 +97,29 @@ describe('bundle-push.js/checkForUpdate version comparison', () => {
         assert.equal(r.reason, 'up-to-date');
     });
 
-    it('downloads whenever the string differs, even a lower one (string equality, not ahead/behind)', async () => {
+    it('does not downgrade when the manifest version is lower than installed', async () => {
         setup({
-            // installed is "higher" than the manifest, yet it still applies
+            // installed is ahead of the manifest, so a stale/rolled-back manifest
+            // must not push the older bundle onto the client
             manifest: { bundle: { version: '1.0.0', url: 'x.gz' } },
             stored: { 'nb:bundleVersion': '1.0.5' },
         });
 
         const r = await checkForUpdate();
+        assert.equal(r.available, false);
+        assert.equal(r.reason, 'up-to-date');
+        assert.equal(r.currentVersion, '1.0.5');
+    });
+
+    it('downloads only when the manifest version is strictly higher', async () => {
+        setup({
+            manifest: { bundle: { version: '1.2.0', url: 'x.gz' } },
+            stored: { 'nb:bundleVersion': '1.1.9' },
+        });
+
+        const r = await checkForUpdate();
         assert.equal(r.available, true);
-        assert.equal(r.nextVersion, '1.0.0');
+        assert.equal(r.nextVersion, '1.2.0');
     });
 
     it('tracks the installed version per channel (stable key does not satisfy beta)', async () => {
@@ -133,6 +146,28 @@ describe('bundle-push.js/checkForUpdate version comparison', () => {
         const r = await checkForUpdate();
         assert.equal(r.available, false);
         assert.equal(r.reason, 'up-to-date');
+    });
+
+    it('uses config.bundleVersion as the baseline so a fresh install does not re-download the embedded bundle', async () => {
+        setup({
+            manifest: { bundle: { version: '1.0.1', url: 'x.gz' } },
+            config: { bundleVersion: '1.0.1' }, // embedded version, no localStorage yet
+        });
+
+        const r = await checkForUpdate();
+        assert.equal(r.available, false);
+        assert.equal(r.reason, 'up-to-date');
+    });
+
+    it('still updates when the manifest is ahead of the embedded baseline', async () => {
+        setup({
+            manifest: { bundle: { version: '1.0.2', url: 'x.gz' } },
+            config: { bundleVersion: '1.0.1' },
+        });
+
+        const r = await checkForUpdate();
+        assert.equal(r.available, true);
+        assert.equal(r.nextVersion, '1.0.2');
     });
 });
 
@@ -164,5 +199,58 @@ describe('bundle-push.js/checkForUpdate guards', () => {
         assert.equal(r.available, false);
         assert.equal(r.reason, 'shell-too-old');
         assert.equal(r.requiredShell, '2.0.0');
+    });
+
+    it('honors the minShellVersion guard using config.shellVersion when no global is set', async () => {
+        setup({
+            manifest: { bundle: { version: '1.0.1', url: 'x.gz', minShellVersion: '2.0.0' } },
+            config: { shellVersion: '1.0.0' },
+        });
+
+        const r = await checkForUpdate();
+        assert.equal(r.available, false);
+        assert.equal(r.reason, 'shell-too-old');
+        assert.equal(r.currentShell, '1.0.0');
+    });
+});
+
+describe('bundle-push.js/downloadUpdate progress', () => {
+    beforeEach(reset);
+    afterEach(reset);
+
+    function streamResponse(bytesTotal, chunkSize) {
+        let sent = 0;
+        return {
+            ok: true,
+            headers: { get: (h) => (h === 'Content-Length' ? String(bytesTotal) : null) },
+            body: {
+                getReader() {
+                    return {
+                        read() {
+                            if (sent >= bytesTotal) return Promise.resolve({ done: true });
+                            const n = Math.min(chunkSize, bytesTotal - sent);
+                            sent += n;
+                            return Promise.resolve({ done: false, value: new Uint8Array(n) });
+                        },
+                    };
+                },
+            },
+        };
+    }
+
+    it('streams the bundle and reports byte progress against Content-Length', async () => {
+        const manifest = { bundle: { version: '2.0.0', url: 'https://cdn.test/bundle-2.0.0.gz' } };
+        setup({ manifest, config: { bundleVersion: '1.0.0' } });
+
+        // checkForUpdate fetches the manifest URL; the download fetches the bundle URL.
+        globalThis.fetch = async (url) => {
+            if (url === URL) return { json: async () => manifest };
+            return streamResponse(100, 25);
+        };
+
+        const progress = [];
+        await downloadUpdate((received, total) => progress.push([received, total]));
+
+        assert.deepEqual(progress, [[25, 100], [50, 100], [75, 100], [100, 100]]);
     });
 });

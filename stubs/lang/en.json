@@ -7,6 +7,8 @@
     "boot.filesystem": "Preparing files...",
     "boot.bundle": "Loading application...",
     "boot.bundle_progress": "Loading files... :loaded/:total",
+    "boot.update_checking": "Checking for updates...",
+    "boot.update_downloading": "Updating... :percent%",
     "boot.config": "Configuring...",
     "boot.migrations": "Updating database...",
     "boot.state": "Restoring data...",

@@ -148,18 +148,20 @@ export async function checkForUpdate() {
         return { available: false, reason: 'invalid-manifest' };
     }
 
-    const currentVersion = localStorage.getItem(channelVersionKey(channel)) || window.__NB_SHELL_BUNDLE_VERSION__ || '0.0.0';
-    if (versionGte(currentVersion, next.version) && currentVersion === next.version) {
+    const baselineBundle = window.__NB_SHELL_BUNDLE_VERSION__ || config.bundleVersion;
+    const currentVersion = localStorage.getItem(channelVersionKey(channel)) || baselineBundle || '0.0.0';
+    if (versionGte(currentVersion, next.version)) {
         return { available: false, reason: 'up-to-date', currentVersion };
     }
 
-    if (next.minShellVersion && window.__NB_SHELL_VERSION__) {
-        if (!versionGte(window.__NB_SHELL_VERSION__, next.minShellVersion)) {
+    const shellVersion = window.__NB_SHELL_VERSION__ || config.shellVersion;
+    if (next.minShellVersion && shellVersion) {
+        if (!versionGte(shellVersion, next.minShellVersion)) {
             return {
                 available: false,
                 reason: 'shell-too-old',
                 requiredShell: next.minShellVersion,
-                currentShell: window.__NB_SHELL_VERSION__,
+                currentShell: shellVersion,
             };
         }
     }
@@ -174,11 +176,41 @@ export async function checkForUpdate() {
 }
 
 /**
+ * Stream a URL into a Blob, reporting bytes as they arrive. Falls back to a
+ * plain blob() read when the response exposes no body stream or no
+ * Content-Length, in which case onProgress is not called (indeterminate).
+ */
+async function fetchToBlob(url, onProgress) {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    const total = Number(res.headers.get('Content-Length')) || 0;
+    if (!res.body || !res.body.getReader) {
+        return res.blob();
+    }
+
+    const reader = res.body.getReader();
+    const chunks = [];
+    let received = 0;
+    for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        onProgress?.(received, total);
+    }
+    return new Blob(chunks);
+}
+
+/**
  * Force a download of the next bundle right now and persist it. Returns:
  *   { applied: true,  version }
  *   { applied: false, reason?, error? }  // includes everything checkForUpdate returns on failure
+ *
+ * onProgress(receivedBytes, totalBytes) fires as the bundle streams in;
+ * totalBytes is 0 when the server sends no Content-Length.
  */
-export async function downloadUpdate() {
+export async function downloadUpdate(onProgress) {
     const check = await checkForUpdate();
     if (!check.available) {
         return { applied: false, ...check };
@@ -186,9 +218,7 @@ export async function downloadUpdate() {
 
     let blob;
     try {
-        const res = await fetch(check.url, { cache: 'no-store' });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        blob = await res.blob();
+        blob = await fetchToBlob(check.url, onProgress);
     } catch (e) {
         return { applied: false, reason: 'download-failed', error: e.message || String(e) };
     }
@@ -203,16 +233,23 @@ export async function downloadUpdate() {
 }
 
 /**
- * Boot-time entry point. Background-only: errors logged, never thrown.
- * Calls downloadUpdate() and applies on next reload.
+ * Boot-time entry point. Errors are logged, never thrown, so a failed update
+ * never blocks boot — the caller falls back to the bundle already on disk.
+ * When awaited before boot (the default), the freshly persisted bundle is
+ * picked up in the same session via tryLoadCachedBundle(); otherwise it
+ * applies on the next reload.
+ *
+ * onProgress(receivedBytes, totalBytes) is forwarded from downloadUpdate so
+ * the splash can show download progress while it blocks.
  */
-export async function checkAndDownload() {
-    const result = await downloadUpdate();
+export async function checkAndDownload(onProgress) {
+    const result = await downloadUpdate(onProgress);
     if (result.applied) {
-        console.info('[NB Push] bundle ' + result.version + ' downloaded — applies on next reload');
+        console.info('[NB Push] bundle ' + result.version + ' downloaded');
     } else if (result.reason && result.reason !== 'not-configured' && result.reason !== 'up-to-date') {
         console.warn('[NB Push] ' + result.reason + (result.error ? ': ' + result.error : ''));
     }
+    return result;
 }
 
 /**
