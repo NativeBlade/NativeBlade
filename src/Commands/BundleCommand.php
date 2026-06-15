@@ -11,6 +11,7 @@ class BundleCommand extends Command
     protected $signature = 'nativeblade:bundle
         {--tag= : Tag the output with a version (writes laravel-bundle-{tag}.json.gz alongside the canonical name)}
         {--channel= : Publish under a release channel (e.g. beta). Omit for the default stable channel}
+        {--shell= : Minimum shell version required to run this bundle (defaults to 1.0.0 so it applies to every installed shell)}
         {--no-dev : Run composer install --no-dev before bundling (default: true)}';
 
     protected $description = 'Build only the Laravel bundle (laravel-bundle.json.gz) — for OTA bundle push without rebuilding the native shell';
@@ -19,6 +20,7 @@ class BundleCommand extends Command
     {
         $tag = $this->option('tag');
         $channel = $this->option('channel');
+        $shell = $this->option('shell');
         $noDev = $this->option('no-dev') !== false;
 
         $this->line('');
@@ -51,7 +53,7 @@ class BundleCommand extends Command
             $this->line("  <fg=green>✓</> public/laravel-bundle-{$tag}.json.gz");
         }
 
-        $this->printPostBundleInstructions($tag, $channel);
+        $this->printPostBundleInstructions($tag, $channel, $shell);
 
         return self::SUCCESS;
     }
@@ -63,18 +65,17 @@ class BundleCommand extends Command
      * the dev gets a copy-pasteable manifest. Otherwise fall back to a
      * placeholder URL.
      *
-     * Always include `minShellVersion`: when the bundle requires a feature
-     * shipped in a newer shell, devices on older shells must skip the update
-     * rather than apply it and crash. The default is the currently declared
-     * platform version (i.e. "this bundle was built against the shell that
-     * is in the stores right now"). Devs bump it manually when they ship a
-     * bundle that depends on a new native plugin or facade method.
+     * `minShellVersion` comes from the `--shell` option and defaults to 1.0.0,
+     * which every installed shell satisfies, so a pure-PHP bundle flows to all
+     * of them. Pass `--shell=<version already in the stores>` when the bundle
+     * requires a native plugin or facade method added in a newer shell, so
+     * devices on an older shell skip the update rather than crash.
      */
-    private function printPostBundleInstructions(?string $tag, ?string $channel = null): void
+    private function printPostBundleInstructions(?string $tag, ?string $channel = null, ?string $shell = null): void
     {
         $version = $tag ?: '1.0.0';
         $filename = "laravel-bundle-{$version}.json.gz";
-        $minShellVersion = $this->detectMinShellVersion();
+        $minShellVersion = $shell ?: '1.0.0';
 
         $configured = ShellConfig::getAppConfigs()['bundlePush'] ?? null;
         $manifestUrl = $configured['url'] ?? null;
@@ -117,8 +118,10 @@ class BundleCommand extends Command
         }
         $this->line('');
 
-        $this->line("  <fg=yellow>→</> minShellVersion is set to <fg=cyan>{$minShellVersion}</> (the version declared in your AppServiceProvider).");
-        $this->line('     Bump it manually if this bundle requires a native plugin or facade method added in a newer shell.');
+        $this->line("  <fg=yellow>→</> minShellVersion is set to <fg=cyan>{$minShellVersion}</>"
+            . ($shell ? ' (from --shell).' : ' (default — every installed shell applies it).'));
+        $this->line('     Pass --shell=<version already in the stores> when this bundle needs a native plugin or');
+        $this->line('     facade method added in a newer shell, so older installs skip it instead of crashing.');
 
         if (!$manifestUrl) {
             $this->line('');
@@ -126,28 +129,6 @@ class BundleCommand extends Command
             $this->line('     to make this command print the real URL instead of a placeholder.');
         }
         $this->line('');
-    }
-
-    /**
-     * Pick the version that should anchor `minShellVersion`. The dev usually
-     * declares the same version across desktop/android/ios. We try those in
-     * order and use the first one we find. Fall back to "1.0.0" so the
-     * manifest is always syntactically valid even on a fresh project that
-     * never set a version.
-     */
-    private function detectMinShellVersion(): string
-    {
-        foreach (['desktop', 'android', 'ios'] as $platform) {
-            try {
-                $info = ShellConfig::getVersion($platform);
-                if (!empty($info['version'])) {
-                    return (string) $info['version'];
-                }
-            } catch (\Throwable) {
-                // platform not configured; try the next one
-            }
-        }
-        return '1.0.0';
     }
 
     /**
