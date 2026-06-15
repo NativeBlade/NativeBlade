@@ -783,18 +783,42 @@ XML;
     {
         if (!isset($config['version']) || !isset($config['buildNumber'])) return;
 
+        // Tauri derives the Android versionCode from the semver version unless
+        // bundle.android.versionCode is set, so the build number has to be
+        // written there or it is silently ignored (1.4.8 becomes 1004008).
+        $this->setTauriAndroidVersionCode((int) $config['buildNumber']);
+
         $gradlePath = base_path('src-tauri/gen/android/app/build.gradle.kts');
-        if (!file_exists($gradlePath)) return;
-
-        $gradle = file_get_contents($gradlePath);
-
-        if (str_contains($gradle, 'versionCode')) {
-            $gradle = preg_replace('/versionCode\s*=\s*\d+/', 'versionCode = ' . $config['buildNumber'], $gradle);
-            $gradle = preg_replace('/versionName\s*=\s*"[^"]*"/', 'versionName = "' . $config['version'] . '"', $gradle);
+        if (file_exists($gradlePath)) {
+            $gradle = file_get_contents($gradlePath);
+            if (str_contains($gradle, 'versionCode')) {
+                $gradle = preg_replace('/versionCode\s*=\s*\d+/', 'versionCode = ' . $config['buildNumber'], $gradle);
+                $gradle = preg_replace('/versionName\s*=\s*"[^"]*"/', 'versionName = "' . $config['version'] . '"', $gradle);
+                file_put_contents($gradlePath, $gradle);
+            }
         }
 
-        file_put_contents($gradlePath, $gradle);
         $this->cmd->line("  <fg=green>✓</> Android version: {$config['version']} ({$config['buildNumber']})");
+    }
+
+    /**
+     * The build.gradle.kts scaffold reads versionCode from tauri.properties,
+     * which Tauri regenerates from the conf version on every build. The only
+     * override Tauri honors is bundle.android.versionCode in tauri.conf.json,
+     * so the authoritative write lives here, independent of the gradle file
+     * (which does not exist yet during the first nativeblade:config run).
+     */
+    private function setTauriAndroidVersionCode(int $versionCode): void
+    {
+        $confPath = base_path('src-tauri/tauri.conf.json');
+        if (!file_exists($confPath)) return;
+
+        $conf = json_decode(file_get_contents($confPath), true);
+        if (!is_array($conf)) return;
+
+        $conf['bundle']['android']['versionCode'] = $versionCode;
+
+        file_put_contents($confPath, json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     private function stripDebugSymbolsBlock(): void
