@@ -1529,8 +1529,10 @@ The build (`nativeblade:build`) enables the feature automatically via `--feature
 | `version` / `path` | one of | `version` for a crates.io crate; `path` for a local (`../plugins/...`) or vendor (`vendor/org/pkg`) crate. |
 | `mobile_only` | no | When true, the crate and its init are gated to Android/iOS. |
 | `capabilities` / `mobile_capabilities` | no | Tauri permissions added to `default.json` / `mobile.json`. |
-| `android_permissions` / `ios_plist` | no | Manifest `uses-permission` entries / Info.plist keys. |
+| `android_permissions` / `ios_plist` | no | Manifest `uses-permission` entries / Info.plist usage-description keys. |
 | `npm` | no | Guest-JS package(s), `name => version`. |
+
+**iOS usage-description text.** `ios_plist` only declares which keys the plugin needs; each ships with a sensible default string. To set the exact wording the App Store reviewer sees, the app sets it with `IosConfig::infoPlist(['NSFaceIDUsageDescription' => 'Use Face ID to unlock'])` — the [iOS escape hatch](CONFIGURATION.md#custom-native-config-escape-hatch). Declare a given key in one place, not both, or it lands twice in `Info.plist`.
 
 **Name collisions throw.** A custom `feature` may not reuse a built-in feature name (`media`, `biometric`, `haptics`, etc.), declared or not. This prevents a package from silently shadowing a first-party plugin. To replace a built-in, drop it from `plugins([...])` and give your plugin a different feature name.
 

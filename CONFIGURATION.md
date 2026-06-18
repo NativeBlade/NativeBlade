@@ -349,6 +349,8 @@ NativeBladeConfig::customPlugins([
 
 Everything is written inside NativeBlade's plugin markers and the build enables the feature via `--features` automatically. Because it changes the native binary, a custom plugin ships through a store release, not [bundle push](UPDATES.md). Call it from PHP with `NativeBlade::tauriInvoke(...)`.
 
+`ios_plist` only declares which Info.plist keys the plugin needs (each gets a default string). To set the exact usage-description wording, use `infoPlist()` above (e.g. `infoPlist(['NSFaceIDUsageDescription' => 'Use Face ID to unlock'])`); declare a key in one place, not both, so it isn't written twice.
+
 
 ## Deep Links (Universal / App Links)
 
