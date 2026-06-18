@@ -71,20 +71,79 @@ class PluginsConfigGenerator
      * @param  array<string, mixed>  $androidConfig  AndroidConfig::toArray() output
      * @param  array<string, mixed>  $iosConfig      IosConfig::toArray() output
      */
-    public function generate(array $plugins, array $androidConfig = [], array $iosConfig = []): void
+    public function generate(array $plugins, array $androidConfig = [], array $iosConfig = [], array $customPlugins = []): void
     {
-        $this->generateCargoToml($plugins);
-        $this->generateLibRs($plugins);
-        $this->generateCapabilities($plugins);
-        $this->generatePackageJson($plugins);
-        $this->generateAndroidManifest($plugins, $androidConfig);
-        $this->generateInfoPlist($plugins, $iosConfig);
+        $this->assertNoCollisions($customPlugins);
+
+        $descriptors = $this->buildDescriptors($plugins, $customPlugins);
+
+        $this->generateCargoToml($descriptors, $customPlugins);
+        $this->generateLibRs($descriptors);
+        $this->generateCapabilities($descriptors);
+        $this->generatePackageJson($descriptors);
+        $this->generateAndroidManifest($descriptors, $androidConfig);
+        $this->generateInfoPlist($descriptors, $iosConfig);
     }
 
     /**
-     * @param  Plugin[]  $plugins
+     * Merge built-in plugin descriptors with custom ones into a single list the
+     * file generators iterate, so a custom plugin is wired identically.
+     *
+     * @param  Plugin[]                                   $plugins
+     * @param  \NativeBlade\Config\CustomPlugin[]         $customPlugins
+     * @return array<int, array<string, mixed>>
      */
-    private function generateCargoToml(array $plugins): void
+    private function buildDescriptors(array $plugins, array $customPlugins): array
+    {
+        $descriptors = [];
+        foreach ($plugins as $plugin) {
+            $descriptors[] = PluginRegistry::descriptor($plugin);
+        }
+        foreach ($customPlugins as $plugin) {
+            $descriptors[] = $plugin->toDescriptor();
+        }
+        return $descriptors;
+    }
+
+    /**
+     * A custom plugin may not reuse a built-in feature name (declared or not).
+     * This is the supply-chain guard: a package cannot silently shadow the
+     * built-in camera/biometric/etc. To replace one, disable the built-in and
+     * pick a different feature name.
+     *
+     * @param  \NativeBlade\Config\CustomPlugin[]  $customPlugins
+     */
+    private function assertNoCollisions(array $customPlugins): void
+    {
+        $builtin = [];
+        foreach (PluginRegistry::all() as $plugin) {
+            $d = PluginRegistry::descriptor($plugin);
+            if (isset($d['feature'])) $builtin[$d['feature']] = true;
+        }
+
+        $seen = [];
+        foreach ($customPlugins as $plugin) {
+            $feature = $plugin->feature;
+            if (isset($builtin[$feature])) {
+                throw new \InvalidArgumentException(
+                    "Custom plugin feature '{$feature}' collides with a built-in plugin feature. "
+                    . 'Rename it (disable the built-in if you mean to replace it).'
+                );
+            }
+            if (isset($seen[$feature])) {
+                throw new \InvalidArgumentException(
+                    "Duplicate custom plugin feature '{$feature}' declared in customPlugins()."
+                );
+            }
+            $seen[$feature] = true;
+        }
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>   $descriptors
+     * @param  \NativeBlade\Config\CustomPlugin[] $customPlugins
+     */
+    private function generateCargoToml(array $descriptors, array $customPlugins): void
     {
         $path = base_path('src-tauri/Cargo.toml');
         if (!file_exists($path)) return;
@@ -97,11 +156,11 @@ class PluginsConfigGenerator
         // regenerated below, but their dependency line is missing — which
         // makes Cargo fail with "dep:... is not listed as a dependency".
         // Add any missing ones here so existing projects self-heal on config.
-        $content = $this->ensureNativebladeDeps($content, $plugins);
+        $content = $this->ensureNativebladeDeps($content, $descriptors);
+        $content = $this->ensureCustomPluginDeps($content, $customPlugins);
 
         $featureLines = [];
-        foreach ($plugins as $plugin) {
-            $d = PluginRegistry::descriptor($plugin);
+        foreach ($descriptors as $d) {
             if (!isset($d['feature'])) continue;
             $crate = $d['feature_crate'] ?? null;
             if ($crate === null) continue;
@@ -133,9 +192,9 @@ class PluginsConfigGenerator
      * right after the last nativeblade dep so they land in the same target
      * section. Missing-only: existing lines are left untouched.
      *
-     * @param  Plugin[]  $plugins
+     * @param  array<int, array<string, mixed>>  $descriptors
      */
-    private function ensureNativebladeDeps(string $content, array $plugins): string
+    private function ensureNativebladeDeps(string $content, array $descriptors): string
     {
         $prefix = 'tauri-plugin-nativeblade-';
 
@@ -147,8 +206,8 @@ class PluginsConfigGenerator
         $base = $m[1];
 
         $missing = [];
-        foreach ($plugins as $plugin) {
-            $crate = PluginRegistry::descriptor($plugin)['feature_crate'] ?? null;
+        foreach ($descriptors as $d) {
+            $crate = $d['feature_crate'] ?? null;
             if ($crate === null || !str_starts_with($crate, $prefix)) continue;
             if (str_contains($content, "{$crate} = ")) continue;
             $subdir = substr($crate, strlen($prefix));
@@ -177,9 +236,63 @@ class PluginsConfigGenerator
     }
 
     /**
-     * @param  Plugin[]  $plugins
+     * Add the dependency line for each custom plugin's crate. Mobile-only
+     * plugins go in the android/ios target section (so they never compile on
+     * desktop, matching the built-in mobile plugins); the rest go in
+     * [dependencies]. Idempotent: a crate already present is left untouched.
+     *
+     * @param  \NativeBlade\Config\CustomPlugin[]  $customPlugins
      */
-    private function generateLibRs(array $plugins): void
+    private function ensureCustomPluginDeps(string $content, array $customPlugins): string
+    {
+        $added = 0;
+        foreach ($customPlugins as $plugin) {
+            $crate = $plugin->feature_crate;
+            if (preg_match('/^\s*' . preg_quote($crate, '/') . '\s*=/m', $content)) {
+                continue;
+            }
+
+            $section = $plugin->mobile_only
+                ? '[target.\'cfg(any(target_os = "android", target_os = "ios"))\'.dependencies]'
+                : '[dependencies]';
+
+            $next = $this->insertAfterSection($content, $section, $plugin->cargoDependencyLine());
+            if ($next !== $content) {
+                $content = $next;
+                $added++;
+            }
+        }
+
+        if ($added > 0) {
+            $this->cmd->line("  <fg=green>✓</> Cargo.toml deps: added {$added} custom plugin crate(s)");
+        }
+
+        return $content;
+    }
+
+    /**
+     * Insert a line right after a TOML section header (e.g. `[dependencies]`).
+     * No-op when the section header is absent.
+     */
+    private function insertAfterSection(string $content, string $header, string $line): string
+    {
+        $headerQ = preg_quote($header, '/');
+        if (!preg_match('/^' . $headerQ . '[ \t]*$/m', $content)) {
+            return $content;
+        }
+
+        return preg_replace_callback(
+            '/^(' . $headerQ . ')[ \t]*$/m',
+            fn($m) => $m[1] . "\n" . $line,
+            $content,
+            1
+        );
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $descriptors
+     */
+    private function generateLibRs(array $descriptors): void
     {
         $path = base_path('src-tauri/src/lib.rs');
         if (!file_exists($path)) return;
@@ -187,8 +300,7 @@ class PluginsConfigGenerator
         $content = file_get_contents($path);
 
         $blocks = [];
-        foreach ($plugins as $plugin) {
-            $d = PluginRegistry::descriptor($plugin);
+        foreach ($descriptors as $d) {
             if (!isset($d['rust_init']) || !isset($d['feature'])) continue;
             $cfg = $d['mobile_only'] ?? false
                 ? "#[cfg(all(any(target_os = \"android\", target_os = \"ios\"), feature = \"{$d['feature']}\"))]"
@@ -206,9 +318,9 @@ class PluginsConfigGenerator
     }
 
     /**
-     * @param  Plugin[]  $plugins
+     * @param  array<int, array<string, mixed>>  $descriptors
      */
-    private function generateCapabilities(array $plugins): void
+    private function generateCapabilities(array $descriptors): void
     {
         $defaultPath = base_path('src-tauri/capabilities/default.json');
         $mobilePath = base_path('src-tauri/capabilities/mobile.json');
@@ -226,8 +338,7 @@ class PluginsConfigGenerator
         $allowedDesktopPrefixes = ['notification'];
         $allowedMobilePrefixes = [];
 
-        foreach ($plugins as $plugin) {
-            $d = PluginRegistry::descriptor($plugin);
+        foreach ($descriptors as $d) {
             foreach ($d['capabilities'] ?? [] as $perm) {
                 $sharedPerms[] = $perm;
                 $permId = is_array($perm) ? ($perm['identifier'] ?? '') : $perm;
@@ -296,9 +407,9 @@ class PluginsConfigGenerator
     }
 
     /**
-     * @param  Plugin[]  $plugins
+     * @param  array<int, array<string, mixed>>  $descriptors
      */
-    private function generatePackageJson(array $plugins): void
+    private function generatePackageJson(array $descriptors): void
     {
         $path = base_path('package.json');
         if (!file_exists($path)) return;
@@ -311,8 +422,7 @@ class PluginsConfigGenerator
             '@tauri-apps/cli' => '^2',
             '@tauri-apps/plugin-notification' => '^2',
         ];
-        foreach ($plugins as $plugin) {
-            $d = PluginRegistry::descriptor($plugin);
+        foreach ($descriptors as $d) {
             foreach ($d['npm'] ?? [] as $pkgName => $version) {
                 $required[$pkgName] = $version;
             }
@@ -335,16 +445,15 @@ class PluginsConfigGenerator
     }
 
     /**
-     * @param  Plugin[]  $plugins
+     * @param  array<int, array<string, mixed>>  $descriptors
      */
-    private function generateAndroidManifest(array $plugins, array $androidConfig): void
+    private function generateAndroidManifest(array $descriptors, array $androidConfig): void
     {
         $path = base_path('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
         if (!file_exists($path)) return;
 
         $perms = [];
-        foreach ($plugins as $plugin) {
-            $d = PluginRegistry::descriptor($plugin);
+        foreach ($descriptors as $d) {
             foreach ($d['android_permissions'] ?? [] as $perm) {
                 $perms[$perm] = true;
             }
@@ -378,9 +487,9 @@ class PluginsConfigGenerator
     }
 
     /**
-     * @param  Plugin[]  $plugins
+     * @param  array<int, array<string, mixed>>  $descriptors
      */
-    private function generateInfoPlist(array $plugins, array $iosConfig): void
+    private function generateInfoPlist(array $descriptors, array $iosConfig): void
     {
         $path = $this->findInfoPlist();
         if (!$path) return;
@@ -392,8 +501,7 @@ class PluginsConfigGenerator
         }
 
         $keys = [];
-        foreach ($plugins as $plugin) {
-            $d = PluginRegistry::descriptor($plugin);
+        foreach ($descriptors as $d) {
             foreach ($d['ios_plist'] ?? [] as $key) {
                 $keys[$key] = $userTexts[$key] ?? $this->defaultPlistText($key);
             }

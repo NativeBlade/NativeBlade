@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static void android(callable $callback) Configure Android shell via an `AndroidConfig` builder.
  * @method static void ios(callable $callback) Configure iOS shell via an `IosConfig` builder.
  * @method static void plugins(array $plugins) Declare which `Plugin::*` cases ship in the binary. Omit to include every plugin (looser binary, easier dev).
+ * @method static void customPlugins(array $plugins) Declare third-party Tauri plugins via `CustomPlugin::init(...)`. Wired into Cargo.toml, lib.rs, capabilities, AndroidManifest and Info.plist like a built-in. Throws if a feature name collides with a built-in plugin.
  * @method static void bottomNav(array $items) Configure the global bottom-navigation bar. Items are `{label, icon, route}` arrays.
  * @method static void topBar(array $options) Configure the global top app bar (title, leading/trailing actions).
  * @method static static bundlePush(string $url, bool $autoApply = true, string $channel = 'stable') Enable OTA Laravel-bundle updates from the given URL. When `$autoApply` is true, downloaded bundles are activated on next launch. `$channel` (default 'stable') reads the top-level `bundle` entry; any other value reads `channels.{channel}`.

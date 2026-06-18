@@ -174,6 +174,9 @@ class BuildCommand extends Command
             $d = PluginRegistry::descriptor($plugin);
             if (isset($d['feature'])) $features[] = $d['feature'];
         }
+        foreach (ShellConfig::getCustomPlugins() as $plugin) {
+            $features[] = $plugin->feature;
+        }
         if (empty($features)) return '';
         sort($features);
         return '--features ' . escapeshellarg(implode(',', $features));

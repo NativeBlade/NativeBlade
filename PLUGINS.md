@@ -1488,6 +1488,56 @@ NativeBlade ships a generic action that calls **any** Tauri plugin command direc
 
 That's it. No JS file, no `bridge.js` patch, no extension to NativeResponse. Anything `invoke()`-able from `@tauri-apps/api/core` works through `tauriInvoke`.
 
+### Declarative wiring: `customPlugins()`
+
+The quick path above asks you to hand-edit three Tauri files (Cargo.toml, lib.rs, capabilities). You don't have to. Declare the plugin from your `AppServiceProvider` and `php artisan nativeblade:config` wires all of it for you, exactly like a built-in plugin.
+
+You still author a normal Tauri 2 plugin crate (its `android/` and `ios/` native sources compile through Tauri's own toolchain). `customPlugins()` only tells NativeBlade how to plug that crate into your app.
+
+```php
+use NativeBlade\Config\CustomPlugin;
+
+NativeBladeConfig::customPlugins([
+    CustomPlugin::init(
+        feature: 'fingerprint',                       // Cargo feature name
+        feature_crate: 'tauri-plugin-fingerprint',    // crate name
+        rust_init: 'tauri_plugin_fingerprint::init()',// expression added to .plugin(...)
+        version: '0.1',                               // crates.io — OR use path: for a local/vendor crate
+        capabilities: ['fingerprint:default'],
+        android_permissions: ['USE_BIOMETRIC'],
+        ios_plist: ['NSFaceIDUsageDescription'],
+        mobile_only: false,                           // true gates the crate to Android/iOS only
+    ),
+]);
+```
+
+On `nativeblade:config`, NativeBlade writes, between its managed markers:
+
+- **Cargo.toml** — the dependency line (`{ version = "0.1", optional = true }` or `{ path = "...", optional = true }`, mobile-only crates land in the Android/iOS target section) plus the `[features]` entry.
+- **src/lib.rs** — the `.plugin(...)` init, gated by the Cargo feature (and by `target_os` when `mobile_only`).
+- **capabilities/default.json** (or **mobile.json**) — the permissions you listed.
+- **AndroidManifest.xml** / **Info.plist** — the OS permissions and usage-description keys.
+- **package.json** — any `npm` guest bindings you declared.
+
+The build (`nativeblade:build`) enables the feature automatically via `--features`.
+
+| Field | Required | Notes |
+|---|---|---|
+| `feature` | yes | Cargo feature name. Must not collide with a built-in feature (see below). |
+| `feature_crate` | yes | Crate name, used for the dependency and `dep:<crate>`. |
+| `rust_init` | yes | The init expression added to the `.plugin(...)` chain. |
+| `version` / `path` | one of | `version` for a crates.io crate; `path` for a local (`../plugins/...`) or vendor (`vendor/org/pkg`) crate. |
+| `mobile_only` | no | When true, the crate and its init are gated to Android/iOS. |
+| `capabilities` / `mobile_capabilities` | no | Tauri permissions added to `default.json` / `mobile.json`. |
+| `android_permissions` / `ios_plist` | no | Manifest `uses-permission` entries / Info.plist keys. |
+| `npm` | no | Guest-JS package(s), `name => version`. |
+
+**Name collisions throw.** A custom `feature` may not reuse a built-in feature name (`media`, `biometric`, `haptics`, etc.), declared or not. This prevents a package from silently shadowing a first-party plugin. To replace a built-in, drop it from `plugins([...])` and give your plugin a different feature name.
+
+**It changes the native binary.** Adding a custom plugin is a shell change, so it ships through a store release (or notarized desktop update), never through [bundle push](UPDATES.md). Existing installs need the new shell before a bundle that calls the plugin will work.
+
+Once wired, call it from PHP via [`tauriInvoke`](#quick-path-tauriinvoke-from-php-recommended) (or wrap it in a typed API as below).
+
 ### Idiomatic path: extend the bridge
 
 If you want a strongly-typed PHP API like the built-ins (`NativeBlade::camera()`, `NativeBlade::scan()`, etc.), wrap your invocation in:

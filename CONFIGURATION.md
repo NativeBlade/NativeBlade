@@ -315,6 +315,41 @@ NativeBladeConfig::android(function (AndroidConfig $config) {
 Both are written inside NativeBlade's config markers, so running `php artisan nativeblade:config` again replaces them cleanly and removing the call removes the entries. Anything you add manually outside the markers is preserved.
 
 
+## Custom Tauri plugins
+
+`customPlugins()` wires a third-party Tauri 2 plugin into the binary without hand-editing `Cargo.toml`, `lib.rs`, or the capability files. You still author a normal Tauri plugin crate; this only declares how NativeBlade should plug it in. Full guide: [PLUGINS.md → Declarative wiring](PLUGINS.md#declarative-wiring-customplugins).
+
+```php
+use NativeBlade\Config\CustomPlugin;
+
+NativeBladeConfig::customPlugins([
+    CustomPlugin::init(
+        feature: 'fingerprint',
+        feature_crate: 'tauri-plugin-fingerprint',
+        rust_init: 'tauri_plugin_fingerprint::init()',
+        version: '0.1',                       // or path: '../plugins/fingerprint' (local/vendor crate)
+        capabilities: ['fingerprint:default'],
+        android_permissions: ['USE_BIOMETRIC'],
+        ios_plist: ['NSFaceIDUsageDescription'],
+        mobile_only: false,
+    ),
+]);
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `feature` | yes | Cargo feature name. Must not collide with a built-in feature, or `nativeblade:config` throws. |
+| `feature_crate` | yes | Crate name (used for the dependency and `dep:<crate>`). |
+| `rust_init` | yes | Expression added to the `.plugin(...)` chain in `lib.rs`. |
+| `version` / `path` | one of | `version` for a crates.io crate; `path` for a local or `vendor/` crate. |
+| `mobile_only` | no | When true, gates the crate and its init to Android/iOS. |
+| `capabilities` / `mobile_capabilities` | no | Tauri permissions added to `default.json` / `mobile.json`. |
+| `android_permissions` / `ios_plist` | no | `uses-permission` entries / Info.plist usage-description keys. |
+| `npm` | no | Guest-JS package(s), `name => version`. |
+
+Everything is written inside NativeBlade's plugin markers and the build enables the feature via `--features` automatically. Because it changes the native binary, a custom plugin ships through a store release, not [bundle push](UPDATES.md). Call it from PHP with `NativeBlade::tauriInvoke(...)`.
+
+
 ## Deep Links (Universal / App Links)
 
 Verified https links that open the app directly: Universal Links on iOS, App Links on Android. Custom `myapp://` schemes are intentionally not used (they are unverified and show an app chooser on Android). Requires `Plugin::DEEP_LINK`.

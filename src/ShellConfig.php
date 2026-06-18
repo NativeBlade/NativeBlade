@@ -189,6 +189,38 @@ class ShellConfig
     }
 
     /**
+     * Declare third-party Tauri plugins that aren't in the built-in Plugin enum.
+     * Each one is wired into the binary like a first-party plugin.
+     *
+     * ```php
+     * NativeBladeConfig::customPlugins([
+     *     CustomPlugin::init(feature: 'fingerprint', feature_crate: '...', rust_init: '...', version: '0.1'),
+     * ]);
+     * ```
+     *
+     * @param  \NativeBlade\Config\CustomPlugin[]  $plugins
+     */
+    public function customPlugins(array $plugins): void
+    {
+        foreach ($plugins as $plugin) {
+            if (!$plugin instanceof \NativeBlade\Config\CustomPlugin) {
+                throw new \InvalidArgumentException(
+                    'customPlugins() expects an array of CustomPlugin instances.'
+                );
+            }
+        }
+        static::$appConfigs['customPlugins'] = array_values($plugins);
+    }
+
+    /**
+     * @return \NativeBlade\Config\CustomPlugin[]
+     */
+    public static function getCustomPlugins(): array
+    {
+        return static::$appConfigs['customPlugins'] ?? [];
+    }
+
+    /**
      * Return every registered platform config, keyed by platform.
      *
      * @return array<string, array<string, mixed>>

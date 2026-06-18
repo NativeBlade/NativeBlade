@@ -25,7 +25,8 @@ class ConfigCommand extends Command
         (new PluginsConfigGenerator($this))->generate(
             $plugins,
             $configs['android'] ?? [],
-            $configs['ios'] ?? []
+            $configs['ios'] ?? [],
+            ShellConfig::getCustomPlugins()
         );
         (new DesktopConfigGenerator($this))->generate($configs['desktop'] ?? []);
         (new AndroidConfigGenerator($this))->generate($configs['android'] ?? []);
