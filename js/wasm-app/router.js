@@ -135,6 +135,16 @@ export async function navigate(path, options = {}) {
     if (currentPath === path && !options.force) return;
     abortHttpBridge();
     pendingMessageId = null;
+
+    const goingBack = !options.direction
+        && historyStack.length > 0
+        && historyStack[historyStack.length - 1] === path;
+
+    if (goingBack) {
+        historyStack.pop();
+        return navigateInternal(path, { ...options, direction: 'back' });
+    }
+
     if (currentPath !== path) {
         historyStack.push(currentPath);
     }
