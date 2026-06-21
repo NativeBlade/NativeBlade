@@ -11,7 +11,9 @@ class BuildCommand extends Command
 {
     protected $signature = 'nativeblade:build
         {platform : android, ios, or desktop}
-        {--targets= : Comma-separated Android architectures (aarch64,armv7,x86_64,i686). Default: all}';
+        {--targets= : Comma-separated Android architectures (aarch64,armv7,x86_64,i686). Default: all}
+        {--host= : Build an installable preview/dev-client that loads live from this Vite dev host with HMR, instead of bundling static assets. Debug-only.}
+        {--port=1420 : Vite dev server port used by --host preview builds}';
     protected $description = 'Build the app for the specified platform';
 
     public function handle(): int
@@ -27,6 +29,10 @@ class BuildCommand extends Command
 
         $version = $this->getVersion($platform);
         if (!$version) return self::FAILURE;
+
+        if ($this->option('host')) {
+            return $this->buildPreview($platform, $version);
+        }
 
         $this->info('');
         $this->info("  Building {$platform} v{$version['version']} (build {$version['buildNumber']})");
@@ -79,6 +85,77 @@ class BuildCommand extends Command
         $this->info('');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Build an installable preview / dev-client artifact that loads the
+     * frontend live from a running Vite dev server (HMR + live Laravel bundle)
+     * instead of bundling static assets. Same wiring as `nativeblade:dev`
+     * (devUrl over http, cleartext enabled by Tauri's debug profile), but as a
+     * standalone build so it installs once and reconnects without an adb tether.
+     *
+     * Debug-only on purpose: it loads remote code into a WebView with native
+     * plugin access, so it must never ship to stores.
+     */
+    private function buildPreview(string $platform, array $version): int
+    {
+        $host = $this->option('host');
+        $port = $this->option('port') ?: '1420';
+        $url = "http://{$host}:{$port}";
+
+        $this->info('');
+        $this->info("  Preview build ({$platform}) → {$url}");
+        $this->line('  <fg=yellow>→</> Loads live from your Vite dev server with HMR. Debug artifact, not for stores.');
+        $this->info('');
+
+        $this->line('  Applying config...');
+        $this->call('nativeblade:config');
+
+        $override = $this->configArg(json_encode([
+            'build' => ['frontendDist' => $url, 'devUrl' => $url],
+        ]));
+
+        $base = match ($platform) {
+            'android' => 'tauri android build --debug --config ' . $override,
+            'ios' => 'tauri ios build --debug --config ' . $override,
+            'desktop' => 'tauri build --debug --config ' . $override,
+        };
+
+        $this->line('');
+        $this->line("  Building {$platform} preview...");
+        if (!$this->runProcess($this->npxCommand($base . ' ' . $this->cargoFeaturesArg()))) {
+            $this->error('  Preview build failed.');
+            return self::FAILURE;
+        }
+
+        $buildDir = base_path("build/{$platform}");
+        if (!is_dir($buildDir)) mkdir($buildDir, 0755, true);
+
+        $searchDir = match ($platform) {
+            'android' => 'src-tauri/gen/android',
+            'ios' => 'src-tauri/gen/apple',
+            'desktop' => 'src-tauri/target/debug/bundle',
+        };
+        $exts = match ($platform) {
+            'android' => ['apk', 'aab'],
+            'ios' => ['ipa'],
+            'desktop' => ['msi', 'exe', 'dmg', 'app', 'AppImage', 'deb', 'rpm'],
+        };
+        $this->searchAndCopyArtifacts($searchDir, $buildDir, $version['version'] . '-preview', $exts);
+
+        $this->info('');
+        $this->info('  Preview build ready.');
+        $this->line("  <fg=green>→</> Install it, then run `php artisan nativeblade:dev --platform={$platform} --host={$host}` so the app can reach the dev server.");
+        $this->info('');
+
+        return self::SUCCESS;
+    }
+
+    private function configArg(string $json): string
+    {
+        return PHP_OS_FAMILY === 'Windows'
+            ? '"' . str_replace('"', '\\"', $json) . '"'
+            : escapeshellarg($json);
     }
 
     private function buildAndroid(array $version): bool
