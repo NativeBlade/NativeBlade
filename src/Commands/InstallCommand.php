@@ -41,6 +41,7 @@ class InstallCommand extends Command
         $this->patchTailwindSources();
         $this->patchDatabaseConfig();
         $this->patchFilesystemsConfig();
+        $this->patchEnv();
         $this->createDirectories();
         $this->call('nativeblade:icon');
         $this->call('nativeblade:config');
@@ -444,6 +445,67 @@ PHP;
 
         file_put_contents($path, $patched);
         $this->line("  <fg=green>✓</> filesystems.php patched (native disk added)");
+    }
+
+    /**
+     * Tune the app's .env for the client-side PHP-WASM runtime.
+     *
+     * Laravel 11+ defaults session, cache and queue to the `database` driver,
+     * which has no table in the WASM filesystem and breaks at boot. Force those
+     * to file/file/sync, and point APP_URL at the app:// custom protocol. Only
+     * the breaking defaults (or missing keys) are touched — a deliberate value
+     * the dev set is left alone. Creates .env from .env.example when absent and
+     * generates APP_KEY if missing.
+     */
+    private function patchEnv(): void
+    {
+        $path = base_path('.env');
+
+        if (!file_exists($path)) {
+            $example = base_path('.env.example');
+            if (file_exists($example)) {
+                copy($example, $path);
+                $this->line("  <fg=green>✓</> .env created from .env.example");
+            } else {
+                file_put_contents($path, '');
+                $this->line("  <fg=green>✓</> .env created");
+            }
+        }
+
+        $content = file_get_contents($path);
+
+        $content = $this->forceEnvWhen($content, 'SESSION_DRIVER', 'file', ['database', '']);
+        $content = $this->forceEnvWhen($content, 'CACHE_STORE', 'file', ['database', '']);
+        $content = $this->forceEnvWhen($content, 'QUEUE_CONNECTION', 'sync', ['database', '']);
+        $content = $this->forceEnvWhen($content, 'APP_URL', 'app://localhost', ['http://localhost', '']);
+
+        if (!preg_match('/^APP_KEY=/m', $content)) {
+            $content = "APP_KEY=\n" . $content;
+        }
+
+        file_put_contents($path, $content);
+        $this->line("  <fg=green>✓</> .env tuned for client-side runtime (session/cache/queue=file/file/sync)");
+
+        if (!preg_match('/^APP_KEY=base64:/m', $content)) {
+            $this->call('key:generate', ['--force' => true]);
+        }
+    }
+
+    /**
+     * Set KEY=value in .env content only when the current value is missing or
+     * one of $whenValues (a breaking default). A deliberate value outside that
+     * set is preserved.
+     */
+    private function forceEnvWhen(string $content, string $key, string $value, array $whenValues): string
+    {
+        if (preg_match("/^{$key}=(.*)$/m", $content, $m)) {
+            if (in_array(trim($m[1]), $whenValues, true)) {
+                return preg_replace("/^{$key}=.*$/m", "{$key}={$value}", $content, 1);
+            }
+            return $content;
+        }
+
+        return rtrim($content, "\n") . "\n{$key}={$value}\n";
     }
 
     private function createDirectories(): void
