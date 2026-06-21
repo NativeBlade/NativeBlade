@@ -78,6 +78,15 @@ export async function init(appFrame, handleNativeAction) {
     }
 
     const drainAfterReady = async () => {
+        // Ask for notification permission here, not in the native load(): this
+        // runs after the splash is gone, so the dialog no longer pops over a
+        // black screen mid-boot.
+        try {
+            await invoke('plugin:nativeblade-push|request_permission');
+        } catch (e) {
+            console.warn('[NB Push] request_permission failed:', e);
+        }
+
         try {
             const result = await invoke('plugin:nativeblade-push|drain_pending');
             const pending = result?.pending || [];

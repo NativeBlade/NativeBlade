@@ -4,24 +4,23 @@ import android.Manifest
 import android.app.Activity
 import android.app.ActivityManager
 import android.content.Context
-import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import android.webkit.WebView
-import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import app.tauri.annotation.Command
 import app.tauri.annotation.Permission
+import app.tauri.annotation.PermissionCallback
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
+import app.tauri.plugin.PermissionState
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 import java.text.SimpleDateFormat
@@ -78,14 +77,6 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
             Log.w(TAG, "Failed to clear pending notification work on load", e)
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(activity, Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
-            }
-        }
-
         if (FirebaseApp.getApps(activity.applicationContext).isEmpty()) {
             Log.w(TAG, "Firebase not initialized, push plugin inert")
             return
@@ -120,21 +111,24 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun requestPermission(invoke: Invoke) {
-        val result = JSObject()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+ requires runtime permission for notifications.
-            // Tauri's Plugin base handles requesting permissions declared
-            // in the @TauriPlugin annotation — we just report the current
-            // state here. Developers should call the generic permission
-            // request flow for "postNotifications" via the JS API.
-            val granted = activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
-                android.content.pm.PackageManager.PERMISSION_GRANTED
-            result.put("granted", granted)
-        } else {
-            // Pre-13 grants notification permission at install time.
-            result.put("granted", true)
+        // Pre-13 grants notification permission at install time.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            invoke.resolve(JSObject().apply { put("granted", true) })
+            return
         }
-        invoke.resolve(result)
+        if (getPermissionState("postNotifications") == PermissionState.GRANTED) {
+            invoke.resolve(JSObject().apply { put("granted", true) })
+            return
+        }
+        // Fires the system dialog on demand (called from JS after the splash
+        // is gone), never during plugin load() when the WebView is still dark.
+        requestPermissionForAlias("postNotifications", invoke, "postNotificationsCallback")
+    }
+
+    @PermissionCallback
+    fun postNotificationsCallback(invoke: Invoke) {
+        val granted = getPermissionState("postNotifications") == PermissionState.GRANTED
+        invoke.resolve(JSObject().apply { put("granted", granted) })
     }
 
     @Command
