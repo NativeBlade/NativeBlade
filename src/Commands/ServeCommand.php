@@ -37,13 +37,13 @@ class ServeCommand extends Command
 
         $this->line('  Building Laravel bundle...');
         $bundleScript = NativeBladeServiceProvider::packagePath('js/scripts/bundle-laravel.js');
-        $this->run("node {$bundleScript} " . base_path());
+        $this->exec("node {$bundleScript} " . base_path());
 
         $watchScript = NativeBladeServiceProvider::packagePath('js/scripts/watch-bundle.js');
         $watcher = $this->background("node {$watchScript} " . base_path());
 
         try {
-            $this->run(
+            $this->exec(
                 "npx vite --config vite.wasm.config.js --host 0.0.0.0 --port {$port}",
                 ['NATIVEBLADE_HOST' => $host]
             );
@@ -76,7 +76,7 @@ class ServeCommand extends Command
         return true;
     }
 
-    private function run(string $command, array $env = []): void
+    private function exec(string $command, array $env = []): void
     {
         $process = Process::fromShellCommandline($command, base_path());
         $process->setTimeout(null);
