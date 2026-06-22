@@ -115,8 +115,15 @@ class BuildCommand extends Command
             'build' => ['frontendDist' => $url, 'devUrl' => $url],
         ]));
 
+        $androidTargets = '';
+        if ($platform === 'android') {
+            foreach ($this->resolveAndroidTargets() as $target) {
+                $androidTargets .= "--target {$target} ";
+            }
+        }
+
         $base = match ($platform) {
-            'android' => 'tauri android build --debug --config ' . $override,
+            'android' => 'tauri android build --debug ' . trim($androidTargets) . ' --config ' . $override,
             'ios' => 'tauri ios build --debug --config ' . $override,
             'desktop' => 'tauri build --debug --config ' . $override,
         };
