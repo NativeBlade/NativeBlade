@@ -84,6 +84,38 @@ php artisan nativeblade:build desktop
 php artisan nativeblade:build android --host=192.168.1.11
 ```
 
+#### Preview / dev-client builds (`--host`)
+
+A preview build is an installable "dev client" (like Expo Go, but for your own app): it ships **no static frontend**, loading everything live from a running dev server instead. Install it once, then iterate with HMR + live Laravel bundle without rebuilding or re-deploying.
+
+```bash
+# 1. build the dev-client once, pointing at your dev host
+php artisan nativeblade:build android --host=192.168.1.11 --port=1420 --targets=aarch64
+# 2. install the APK in build/android/<version>-preview.apk
+# 3. serve; the installed app reconnects with HMR
+php artisan nativeblade:serve --host=192.168.1.11 --port=1420
+```
+
+What `--host` does:
+- Bakes `frontendDist`/`devUrl = http://<host>:<port>` into a **debug** build (debug enables http cleartext + easy install signing).
+- Skips the static frontend/bundle/wasm builds — they come live from the server.
+- Honors `--targets` (build only the device arch to keep it small) and strips native debug symbols automatically.
+
+**Port must match.** The URL is baked into the artifact, so build and serve with the same `--port` (default `1420`). Mismatched ports = the app can't reach the server.
+
+**Size.** Preview builds are **debug**, so the native `.so` is large even after symbol stripping (expect ~60–150 MB depending on arch count, vs ~10–30 MB for a release). Use `--targets=aarch64` (single arch) to roughly halve it. This is a dev tool, never a store artifact.
+
+**Remote preview over a tunnel (ngrok, etc.).** `--host` accepts a **full URL** (with scheme), so you can point the dev client at a public tunnel and preview from anywhere, not just the same Wi-Fi:
+
+```bash
+php artisan nativeblade:build android --host=https://abc123.ngrok-free.app --targets=aarch64
+```
+
+When `--host` contains `://`, it is used verbatim (the `--port` is ignored — use the URL's own port). An `https` tunnel also removes the cleartext requirement. Tunnel caveats to handle on your side:
+- **Vite host allowlist:** add the tunnel host to `server.allowedHosts` in `vite.wasm.config.js`, or Vite returns "Blocked request. This host is not allowed."
+- **HMR over the tunnel:** set `server.hmr.host` / `clientPort` to the public host so the HMR socket reconnects through the tunnel.
+- **ngrok free:** the URL rotates on every restart (rebuild needed — use a reserved domain on a paid plan for a stable URL), and the browser-warning interstitial can block the WebView load.
+
 ### `nativeblade:bundle {--tag=} {--channel=} {--shell=} {--no-dev}`
 Build only the Laravel bundle (`laravel-bundle.json.gz`) for OTA bundle push, without rebuilding the native shell. `--tag` versions the output, `--channel` publishes under a release channel (e.g. `beta`), `--shell` sets the minimum shell version, `--no-dev` runs `composer install --no-dev` first.
 
@@ -133,9 +165,10 @@ php artisan nativeblade:dev --platform=android
 
 **Preview / dev-client (install once, iterate live)**
 ```bash
-php artisan nativeblade:build android --host=192.168.1.11   # install the APK once
-php artisan nativeblade:serve --host=192.168.1.11           # serve; the app reconnects with HMR
+php artisan nativeblade:build android --host=192.168.1.11 --targets=aarch64   # install the APK once
+php artisan nativeblade:serve --host=192.168.1.11                             # serve; the app reconnects with HMR
 ```
+See [Preview / dev-client builds](#preview--dev-client-builds---host) for tunnels (ngrok), size, and caveats.
 
 **Release**
 ```bash

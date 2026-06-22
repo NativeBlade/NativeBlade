@@ -101,7 +101,8 @@ class BuildCommand extends Command
     {
         $host = $this->option('host');
         $port = $this->option('port') ?: '1420';
-        $url = "http://{$host}:{$port}";
+
+        $url = str_contains($host, '://') ? rtrim($host, '/') : "http://{$host}:{$port}";
 
         $this->info('');
         $this->info("  Preview build ({$platform}) → {$url}");
