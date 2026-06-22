@@ -130,6 +130,13 @@ class BuildCommand extends Command
 
         $this->line('');
         $this->line("  Building {$platform} preview...");
+
+        // A debug build keeps full DWARF debug info, which dominates the native
+        // .so size (a preview APK can hit hundreds of MB). Nobody debugs the
+        // Rust layer in a preview, so strip symbols from the dev profile to cut
+        // the bulk while keeping the debug Android build (cleartext + signing).
+        putenv('CARGO_PROFILE_DEV_STRIP=symbols');
+
         if (!$this->runProcess($this->npxCommand($base . ' ' . $this->cargoFeaturesArg()))) {
             $this->error('  Preview build failed.');
             return self::FAILURE;
