@@ -65,16 +65,16 @@ NativeBlade lets Laravel developers build **desktop** and **mobile** apps using 
 ## Requirements
 
 - PHP 8.3, 8.4, or 8.5 (with GD extension)
-- Laravel 11, 12, or 13
-- Livewire 3
+- Laravel 12, or 13
+- Livewire 4
 - Node.js 20+
 - Rust — [install here](https://www.rust-lang.org/tools/install)
 
 ## Quick Start
 
 ```bash
-# 1. Create a new Laravel project
-composer create-project laravel/laravel my-app
+# 1. Create a new Laravel project (pin to a NativeBlade-supported version)
+composer create-project "laravel/laravel:^13.0" my-app
 cd my-app
 
 # 2. Install NativeBlade

@@ -16,8 +16,8 @@
         "vite": "^8.0.0"
     },
     "dependencies": {
-        "@php-wasm/universal": "^3.1.35",
-        "@php-wasm/web-{{PHP_VERSION}}": "^3.1.35",
+        "@php-wasm/universal": "^3.1.41",
+        "@php-wasm/web-{{PHP_VERSION}}": "^3.1.41",
         "@tauri-apps/api": "^2.10.1",
         "@tauri-apps/cli": "^2.10.1",
         "@tauri-apps/plugin-barcode-scanner": "^2.4.4",

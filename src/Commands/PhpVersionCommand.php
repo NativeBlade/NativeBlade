@@ -25,7 +25,7 @@ class PhpVersionCommand extends Command
 
         $this->line("  <fg=green>✓</> PHP WASM version set to {$version}");
         $this->line('');
-        $this->line("  Run: npm install @php-wasm/web-{$pkg}@^3.1.15");
+        $this->line("  Run: npm install @php-wasm/web-{$pkg}@^3.1.41");
         $this->line("  Then: npm run build");
 
         return self::SUCCESS;
