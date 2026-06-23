@@ -50,6 +50,9 @@ use Illuminate\Support\Facades\Facade;
  * @method static \NativeBlade\NativeResponse forgetSecure(string $key)
  * @method static \NativeBlade\NativeResponse share(?string $text = null, ?string $url = null)
  * @method static \NativeBlade\NativeResponse analytics(\Closure $callback)
+ * @method static \NativeBlade\NativeResponse requestAdConsent(array $testDeviceIds = [])
+ * @method static \NativeBlade\NativeResponse rewardedAd(\Closure $callback)
+ * @method static \NativeBlade\NativeResponse interstitialAd(\Closure $callback)
  *
  * OS info.
  *

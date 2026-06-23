@@ -17,6 +17,9 @@ class IosConfigGenerator
         'UIStatusBarHidden',
         'MinimumOSVersion',
         'FIREBASE_ANALYTICS_COLLECTION_ENABLED',
+        'GADApplicationIdentifier',
+        'NSUserTrackingUsageDescription',
+        'SKAdNetworkItems',
         'CFBundleName',
         'CFBundleDisplayName',
         'CFBundleShortVersionString',
@@ -181,6 +184,29 @@ class IosConfigGenerator
             $value = ($analytics['collectionEnabledByDefault'] ?? true) ? 'true' : 'false';
             $entries[] = "    <key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>";
             $entries[] = "    <{$value}/>";
+        }
+
+        $admob = \NativeBlade\ShellConfig::getAppConfigs()['admob'] ?? null;
+        if ($admob !== null && !empty($admob['iosAppId'])) {
+            $appId = htmlspecialchars((string) $admob['iosAppId'], ENT_XML1 | ENT_QUOTES, 'UTF-8');
+            $tracking = htmlspecialchars(
+                (string) ($admob['trackingDescription'] ?? 'Your data will be used to deliver personalized ads.'),
+                ENT_XML1 | ENT_QUOTES,
+                'UTF-8'
+            );
+            $entries[] = "    <key>GADApplicationIdentifier</key>";
+            $entries[] = "    <string>{$appId}</string>";
+            $entries[] = "    <key>NSUserTrackingUsageDescription</key>";
+            $entries[] = "    <string>{$tracking}</string>";
+            // The Google network is required for SKAdNetwork attribution; the
+            // SDK contributes the rest via its own bundled Info.plist.
+            $entries[] = "    <key>SKAdNetworkItems</key>";
+            $entries[] = "    <array>";
+            $entries[] = "        <dict>";
+            $entries[] = "            <key>SKAdNetworkIdentifier</key>";
+            $entries[] = "            <string>cstr6suwn9.skadnetwork</string>";
+            $entries[] = "        </dict>";
+            $entries[] = "    </array>";
         }
 
         $customApplied = 0;

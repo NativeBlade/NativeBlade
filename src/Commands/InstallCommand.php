@@ -62,12 +62,14 @@ class InstallCommand extends Command
     private function installComposerDependencies(): void
     {
         $this->line('  Installing Livewire...');
-        exec('cd ' . escapeshellarg(base_path()) . ' && composer require livewire/livewire 2>&1', $output, $code);
+        // Pin to the major NativeBlade is built and tested against; quoted so
+        // the `^` is not eaten by cmd.exe on Windows.
+        exec('cd ' . escapeshellarg(base_path()) . ' && composer require "livewire/livewire:^4.0" 2>&1', $output, $code);
 
         if ($code === 0) {
             $this->line("  <fg=green>✓</> Livewire installed");
         } else {
-            $this->line("  <fg=yellow>→</> Run manually: composer require livewire/livewire");
+            $this->line("  <fg=yellow>→</> Run manually: composer require \"livewire/livewire:^4.0\"");
         }
     }
 

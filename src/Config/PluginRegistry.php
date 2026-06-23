@@ -83,6 +83,14 @@ class PluginRegistry
                 'mobile_capabilities' => ['nativeblade-analytics:default'],
             ],
 
+            Plugin::ADMOB => [
+                'feature' => 'admob',
+                'feature_crate' => 'tauri-plugin-nativeblade-admob',
+                'rust_init' => 'tauri_plugin_nativeblade_admob::init()',
+                'mobile_only' => true,
+                'mobile_capabilities' => ['nativeblade-admob:default'],
+            ],
+
             Plugin::GEOLOCATION => [
                 'feature' => 'geolocation',
                 'feature_crate' => 'tauri-plugin-geolocation',

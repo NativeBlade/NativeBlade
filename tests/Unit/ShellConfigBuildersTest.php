@@ -247,6 +247,36 @@ final class ShellConfigBuildersTest extends TestCase
     }
 
     #[Test]
+    public function admob_config_stores_app_ids(): void
+    {
+        $this->config->admob('ca-app-pub-1~android', 'ca-app-pub-1~ios');
+
+        $configs = ShellConfig::getAppConfigs();
+        self::assertSame('ca-app-pub-1~android', $configs['admob']['androidAppId']);
+        self::assertSame('ca-app-pub-1~ios', $configs['admob']['iosAppId']);
+        self::assertNotEmpty($configs['admob']['trackingDescription']);
+    }
+
+    #[Test]
+    public function admob_config_ios_id_falls_back_to_android(): void
+    {
+        $this->config->admob('ca-app-pub-1~android');
+
+        $configs = ShellConfig::getAppConfigs();
+        self::assertSame('ca-app-pub-1~android', $configs['admob']['iosAppId']);
+    }
+
+    #[Test]
+    public function rewarded_and_interstitial_builders_collect_fields(): void
+    {
+        $rewarded = (new \NativeBlade\Plugins\RewardedAd())->unit('u/r')->id('coins');
+        self::assertSame(['unit' => 'u/r', 'id' => 'coins'], $rewarded->toArray());
+
+        $interstitial = (new \NativeBlade\Plugins\InterstitialAd())->unit('u/i')->minInterval(120);
+        self::assertSame(['unit' => 'u/i', 'minInterval' => 120], $interstitial->toArray());
+    }
+
+    #[Test]
     public function ios_info_plist_entries_are_stored_and_merge_across_calls(): void
     {
         $this->config->ios(function (IosConfig $cfg) {

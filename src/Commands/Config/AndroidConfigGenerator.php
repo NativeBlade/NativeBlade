@@ -25,9 +25,53 @@ class AndroidConfigGenerator
         $this->generateMetaData($config);
         $this->generateAppLinks();
         $this->generateAnalyticsDefault();
+        $this->generateAdMob();
         $this->generateAdId();
         $this->generateFirebase($config);
         $this->ensureKotlinVersion();
+    }
+
+    private const ADMOB_START = '<!-- nativeblade:admob:start -->';
+    private const ADMOB_END = '<!-- nativeblade:admob:end -->';
+
+    /**
+     * AdMob app id via `NativeBladeConfig::admob(...)`. Writes the
+     * `com.google.android.gms.ads.APPLICATION_ID` meta-data into the
+     * application element, fenced with markers so re-runs replace it and
+     * dropping the config removes it. The Mobile Ads SDK refuses to start
+     * without this id.
+     */
+    private function generateAdMob(): void
+    {
+        $manifestPath = base_path('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
+        if (!file_exists($manifestPath)) return;
+
+        $manifest = file_get_contents($manifestPath);
+        $original = $manifest;
+
+        $startQ = preg_quote(self::ADMOB_START, '/');
+        $endQ = preg_quote(self::ADMOB_END, '/');
+        $manifest = preg_replace("/\s*{$startQ}.*?{$endQ}/s", '', $manifest);
+
+        $admob = \NativeBlade\ShellConfig::getAppConfigs()['admob'] ?? null;
+        $appId = $admob['androidAppId'] ?? null;
+
+        if ($appId && str_contains($manifest, '</application>')) {
+            $value = htmlspecialchars((string) $appId, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+            $block = implode("\n", [
+                '        ' . self::ADMOB_START,
+                '        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="' . $value . '" />',
+                '        ' . self::ADMOB_END,
+            ]);
+            $manifest = preg_replace('/(\s*<\/application>)/', "\n" . $block . "$1", $manifest, 1);
+        }
+
+        if ($manifest !== $original) {
+            file_put_contents($manifestPath, $manifest);
+            $this->cmd->line($appId
+                ? "  <fg=green>✓</> AdMob APPLICATION_ID meta-data"
+                : "  <fg=green>✓</> Stripped AdMob meta-data");
+        }
     }
 
     private const ADID_START = '<!-- nativeblade:adid:start -->';
@@ -55,7 +99,10 @@ class AndroidConfigGenerator
         $manifest = preg_replace("/\s*{$startQ}.*?{$endQ}/s", '', $manifest);
 
         $analytics = \NativeBlade\ShellConfig::getAppConfigs()['analytics'] ?? null;
-        $removeAdId = $analytics !== null && !($analytics['advertisingId'] ?? false);
+        $admob = \NativeBlade\ShellConfig::getAppConfigs()['admob'] ?? null;
+        // AdMob requires the advertising id, so it always wins over the
+        // analytics-only removal: with admob enabled the permission stays.
+        $removeAdId = $admob === null && $analytics !== null && !($analytics['advertisingId'] ?? false);
 
         if ($removeAdId && preg_match('/<manifest\b[^>]*>/', $manifest)) {
             if (!str_contains($manifest, 'xmlns:tools=')) {
