@@ -343,6 +343,28 @@ class ShellConfig
     }
 
     /**
+     * Point NativeBlade at your AdMob app, enabling rewarded and interstitial
+     * ads. `nativeblade:config` writes the app id as `APPLICATION_ID` meta-data
+     * on Android and `GADApplicationIdentifier` in Info.plist on iOS, and keeps
+     * the `AD_ID` permission (ads require it; you then declare "yes, advertising
+     * id" in the Play data-safety form).
+     *
+     * @param  string       $androidAppId         AdMob app id for Android (ca-app-pub-...~...).
+     * @param  string|null  $iosAppId             AdMob app id for iOS; falls back to the Android id if omitted.
+     * @param  string|null  $trackingDescription  iOS App Tracking Transparency prompt text (NSUserTrackingUsageDescription).
+     */
+    public function admob(string $androidAppId, ?string $iosAppId = null, ?string $trackingDescription = null): static
+    {
+        static::$appConfigs['admob'] = [
+            'androidAppId' => $androidAppId,
+            'iosAppId' => $iosAppId ?? $androidAppId,
+            'trackingDescription' => $trackingDescription
+                ?? 'Your data will be used to deliver personalized ads.',
+        ];
+        return $this;
+    }
+
+    /**
      * Enable Firebase Analytics (build-time config). Needs `firebase(...)`.
      *
      * Named `analyticsConfig` — not `analytics` — on purpose: the runtime action

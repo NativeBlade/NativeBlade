@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- AdMob needs the AD_ID permission for the advertising id; it is added by
+         play-services-ads. The app id meta-data is written to the app manifest
+         by nativeblade:config from NativeBladeConfig::admob(...). -->
+</manifest>

@@ -1,0 +1,13 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = """
+Default permission set for the NativeBlade admob plugin.
+Allows requesting ad consent and showing rewarded and interstitial ads.
+"""
+
+permissions = [
+  "allow-request-consent",
+  "allow-show-rewarded",
+  "allow-show-interstitial",
+]

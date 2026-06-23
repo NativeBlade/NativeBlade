@@ -385,6 +385,44 @@ class NativeResponse
         return $this->push('analytics', $analytics->toArray());
     }
 
+    /**
+     * Request ad consent (UMP on both platforms, App Tracking Transparency on
+     * iOS). Call once at boot before showing ads. Optional hashed test device
+     * ids force the EEA consent form in debug. Requires `Plugin::ADMOB`.
+     */
+    public function requestAdConsent(array $testDeviceIds = []): static
+    {
+        return $this->push('request_ad_consent', ['testDeviceIds' => array_values($testDeviceIds)]);
+    }
+
+    /**
+     * Load and present a rewarded ad. The outcome arrives on the `nb:ad-reward`
+     * (earned/amount/type/id) and `nb:ad-result` (status/error/id) events.
+     * Mobile only; a no-op that reports a failure result on desktop.
+     *
+     * @param  \Closure(\NativeBlade\Plugins\RewardedAd): void  $callback
+     */
+    public function rewardedAd(\Closure $callback): static
+    {
+        $ad = new \NativeBlade\Plugins\RewardedAd();
+        $callback($ad);
+        return $this->push('rewarded_ad', $ad->toArray());
+    }
+
+    /**
+     * Load and present an interstitial ad, with frequency capping. The outcome
+     * arrives on the `nb:ad-result` event (`status: shown|dismissed|failed|capped`).
+     * Mobile only.
+     *
+     * @param  \Closure(\NativeBlade\Plugins\InterstitialAd): void  $callback
+     */
+    public function interstitialAd(\Closure $callback): static
+    {
+        $ad = new \NativeBlade\Plugins\InterstitialAd();
+        $callback($ad);
+        return $this->push('interstitial_ad', $ad->toArray());
+    }
+
     // ------------------------------------------------------------------
     // OS info
     // ------------------------------------------------------------------

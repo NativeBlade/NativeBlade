@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-show-interstitial"
+description = "Enables the show_interstitial command without any pre-configured scope."
+commands.allow = ["show_interstitial"]
+
+[[permission]]
+identifier = "deny-show-interstitial"
+description = "Denies the show_interstitial command without any pre-configured scope."
+commands.deny = ["show_interstitial"]

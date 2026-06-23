@@ -55,6 +55,9 @@ const EXPECTED_ACTIONS = [
     'forget_secure',
     'share',
     'analytics',
+    'request_ad_consent',
+    'rewarded_ad',
+    'interstitial_ad',
 ];
 
 describe('actions/index', () => {

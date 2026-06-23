@@ -59,6 +59,7 @@ tauri-plugin-nativeblade-review = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/re
 tauri-plugin-nativeblade-secure-storage = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/secure-storage", optional = true }
 tauri-plugin-nativeblade-sharing = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/sharing", optional = true }
 tauri-plugin-nativeblade-analytics = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/analytics", optional = true }
+tauri-plugin-nativeblade-admob = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/admob", optional = true }
 
 # nativeblade:plugins:start
 [features]
