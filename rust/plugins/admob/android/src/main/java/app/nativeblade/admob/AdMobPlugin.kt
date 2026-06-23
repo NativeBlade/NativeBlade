@@ -13,6 +13,7 @@ import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.RequestConfiguration
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.gms.ads.rewarded.RewardedAd
@@ -52,6 +53,11 @@ class AdMobPlugin(private val activity: Activity) : Plugin(activity) {
         private val lastShown = HashMap<String, Long>()
     }
 
+    // Set once test devices are registered: real ad units then serve test ads
+    // on those devices, so we stop substituting Google's test unit and exercise
+    // the real id safely.
+    private var hasTestDevices: Boolean = false
+
     private val debuggable: Boolean
         get() = (activity.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
@@ -63,6 +69,13 @@ class AdMobPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun requestConsent(invoke: Invoke) {
         val args = invoke.parseArgs(ConsentArgs::class.java)
+
+        if (args.testDeviceIds.isNotEmpty()) {
+            hasTestDevices = true
+            MobileAds.setRequestConfiguration(
+                RequestConfiguration.Builder().setTestDeviceIds(args.testDeviceIds).build()
+            )
+        }
 
         val params = if (debuggable && args.testDeviceIds.isNotEmpty()) {
             val debugSettings = com.google.android.ump.ConsentDebugSettings.Builder(activity)
@@ -96,7 +109,7 @@ class AdMobPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun showRewarded(invoke: Invoke) {
         val args = invoke.parseArgs(RewardedArgs::class.java)
-        val unit = if (debuggable) TEST_REWARDED else args.unit
+        val unit = if (debuggable && !hasTestDevices) TEST_REWARDED else args.unit
 
         activity.runOnUiThread {
             RewardedAd.load(activity, unit, AdRequest.Builder().build(), object : RewardedAdLoadCallback() {
@@ -137,7 +150,7 @@ class AdMobPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun showInterstitial(invoke: Invoke) {
         val args = invoke.parseArgs(InterstitialArgs::class.java)
-        val unit = if (debuggable) TEST_INTERSTITIAL else args.unit
+        val unit = if (debuggable && !hasTestDevices) TEST_INTERSTITIAL else args.unit
 
         val minInterval = args.minInterval
         if (minInterval != null) {

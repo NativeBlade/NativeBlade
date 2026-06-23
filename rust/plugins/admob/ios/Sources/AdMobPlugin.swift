@@ -31,6 +31,11 @@ class AdMobPlugin: Plugin {
 
     private static var lastShown: [String: TimeInterval] = [:]
 
+    // Set once test devices are registered: real ad units then serve test ads
+    // on those devices, so we stop substituting the test unit and exercise the
+    // real id safely.
+    private static var hasTestDevices = false
+
     #if canImport(GoogleMobileAds)
     private var rewardedAd: RewardedAd?
     private var interstitialAd: InterstitialAd?
@@ -46,6 +51,12 @@ class AdMobPlugin: Plugin {
 
     @objc public func requestConsent(_ invoke: Invoke) {
         #if canImport(GoogleMobileAds)
+        let testIds = (try? invoke.parseArgs(NBConsentArgs.self))?.testDeviceIds ?? []
+        if !testIds.isEmpty {
+            Self.hasTestDevices = true
+            MobileAds.shared.requestConfiguration.testDeviceIdentifiers = testIds
+        }
+
         ATTrackingManager.requestTrackingAuthorization { _ in
             DispatchQueue.main.async {
                 let params = RequestParameters()
@@ -75,7 +86,7 @@ class AdMobPlugin: Plugin {
             invoke.resolve(Self.failure("invalid args"))
             return
         }
-        let unit = Self.isDebug ? Self.testRewarded : args.unit
+        let unit = (Self.isDebug && !Self.hasTestDevices) ? Self.testRewarded : args.unit
 
         RewardedAd.load(with: unit, request: Request()) { [weak self] ad, error in
             guard let self = self else { return }
@@ -125,7 +136,7 @@ class AdMobPlugin: Plugin {
             }
         }
 
-        let unit = Self.isDebug ? Self.testInterstitial : args.unit
+        let unit = (Self.isDebug && !Self.hasTestDevices) ? Self.testInterstitial : args.unit
 
         InterstitialAd.load(with: unit, request: Request()) { [weak self] ad, error in
             guard let self = self else { return }

@@ -8,9 +8,21 @@ Banner and native ads are out of scope for v1 — they are embedded views compos
 
 Mobile-only (Android + iOS). On desktop and web every call is a no-op that reports a `failed` result, so the same handler code runs on all platforms without branching.
 
-## Test ads (important)
+## Testing (important)
 
-Clicking your own **live** ads gets the AdMob account banned. So outside production (debug builds) the plugin automatically serves Google's reserved **test ad units** instead of your real unit. Your real unit only goes live in a release/store build. You do not have to swap ids by hand.
+Clicking your own **live** ads gets the AdMob account banned, so you never test with real impressions. There are two safe ways to test, both **without** publishing to a store:
+
+**1. Test ads, zero setup (default).** In a debug build the plugin automatically serves Google's reserved **test ad units** instead of whatever unit you pass. Rewards, dismissals and capping all fire, so the full flow is testable with no AdMob account at all. Your real unit only goes live in a release build.
+
+**2. Your real ad units, on a registered test device.** To verify your own unit ids, register your device as a test device — then your real units serve **test ads** on that device (safe, no revenue, no ban). Pass the device's hashed id to `requestAdConsent`:
+
+```php
+NativeBlade::requestAdConsent(['THE_DEVICE_HASH'])->toResponse();
+```
+
+When test device ids are present, the plugin stops substituting Google's test unit and uses your real unit (which the SDK serves as a test ad on registered devices). Find the hash by running the app once and reading the log: the Mobile Ads SDK prints a line like `setTestDeviceIds(Arrays.asList("33BE2250..."))` (Android logcat) or the equivalent in the Xcode console.
+
+> Never click a real ad on a device that is **not** registered as a test device, in debug or release. That is the banning trigger.
 
 ## Setup
 
