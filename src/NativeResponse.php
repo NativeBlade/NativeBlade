@@ -11,9 +11,11 @@ use NativeBlade\Plugins\Clipboard;
 use NativeBlade\Plugins\Dialog;
 use NativeBlade\Plugins\FilePicker;
 use NativeBlade\Plugins\Geolocation;
+use NativeBlade\Plugins\InterstitialAd;
 use NativeBlade\Plugins\Media;
 use NativeBlade\Plugins\Nfc;
 use NativeBlade\Plugins\Notification;
+use NativeBlade\Plugins\RewardedAd;
 use NativeBlade\Plugins\Scan;
 use NativeBlade\Plugins\Shell;
 use NativeBlade\Plugins\Upload;
@@ -383,6 +385,52 @@ class NativeResponse
         $analytics = new \NativeBlade\Plugins\Analytics();
         $callback($analytics);
         return $this->push('analytics', $analytics->toArray());
+    }
+
+    // ------------------------------------------------------------------
+    // AdMob
+    // ------------------------------------------------------------------
+
+    /**
+     * Request the ad-consent flow required by AdMob.
+     *
+     * On iOS this asks for App Tracking Transparency first, then runs Google's
+     * User Messaging Platform. On Android it runs the UMP flow only.
+     */
+    public function requestAdConsent(): static
+    {
+        return $this->push('request_ad_consent', []);
+    }
+
+    /**
+     * Load and present a rewarded AdMob ad.
+     *
+     * Completion is reported via `nb:ad-result`; if the reward is earned the
+     * bridge also dispatches `nb:ad-reward` with `$earned`, `$amount`, `$type`,
+     * and optional `$id`.
+     *
+     * @param  \Closure(\NativeBlade\Plugins\RewardedAd): void  $callback
+     */
+    public function rewardedAd(\Closure $callback): static
+    {
+        $rewarded = new RewardedAd();
+        $callback($rewarded);
+        return $this->push('rewarded_ad', $rewarded->toArray());
+    }
+
+    /**
+     * Load and present an AdMob interstitial ad.
+     *
+     * Completion is reported via `nb:ad-result` with a `$status` of
+     * `shown`, `dismissed`, `failed`, or `capped`.
+     *
+     * @param  \Closure(\NativeBlade\Plugins\InterstitialAd): void  $callback
+     */
+    public function interstitialAd(\Closure $callback): static
+    {
+        $interstitial = new InterstitialAd();
+        $callback($interstitial);
+        return $this->push('interstitial_ad', $interstitial->toArray());
     }
 
     // ------------------------------------------------------------------

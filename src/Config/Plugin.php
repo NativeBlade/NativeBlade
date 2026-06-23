@@ -31,6 +31,9 @@ enum Plugin: string
     /** Firebase Analytics via the native SDK (events, screens, user properties, consent). Powers `NativeBlade::analytics()`. Needs `NativeBladeConfig::firebase(...)`. NativeBlade native plugin. */
     case ANALYTICS = 'analytics';
 
+    /** Google Mobile Ads rewarded/interstitial plus consent flow. Powers `NativeBlade::requestAdConsent()`, `rewardedAd()`, `interstitialAd()`. */
+    case ADMOB = 'admob';
+
     /** Device GPS / network-based location. Powers `NativeBlade::geolocation()`. */
     case GEOLOCATION = 'geolocation';
 

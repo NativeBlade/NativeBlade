@@ -84,6 +84,7 @@ When you run `nativeblade:dev` or `nativeblade:build`, the CLI passes `--feature
 | `Plugin::SECURE_STORAGE` | Encrypted key-value via `NativeBlade::setSecure()` / `getSecure()` (mobile only) |
 | `Plugin::SHARING` | Native share sheet via `NativeBlade::share()` (mobile only) |
 | `Plugin::ANALYTICS` | Firebase Analytics via `NativeBlade::analytics()` (mobile only) |
+| `Plugin::ADMOB` | AdMob consent + rewarded/interstitial ads via `NativeBlade::requestAdConsent()`, `rewardedAd()`, `interstitialAd()` (mobile only) |
 | `Plugin::GEOLOCATION` | `nb:geolocation` event with current position |
 | `Plugin::BIOMETRIC` | `NativeBlade::biometric()` (mobile only) |
 | `Plugin::BARCODE_SCANNER` | `NativeBlade::scan()` (mobile only) |
@@ -180,6 +181,7 @@ return NativeBlade::notification(fn (Notification $n) => $n->title('Saved')->bod
 | Secure Storage | `setSecure($key, $value)`, `getSecure($key, $id = null)`, `forgetSecure($key)` |
 | Sharing | `share($text = null, $url = null)` |
 | Analytics | `analytics(Closure)` |
+| AdMob | `requestAdConsent()`, `rewardedAd(Closure)`, `interstitialAd(Closure)` |
 | Camera | `camera(?Closure)`, `gallery(?Closure)` |
 | Navigation | `navigate($path, $replace = false)` |
 | Modal | `showModal()`, `hideModal()` |

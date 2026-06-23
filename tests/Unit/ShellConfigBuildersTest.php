@@ -247,6 +247,33 @@ final class ShellConfigBuildersTest extends TestCase
     }
 
     #[Test]
+    public function admob_config_projects_into_android_meta_data_and_ios_info_plist(): void
+    {
+        $this->config->admobConfig(
+            'ca-app-pub-android~123',
+            'ca-app-pub-ios~456',
+            'Tracking helps show more relevant ads.',
+            ['cstr6suwn9.skadnetwork', '4fzdc2evr5.skadnetwork']
+        );
+
+        $configs = ShellConfig::getAppConfigs();
+
+        self::assertSame(
+            'ca-app-pub-android~123',
+            $configs['android']['manifestMetaData']['com.google.android.gms.ads.APPLICATION_ID']
+        );
+        self::assertSame('ca-app-pub-ios~456', $configs['ios']['infoPlist']['GADApplicationIdentifier']);
+        self::assertSame(
+            'Tracking helps show more relevant ads.',
+            $configs['ios']['infoPlist']['NSUserTrackingUsageDescription']
+        );
+        self::assertSame([
+            ['SKAdNetworkIdentifier' => 'cstr6suwn9.skadnetwork'],
+            ['SKAdNetworkIdentifier' => '4fzdc2evr5.skadnetwork'],
+        ], $configs['ios']['infoPlist']['SKAdNetworkItems']);
+    }
+
+    #[Test]
     public function ios_info_plist_entries_are_stored_and_merge_across_calls(): void
     {
         $this->config->ios(function (IosConfig $cfg) {

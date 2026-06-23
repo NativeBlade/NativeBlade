@@ -11,8 +11,10 @@ use NativeBlade\Plugins\Clipboard;
 use NativeBlade\Plugins\Dialog;
 use NativeBlade\Plugins\FilePicker;
 use NativeBlade\Plugins\Geolocation;
+use NativeBlade\Plugins\InterstitialAd;
 use NativeBlade\Plugins\Nfc;
 use NativeBlade\Plugins\Notification;
+use NativeBlade\Plugins\RewardedAd;
 use NativeBlade\Plugins\Scan;
 use NativeBlade\Plugins\Shell;
 use NativeBlade\Plugins\Upload;
@@ -50,6 +52,9 @@ final class NativeResponseTest extends TestCase
         self::assertSame($r, $r->forgetSecure('k'));
         self::assertSame($r, $r->share('hi'));
         self::assertSame($r, $r->analytics(fn ($a) => $a->event('x')));
+        self::assertSame($r, $r->requestAdConsent());
+        self::assertSame($r, $r->rewardedAd(fn ($a) => $a->unit('u')));
+        self::assertSame($r, $r->interstitialAd(fn ($a) => $a->unit('u')));
     }
 
     #[Test]
@@ -153,6 +158,39 @@ final class NativeResponseTest extends TestCase
                 ['op' => 'userProperty', 'key' => 'plan', 'value' => 'pro'],
                 ['op' => 'setEnabled', 'enabled' => false],
             ]],
+        ]], $r->toArray());
+    }
+
+    #[Test]
+    public function request_ad_consent_queues_the_consent_action(): void
+    {
+        $r = (new NativeResponse())->requestAdConsent();
+        self::assertSame([['action' => 'request_ad_consent', 'data' => []]], $r->toArray());
+    }
+
+    #[Test]
+    public function rewarded_ad_queues_the_builder_payload(): void
+    {
+        $r = (new NativeResponse())->rewardedAd(function (RewardedAd $ad) {
+            $ad->unit('ca-app-pub-xxx/rewarded')->id('coins');
+        });
+
+        self::assertSame([[
+            'action' => 'rewarded_ad',
+            'data' => ['unit' => 'ca-app-pub-xxx/rewarded', 'id' => 'coins'],
+        ]], $r->toArray());
+    }
+
+    #[Test]
+    public function interstitial_ad_queues_the_builder_payload(): void
+    {
+        $r = (new NativeResponse())->interstitialAd(function (InterstitialAd $ad) {
+            $ad->unit('ca-app-pub-xxx/interstitial')->id('level-break')->minInterval(120);
+        });
+
+        self::assertSame([[
+            'action' => 'interstitial_ad',
+            'data' => ['unit' => 'ca-app-pub-xxx/interstitial', 'id' => 'level-break', 'minInterval' => 120],
         ]], $r->toArray());
     }
 

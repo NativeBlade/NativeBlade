@@ -82,6 +82,7 @@ TOML;
             Plugin::MEDIA,
             Plugin::IN_APP_REVIEW,
             Plugin::SECURE_STORAGE,
+            Plugin::ADMOB,
         ]);
 
         $cargo = file_get_contents($this->cargoPath);
@@ -94,10 +95,15 @@ TOML;
             'tauri-plugin-nativeblade-secure-storage = { path = "../vendor/nativeblade/nativeblade/rust/plugins/secure-storage", optional = true }',
             $cargo
         );
+        self::assertStringContainsString(
+            'tauri-plugin-nativeblade-admob = { path = "../vendor/nativeblade/nativeblade/rust/plugins/admob", optional = true }',
+            $cargo
+        );
 
         // The feature block now references deps that actually exist.
         self::assertStringContainsString('in_app_review = ["dep:tauri-plugin-nativeblade-review"]', $cargo);
         self::assertStringContainsString('secure_storage = ["dep:tauri-plugin-nativeblade-secure-storage"]', $cargo);
+        self::assertStringContainsString('admob = ["dep:tauri-plugin-nativeblade-admob"]', $cargo);
     }
 
     #[Test]

@@ -227,7 +227,29 @@ class ShellConfig
      */
     public static function getAppConfigs(): array
     {
-        return static::$appConfigs;
+        $configs = static::$appConfigs;
+        $admob = $configs['admob'] ?? null;
+
+        if (is_array($admob)) {
+            $androidMeta = $configs['android']['manifestMetaData'] ?? [];
+            $androidMeta['com.google.android.gms.ads.APPLICATION_ID'] = $admob['androidAppId'];
+            $configs['android']['manifestMetaData'] = $androidMeta;
+
+            $iosPlist = $configs['ios']['infoPlist'] ?? [];
+            $iosPlist['GADApplicationIdentifier'] = $admob['iosAppId'];
+            $iosPlist['NSUserTrackingUsageDescription'] = $admob['trackingDescription'];
+
+            if (!empty($admob['skAdNetworkIds'])) {
+                $iosPlist['SKAdNetworkItems'] = array_map(
+                    fn(string $id) => ['SKAdNetworkIdentifier' => $id],
+                    $admob['skAdNetworkIds']
+                );
+            }
+
+            $configs['ios']['infoPlist'] = $iosPlist;
+        }
+
+        return $configs;
     }
 
     /**
@@ -369,6 +391,31 @@ class ShellConfig
             'autoScreenTracking' => $autoScreenTracking,
             'collectionEnabledByDefault' => $collectionEnabledByDefault,
             'advertisingId' => $advertisingId,
+        ];
+        return $this;
+    }
+
+    /**
+     * Configure AdMob's required app ids and iOS privacy plist entries.
+     *
+     * The values are projected into the generated Android manifest and
+     * Info.plist through the existing `manifestMetaData` / `infoPlist`
+     * generators, so the order of `admobConfig()` vs `android()` / `ios()`
+     * does not matter.
+     *
+     * @param  string[]  $skAdNetworkIds
+     */
+    public function admobConfig(
+        string $androidAppId,
+        string $iosAppId,
+        ?string $trackingDescription = null,
+        array $skAdNetworkIds = []
+    ): static {
+        static::$appConfigs['admob'] = [
+            'androidAppId' => $androidAppId,
+            'iosAppId' => $iosAppId,
+            'trackingDescription' => $trackingDescription ?? 'This identifier will be used to deliver more relevant ads to you.',
+            'skAdNetworkIds' => array_values($skAdNetworkIds),
         ];
         return $this;
     }

@@ -28,6 +28,7 @@ import * as review from './review.js';
 import * as secure from './secure.js';
 import * as shareMod from './share.js';
 import * as analyticsMod from './analytics.js';
+import * as admobMod from './admob.js';
 
 export const actions = {
     // dialog
@@ -124,4 +125,9 @@ export const actions = {
 
     // analytics
     analytics: analyticsMod.analytics,
+
+    // admob
+    request_ad_consent: admobMod.request_ad_consent,
+    rewarded_ad: admobMod.rewarded_ad,
+    interstitial_ad: admobMod.interstitial_ad,
 };
