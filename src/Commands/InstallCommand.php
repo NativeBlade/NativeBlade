@@ -559,6 +559,13 @@ PHP;
         $words = preg_split('/[^a-zA-Z0-9]+/', $this->appName, -1, PREG_SPLIT_NO_EMPTY);
         $crateName = strtolower(implode('_', $words));
 
+        // Cargo package and [lib] names are Rust identifiers: they cannot start
+        // with a digit (e.g. an app named "1MillionDev" -> "1milliondev"). Prefix
+        // so the generated Cargo.toml stays valid.
+        if ($crateName === '' || ctype_digit($crateName[0])) {
+            $crateName = 'app_' . $crateName;
+        }
+
         $replacements = array_merge([
             '{{APP_NAME}}' => $this->appName,
             '{{IDENTIFIER}}' => $this->identifier,
@@ -607,6 +614,11 @@ PHP;
     private function guessIdentifier(): string
     {
         $name = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $this->appName ?? config('app.name', 'myapp')));
+        // Android/iOS bundle id segments are Java-style identifiers: each must
+        // start with a letter, so prefix when the app name starts with a digit.
+        if ($name === '' || ctype_digit($name[0])) {
+            $name = 'app' . $name;
+        }
         return "com.{$name}.app";
     }
 }
