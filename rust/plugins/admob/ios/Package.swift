@@ -4,6 +4,7 @@ import PackageDescription
 let package = Package(
     name: "tauri-plugin-nativeblade-admob",
     platforms: [
+        // ATT is part of the consent flow, and `ATTrackingManager` is iOS 14+.
         .iOS(.v14),
     ],
     products: [
