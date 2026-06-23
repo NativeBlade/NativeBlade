@@ -11,6 +11,14 @@ Install NativeBlade into an existing Laravel project: scaffolds `src-tauri`, pub
 php artisan nativeblade:install
 ```
 
+### `nativeblade:update`
+Sync the project with the installed NativeBlade version after a `composer update`. Bumps the NativeBlade-managed `package.json` deps (the `@php-wasm` and `@tauri-apps` families, Vite, Tailwind) to the versions this release ships, adds any new ones, regenerates the platform config, and runs `npm install`. Your own dependencies and the chosen `@php-wasm/web-<php>` variant are preserved; the framework runtime itself comes from the Composer package, so nothing is copied into your repo.
+
+```bash
+composer update nativeblade/nativeblade
+php artisan nativeblade:update
+```
+
 ### `nativeblade:add {platform}`
 Add a mobile platform scaffold (`src-tauri/gen/...`) to the project.
 
