@@ -20,8 +20,33 @@ for (const scope of ['@php-wasm', '@tauri-apps']) {
 // Installed @tauri-apps packages = the declared plugins (NativeBladeConfig::plugins).
 const installedScoped = new Set(Object.keys(scopedAliases));
 
+// Dev-only: the runtime dynamically imports every optional @tauri-apps plugin
+// inside a try/catch, but Vite's dev server fails the transform when an
+// undeclared (uninstalled) plugin can't be resolved. Resolve those to a module
+// that throws on import so the try/catch no-ops, exactly as it would at runtime.
+// The build handles this through rolldownOptions.external instead.
+function absentTauriPlugins(installed) {
+    const VIRT = '\0nb-absent-tauri:';
+    return {
+        name: 'nativeblade-absent-tauri-plugins',
+        apply: 'serve',
+        enforce: 'pre',
+        resolveId(id) {
+            const pkg = id.match(/^(@tauri-apps\/plugin-[^/]+)/)?.[1];
+            return pkg && !installed.has(pkg) ? VIRT + pkg : null;
+        },
+        load(id) {
+            if (id.startsWith(VIRT)) {
+                const pkg = id.slice(VIRT.length);
+                return `throw new Error(${JSON.stringify('NativeBlade: @tauri-apps plugin not installed: ' + pkg)});`;
+            }
+            return null;
+        },
+    };
+}
+
 export default defineConfig({
-    plugins: [phpHmrPlugin(projectRoot)],
+    plugins: [phpHmrPlugin(projectRoot), absentTauriPlugins(installedScoped)],
     root: path.resolve(__dirname, 'resources/js'),
     publicDir: path.resolve(__dirname, 'public'),
     resolve: {
