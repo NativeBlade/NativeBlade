@@ -12,7 +12,7 @@ php artisan nativeblade:install
 ```
 
 ### `nativeblade:update`
-Sync the project with the installed NativeBlade version after a `composer update`. Bumps the NativeBlade-managed `package.json` deps (the `@php-wasm` and `@tauri-apps` families, Vite, Tailwind) to the versions this release ships, adds any new ones, regenerates the platform config, and runs `npm install`. Your own dependencies and the chosen `@php-wasm/web-<php>` variant are preserved; the framework runtime itself comes from the Composer package, so nothing is copied into your repo.
+Sync the project with the installed NativeBlade version after a `composer update`. Bumps the NativeBlade-managed `package.json` deps (the `@php-wasm` and `@tauri-apps` families, Vite, Tailwind) to the versions this release ships, adds any new ones, re-publishes `vite.wasm.config.js` from the current stub (so bundler/asset fixes propagate — the previous file is kept as `.bak`), regenerates the platform config, and runs `npm install`. Your own dependencies and the chosen `@php-wasm/web-<php>` variant are preserved; the framework runtime itself comes from the Composer package, so nothing is copied into your repo.
 
 ```bash
 composer update nativeblade/nativeblade

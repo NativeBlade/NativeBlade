@@ -55,7 +55,10 @@ export default defineConfig({
     optimizeDeps: {
         exclude: ['@php-wasm/web-8-3', '@php-wasm/web-8-4', '@php-wasm/web-8-5'],
     },
-    assetsInclude: ['**/*.so', '**/*.wasm'],
+    // php-wasm imports non-JS assets (.wasm/.so/.dat/.la) via `import` so the
+    // bundler tracks them statically; treat them as assets (URLs) instead of
+    // trying to bundle the wasm (which fails resolving its WASI imports).
+    assetsInclude: [/\.dat$/, /\.wasm$/, /\.so$/, /\.la$/],
     build: {
         outDir: path.resolve(__dirname, 'dist-wasm'),
         emptyOutDir: true,

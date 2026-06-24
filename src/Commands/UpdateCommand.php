@@ -17,6 +17,7 @@ class UpdateCommand extends Command
         $this->info('');
 
         $this->syncPackageJson();
+        $this->syncViteConfig();
 
         $this->line('');
         $this->line('  Regenerating config...');
@@ -34,6 +35,38 @@ class UpdateCommand extends Command
         $this->info('');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Re-publish vite.wasm.config.js from the current stub so config fixes (the
+     * php-wasm asset handling, the dev-server host allowlist, ...) reach
+     * existing projects. The previous file is kept as a .bak so any local tweak
+     * can be diffed back. No-op when already identical.
+     */
+    private function syncViteConfig(): void
+    {
+        $stubPath = NativeBladeServiceProvider::packagePath('stubs/vite.wasm.config.js.stub');
+        $targetPath = base_path('vite.wasm.config.js');
+
+        if (!file_exists($stubPath)) {
+            return;
+        }
+
+        $new = file_get_contents($stubPath);
+
+        if (file_exists($targetPath) && file_get_contents($targetPath) === $new) {
+            $this->line("  <fg=green>✓</> vite.wasm.config.js already current");
+            return;
+        }
+
+        if (file_exists($targetPath)) {
+            copy($targetPath, $targetPath . '.bak');
+        }
+
+        file_put_contents($targetPath, $new);
+        $this->line(file_exists($targetPath . '.bak')
+            ? "  <fg=green>✓</> vite.wasm.config.js synced (previous saved to vite.wasm.config.js.bak)"
+            : "  <fg=green>✓</> vite.wasm.config.js created");
     }
 
     /**
