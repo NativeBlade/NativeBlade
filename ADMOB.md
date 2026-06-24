@@ -76,7 +76,7 @@ public function watchForCoins()
 }
 
 #[On('nb:ad-reward')]
-public function onReward($earned, $amount = null, $type = null, $id = null)
+public function onReward($earned, $amount = null, $rewardType = null, $id = null)
 {
     if (!$earned) return;
 

@@ -23,6 +23,7 @@ This document lists every built-in bridge, what it does, and how to call it from
 - [Secure Storage](#secure-storage)
 - [Sharing](#sharing)
 - [Analytics](#analytics)
+- [AdMob](#admob)
 - [Camera & Gallery](#camera--gallery)
 - [Navigation](#navigation)
 - [Modal](#modal)
@@ -84,6 +85,7 @@ When you run `nativeblade:dev` or `nativeblade:build`, the CLI passes `--feature
 | `Plugin::SECURE_STORAGE` | Encrypted key-value via `NativeBlade::setSecure()` / `getSecure()` (mobile only) |
 | `Plugin::SHARING` | Native share sheet via `NativeBlade::share()` (mobile only) |
 | `Plugin::ANALYTICS` | Firebase Analytics via `NativeBlade::analytics()` (mobile only) |
+| `Plugin::ADMOB` | AdMob rewarded + interstitial ads via `NativeBlade::rewardedAd()` / `interstitialAd()` (mobile only) |
 | `Plugin::GEOLOCATION` | `nb:geolocation` event with current position |
 | `Plugin::BIOMETRIC` | `NativeBlade::biometric()` (mobile only) |
 | `Plugin::BARCODE_SCANNER` | `NativeBlade::scan()` (mobile only) |
@@ -180,6 +182,7 @@ return NativeBlade::notification(fn (Notification $n) => $n->title('Saved')->bod
 | Secure Storage | `setSecure($key, $value)`, `getSecure($key, $id = null)`, `forgetSecure($key)` |
 | Sharing | `share($text = null, $url = null)` |
 | Analytics | `analytics(Closure)` |
+| AdMob | `requestAdConsent(array $testDeviceIds = [])`, `rewardedAd(Closure)`, `interstitialAd(Closure)` |
 | Camera | `camera(?Closure)`, `gallery(?Closure)` |
 | Navigation | `navigate($path, $replace = false)` |
 | Modal | `showModal()`, `hideModal()` |
@@ -1104,6 +1107,28 @@ return NativeBlade::analytics(function (Analytics $a) {
 ```
 
 Builder methods: `event()`, `screen()`, `setUserId()`, `setUserProperty()`, `enable()`, `disable()`. Enable automatic screen tracking and the consent default in config (`NativeBladeConfig::analyticsConfig(...)`). Full guide, including the consent flow, in [ANALYTICS.md](ANALYTICS.md).
+
+---
+
+## AdMob
+
+AdMob rewarded and interstitial ads through the Google Mobile Ads SDK. Mobile only. Requires `Plugin::ADMOB` and `NativeBladeConfig::admob(...)`. In debug builds Google test ads are served automatically, so you never risk clicking a live ad.
+
+```php
+use NativeBlade\Plugins\RewardedAd;
+use NativeBlade\Plugins\InterstitialAd;
+
+// Once at boot: ask for consent (UMP on both platforms, App Tracking Transparency on iOS)
+return NativeBlade::requestAdConsent()->toResponse();
+
+// Rewarded
+return NativeBlade::rewardedAd(fn (RewardedAd $a) => $a->id('coins')->unit('ca-app-pub-xxx/rewarded'))->toResponse();
+
+// Interstitial, capped so it never spams
+return NativeBlade::interstitialAd(fn (InterstitialAd $a) => $a->unit('ca-app-pub-xxx/interstitial')->minInterval(120))->toResponse();
+```
+
+Outcomes arrive on the `nb:ad-reward` event (`earned`, `amount`, `rewardType`, `id`) and the `nb:ad-result` event (`status` = `dismissed|failed|capped`, `error`, `id`). Grant the reward only when `earned` is true. Full guide, including consent and testing with real units on a registered device, in [ADMOB.md](ADMOB.md).
 
 ---
 

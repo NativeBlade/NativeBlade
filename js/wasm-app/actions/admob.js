@@ -31,7 +31,7 @@ export async function rewarded_ad(payload, ctx) {
         ctx.post('nativeblade-ad-reward', {
             earned: !!res.earned,
             amount: res.amount ?? null,
-            type: res.type ?? null,
+            rewardType: res.type ?? null,
             id,
         });
         ctx.post('nativeblade-ad-result', { status: res.status, error: res.error ?? null, id });

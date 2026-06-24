@@ -397,7 +397,7 @@ class NativeResponse
 
     /**
      * Load and present a rewarded ad. The outcome arrives on the `nb:ad-reward`
-     * (earned/amount/type/id) and `nb:ad-result` (status/error/id) events.
+     * (earned/amount/rewardType/id) and `nb:ad-result` (status/error/id) events.
      * Mobile only; a no-op that reports a failure result on desktop.
      *
      * @param  \Closure(\NativeBlade\Plugins\RewardedAd): void  $callback
