@@ -45,8 +45,26 @@ function absentTauriPlugins(installed) {
     };
 }
 
+// php-wasm imports its .wasm/.dat assets with a bare `import` and instantiates
+// them at runtime. Vite 8 / rolldown otherwise treats the .wasm as a module and
+// tries to resolve its host imports (env, wasi_snapshot_preview1), which fails.
+// Redirect those bare asset imports to `?url` so they resolve as plain assets.
+function phpWasmAssets() {
+    const ASSET_RE = /\.(wasm|dat)$/;
+    return {
+        name: 'nativeblade-php-wasm-assets',
+        enforce: 'pre',
+        async resolveId(source, importer, options) {
+            if (importer && ASSET_RE.test(source) && !source.includes('?')) {
+                return this.resolve(source + '?url', importer, { ...options, skipSelf: true });
+            }
+            return null;
+        },
+    };
+}
+
 export default defineConfig({
-    plugins: [phpHmrPlugin(projectRoot), absentTauriPlugins(installedScoped)],
+    plugins: [phpHmrPlugin(projectRoot), absentTauriPlugins(installedScoped), phpWasmAssets()],
     root: path.resolve(__dirname, 'resources/js'),
     publicDir: path.resolve(__dirname, 'public'),
     resolve: {
