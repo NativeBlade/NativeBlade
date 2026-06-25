@@ -11,20 +11,35 @@ Mobile-only (Android + iOS). On desktop there is no sideload-friendly store bill
 - **iOS:** StoreKit 2, which needs **iOS 15+**. Set your app's iOS deployment target to 15 or higher.
 - **Android:** Google Play Billing Library 9. The `com.android.vending.BILLING` permission is added by the library itself.
 
-## Testing (important)
+## Testing
 
-Unlike ads (which serve test impressions in any debug build with zero setup), in-app purchases need real test configuration, and the two stores differ:
+Unlike ads (which serve test impressions in any debug build with zero setup), in-app purchases need real test configuration. The good news: on both stores you test against a **sandbox**, set up entirely in the store's web console, with a build that comes from your CI pipeline and is installed on a real device. No purchase is real, and nothing is published publicly. You do not need a Mac for this: the pipeline builds the app, and the rest is a web console plus a test device.
 
-|                          | Without any store? | Without real money? |
-|--------------------------|--------------------|---------------------|
-| **iOS** (StoreKit local) | yes                | yes                 |
-| **Android** (Play)       | no, needs internal track | yes (test instrument) |
+The flow is the same shape on both: **create the products in the console > add a test account > install a non-public build on a device > buy with no real charge.** The product ids you create must match exactly the ids you pass to `products()` / `purchase()`.
 
-**1. iOS, fully local (best).** Xcode's **StoreKit Testing** runs purchases entirely on-device from a `.storekit` configuration file, with no App Store Connect, no sandbox account and nothing uploaded. Define your products in the `.storekit` file, enable it in the scheme, and the whole flow (purchase, restore, subscription, refund simulation) works in the simulator or on device. Sandbox testing (products in App Store Connect, a sandbox tester account, no public release) is the alternative when you want to exercise the real servers.
+### iOS (App Store Connect Sandbox)
 
-**2. Android, on the internal testing track.** Play Billing does not work on a plain sideloaded APK; the Play Store app processes the flow and must know your app. Upload the AAB to the **internal testing** track (not public), add your account as a **license tester** in the Play Console, and purchases then use a **test instrument** with no real charge. The reserved static product ids (`android.test.purchased`, `android.test.canceled`) exist but are limited; the internal track is the reliable path.
+Needs a paid Apple Developer account and a real iPhone (the sandbox does not run in the simulator).
 
-> Both stores require **server-side receipt validation** before you grant anything. Never unlock a feature from the `nb:purchase-result` event alone, an event can be spoofed. Send the receipt to your Laravel backend and verify it against Apple, Google or RevenueCat there.
+1. **Create the products** in [App Store Connect](https://appstoreconnect.apple.com): your app > **In-App Purchases** (or **Subscriptions**). Set the product id, price and a display name. They do **not** need review or release to work in sandbox, "Ready to Submit" is enough.
+2. **Create a sandbox tester:** **Users and Access > Sandbox > Test Accounts**. This is a throwaway Apple ID with no real card.
+3. **Get the build on the device:** your CI pipeline produces a signed build and uploads it to **TestFlight**. Install TestFlight on the iPhone and run your app from there. (No public App Store release.)
+4. **Sign in to the sandbox account** on the device: **Settings > App Store > Sandbox Account**, sign in with the tester from step 2. On older iOS you are prompted at the moment of purchase instead.
+5. **Buy.** Sandbox purchases use fake money. Auto-renewable subscriptions renew on an **accelerated** clock (a "month" is a few minutes), which is perfect for testing renewal and your TTL cache.
+
+### Android (Play Console internal testing)
+
+Play Billing does not work on a sideloaded APK, the Play Store app processes the flow and must know your app. So the build has to come from Play, but only on a private track.
+
+1. **Create the products** in the [Play Console](https://play.google.com/console): **Monetize > Products > In-app products** (or **Subscriptions**). Set the product id and price, and **activate** them.
+2. **Add license testers:** **Setup > License testing**, add the Google accounts that should get test purchases. Those accounts are charged with a **test card** (no real money).
+3. **Upload the build to internal testing:** **Test and release > Testing > Internal testing**, create a release and upload the AAB your pipeline built. Add your testers to the track.
+4. **Install from the track:** the testers open the internal-testing **opt-in link**, install from the Play Store app, signed in with the license-tester account.
+5. **Buy.** License testers see a "Test card, always approves" instrument, with no real charge.
+
+> The reserved static product ids (`android.test.purchased`, `android.test.canceled`) let you smoke-test the billing flow without configuring products, but they are limited and do not exercise subscriptions; the internal track is the reliable path.
+
+> **Validate on a server if it matters.** For an indie app the signed on-device check (see "Starting simple" below) is enough to gate the UI. When money or abuse is on the line, send the receipt to your Laravel backend and verify it against Apple / Google before granting anything, an event alone can be spoofed.
 
 ## Setup
 
