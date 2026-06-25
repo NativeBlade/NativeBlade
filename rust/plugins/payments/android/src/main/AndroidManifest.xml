@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The com.android.vending.BILLING permission is declared by the Play
+         Billing Library itself and merged into the app manifest, so nothing
+         is added here. -->
+</manifest>

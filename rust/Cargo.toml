@@ -1,5 +1,5 @@
 [workspace]
-members = ["plugins/push", "plugins/media", "plugins/review", "plugins/secure-storage", "plugins/sharing", "plugins/analytics", "plugins/admob"]
+members = ["plugins/push", "plugins/media", "plugins/review", "plugins/secure-storage", "plugins/sharing", "plugins/analytics", "plugins/admob", "plugins/payments"]
 
 [package]
 name = "nativeblade-tauri"

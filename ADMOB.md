@@ -46,12 +46,18 @@ Run `php artisan nativeblade:config`. It writes the app id as `com.google.androi
 
 ## Consent
 
-Ads require consent that purchases do not. Request it once at boot, before showing any ad:
+Ads require consent that purchases do not. Request it once when the screen opens, before showing any ad. Trigger it with `wire:init` rather than `mount()`, so the request (which crosses the native bridge) never blocks the first paint:
+
+```blade
+<div wire:init="requestConsent">
+    {{-- your screen --}}
+</div>
+```
 
 ```php
 use NativeBlade\Facades\NativeBlade;
 
-public function mount()
+public function requestConsent()
 {
     return NativeBlade::requestAdConsent()->toResponse();
 }
