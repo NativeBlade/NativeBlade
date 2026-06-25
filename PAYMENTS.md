@@ -243,6 +243,16 @@ What you give up by skipping the server: status only refreshes when the app is o
 | `nb:purchases-restored` | `purchases`, `error`, `id` |
 | `nb:subscription-status` | `entitlements`, `error`, `id` |
 
+On `nb:purchase-result`, `status` is always present for every outcome: `purchased` on success, and `cancelled`, `pending`, `failed` or `external` (desktop web checkout opened) on a non-success. So you can branch on `status` without null-checking it.
+
+Every action carries an optional `id` echoed back on its event, so one listener can route several concurrent requests. `purchase()` sets it through the builder (`->id($tag)`); `products()`, `restorePurchases()` and `subscriptionStatus()` take it as an optional last argument:
+
+```php
+NativeBlade::products(['com.app.pro'], 'pro_group')->toResponse();
+NativeBlade::subscriptionStatus([], 'boot_check')->toResponse();
+NativeBlade::restorePurchases('settings_screen')->toResponse();
+```
+
 The `->toResponse()` rule applies: inside a Livewire component action call `->toResponse()`; inside a push or deep-link handler return the bare `NativeResponse`.
 
 ## External purchase links
