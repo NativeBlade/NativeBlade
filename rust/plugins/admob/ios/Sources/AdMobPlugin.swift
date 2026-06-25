@@ -60,6 +60,14 @@ class AdMobPlugin: Plugin {
         ATTrackingManager.requestTrackingAuthorization { _ in
             DispatchQueue.main.async {
                 let params = RequestParameters()
+                // Force the EEA consent form in debug for registered test
+                // devices, mirroring the Android side.
+                if Self.isDebug && !testIds.isEmpty {
+                    let debugSettings = DebugSettings()
+                    debugSettings.geography = .EEA
+                    debugSettings.testDeviceIdentifiers = testIds
+                    params.debugSettings = debugSettings
+                }
                 ConsentInformation.shared.requestConsentInfoUpdate(with: params) { error in
                     let finish: () -> Void = {
                         invoke.resolve([
@@ -100,11 +108,12 @@ class AdMobPlugin: Plugin {
             }
 
             self.rewardedAd = ad
+            var earned = false
             let delegate = FullScreenDelegate { reason in
                 let reward = ad.adReward
                 invoke.resolve([
                     "status": reason,
-                    "earned": reason == "dismissed",
+                    "earned": earned,
                     "amount": reward.amount,
                     "type": reward.type,
                 ])
@@ -112,8 +121,11 @@ class AdMobPlugin: Plugin {
             self.contentDelegate = delegate
             ad.fullScreenContentDelegate = delegate
 
+            // The present handler is the reward callback: it fires only when the
+            // user actually earns the reward (mirrors the Android show listener).
+            // It runs before the dismiss delegate, so `earned` is set by then.
             ad.present(from: root) {
-                // Reward is read from ad.adReward on dismiss.
+                earned = true
             }
         }
         #else

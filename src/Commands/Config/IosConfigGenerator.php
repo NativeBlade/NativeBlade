@@ -19,7 +19,6 @@ class IosConfigGenerator
         'FIREBASE_ANALYTICS_COLLECTION_ENABLED',
         'GADApplicationIdentifier',
         'NSUserTrackingUsageDescription',
-        'SKAdNetworkItems',
         'CFBundleName',
         'CFBundleDisplayName',
         'CFBundleShortVersionString',
@@ -198,19 +197,42 @@ class IosConfigGenerator
             $entries[] = "    <string>{$appId}</string>";
             $entries[] = "    <key>NSUserTrackingUsageDescription</key>";
             $entries[] = "    <string>{$tracking}</string>";
-            // The Google network is required for SKAdNetwork attribution; the
-            // SDK contributes the rest via its own bundled Info.plist.
+        }
+
+        // SKAdNetworkItems is additive, not single-value: NativeBlade guarantees
+        // the Google network when admob is configured and merges any networks the
+        // user declares via infoPlist() (for other attribution / ads SDKs),
+        // deduped by identifier. The Google Mobile Ads SDK still contributes the
+        // rest of its own networks through its bundled Info.plist.
+        $skadIds = [];
+        if ($admob !== null && !empty($admob['iosAppId'])) {
+            $skadIds[] = 'cstr6suwn9.skadnetwork';
+        }
+        foreach ((array) ($config['infoPlist']['SKAdNetworkItems'] ?? []) as $item) {
+            $id = is_array($item) ? ($item['SKAdNetworkIdentifier'] ?? null) : $item;
+            if (is_string($id) && $id !== '') {
+                $skadIds[] = $id;
+            }
+        }
+        $skadIds = array_values(array_unique($skadIds));
+        if (!empty($skadIds)) {
             $entries[] = "    <key>SKAdNetworkItems</key>";
             $entries[] = "    <array>";
-            $entries[] = "        <dict>";
-            $entries[] = "            <key>SKAdNetworkIdentifier</key>";
-            $entries[] = "            <string>cstr6suwn9.skadnetwork</string>";
-            $entries[] = "        </dict>";
+            foreach ($skadIds as $id) {
+                $escapedId = htmlspecialchars((string) $id, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                $entries[] = "        <dict>";
+                $entries[] = "            <key>SKAdNetworkIdentifier</key>";
+                $entries[] = "            <string>{$escapedId}</string>";
+                $entries[] = "        </dict>";
+            }
             $entries[] = "    </array>";
         }
 
         $customApplied = 0;
         foreach ($config['infoPlist'] ?? [] as $key => $value) {
+            if ($key === 'SKAdNetworkItems') {
+                continue; // merged above into the NativeBlade-managed entry
+            }
             if (in_array($key, self::RESERVED_KEYS, true)) {
                 $this->cmd->line("  <fg=yellow>→</> iOS Info.plist: ignoring '{$key}' (managed by NativeBlade — use the dedicated config method)");
                 continue;

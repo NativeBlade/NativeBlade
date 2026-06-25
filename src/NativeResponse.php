@@ -411,7 +411,7 @@ class NativeResponse
 
     /**
      * Load and present an interstitial ad, with frequency capping. The outcome
-     * arrives on the `nb:ad-result` event (`status: shown|dismissed|failed|capped`).
+     * arrives on the `nb:ad-result` event (`status: dismissed|failed|capped`).
      * Mobile only.
      *
      * @param  \Closure(\NativeBlade\Plugins\InterstitialAd): void  $callback

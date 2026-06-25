@@ -298,7 +298,20 @@ NativeBladeConfig::ios(function (IosConfig $config) {
 });
 ```
 
-Keys NativeBlade already manages (orientation, status bar, version, app name) are ignored with a build warning. Use their dedicated methods instead.
+Keys NativeBlade already manages (orientation, status bar, version, app name, plus the AdMob-managed `GADApplicationIdentifier` and `NSUserTrackingUsageDescription`) are ignored with a build warning. Use their dedicated methods instead.
+
+**`SKAdNetworkItems` is the exception:** it is additive, not single-value. When AdMob is configured NativeBlade always includes Google's network, and anything you add here is **merged** in (deduped by identifier) rather than ignored, so you can declare the SKAdNetwork ids of other attribution / ads SDKs. Both the array-of-dicts and the plain-string forms are accepted:
+
+```php
+$config->infoPlist([
+    'SKAdNetworkItems' => [
+        ['SKAdNetworkIdentifier' => 'v9wttpbfk9.skadnetwork'],
+        'n38lu8286q.skadnetwork',
+    ],
+]);
+```
+
+This works whether or not AdMob is enabled (without AdMob, only your ids are written).
 
 ### Android: `manifestMetaData(array)`
 

@@ -6,7 +6,7 @@ Banner and native ads are out of scope for v1 — they are embedded views compos
 
 ## Platforms
 
-Mobile-only (Android + iOS). On desktop and web every call is a no-op that reports a `failed` result, so the same handler code runs on all platforms without branching.
+Mobile-only (Android + iOS). On desktop and web, ad-show calls (`rewardedAd`, `interstitialAd`) are no-ops that report a `failed` result on `nb:ad-result`, so the same handler code runs on all platforms without branching. `requestAdConsent` is a silent no-op there (it emits no event on any platform).
 
 ## Testing (important)
 
