@@ -109,8 +109,10 @@ public function buyPro()
 public function onPurchase($success, $receipt = null, $productId = null, $error = null, $status = null, $id = null)
 {
     if (!$success) {
-        // $status = 'cancelled' | 'pending' | 'failed'
-        if ($status !== 'cancelled') $this->addError('payment', $error ?: 'Purchase failed');
+        // $status = 'cancelled' | 'pending' | 'failed' | 'external' (desktop web checkout opened)
+        if (!in_array($status, ['cancelled', 'external'], true)) {
+            $this->addError('payment', $error ?: 'Purchase failed');
+        }
         return;
     }
 

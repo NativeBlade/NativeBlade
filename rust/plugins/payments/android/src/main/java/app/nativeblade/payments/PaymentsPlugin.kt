@@ -30,7 +30,7 @@ class ProductsArgs {
 
 @InvokeArg
 class PurchaseArgs {
-    lateinit var product: String
+    var product: String? = null
     var id: String? = null
     var consumable: Boolean = false
     var external: String? = null
@@ -126,12 +126,30 @@ class PaymentsPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun purchase(invoke: Invoke) {
+        // The store sheet is modal, so only one purchase runs at a time. A second
+        // call while one is pending would overwrite pendingPurchase and leave the
+        // first invoke unresolved, so reject it up front.
+        if (pendingPurchase != null) {
+            invoke.resolve(failure("purchase already in progress"))
+            return
+        }
+
         val args = invoke.parseArgs(PurchaseArgs::class.java)
+        val productId = args.product?.trim()
+        if (productId.isNullOrEmpty()) {
+            invoke.resolve(failure("missing product id"))
+            return
+        }
+
+        pendingPurchase = invoke
+        pendingConsumable = args.consumable
+
         ensureReady({
-            queryDetails(listOf(args.product)) { details ->
+            queryDetails(listOf(productId)) { details ->
                 val product = details.firstOrNull()
                 if (product == null) {
-                    invoke.resolve(failure("product not found: ${args.product}"))
+                    pendingPurchase = null
+                    invoke.resolve(failure("product not found: $productId"))
                     return@queryDetails
                 }
 
@@ -150,9 +168,6 @@ class PaymentsPlugin(private val activity: Activity) : Plugin(activity) {
                     .setProductDetailsParamsList(listOf(detailsParams.build()))
                     .build()
 
-                pendingPurchase = invoke
-                pendingConsumable = args.consumable
-
                 activity.runOnUiThread {
                     val result = billingClient.launchBillingFlow(activity, flowParams)
                     if (result.responseCode != BillingClient.BillingResponseCode.OK) {
@@ -161,7 +176,10 @@ class PaymentsPlugin(private val activity: Activity) : Plugin(activity) {
                     }
                 }
             }
-        }, { msg -> invoke.resolve(failure(msg)) })
+        }, { msg ->
+            pendingPurchase = null
+            invoke.resolve(failure(msg))
+        })
     }
 
     @Command

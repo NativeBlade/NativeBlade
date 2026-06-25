@@ -56,7 +56,9 @@ class PaymentsPlugin: Plugin {
                 case .success(let verification):
                     switch verification {
                     case .verified(let transaction):
-                        let receipt = String(decoding: transaction.jsonRepresentation, as: UTF8.self)
+                        // The signed JWS is on the VerificationResult, not the
+                        // decoded Transaction. Hand it back for server validation.
+                        let receipt = verification.jwsRepresentation
                         await transaction.finish()
                         invoke.resolve([
                             "success": true,
@@ -90,10 +92,9 @@ class PaymentsPlugin: Plugin {
             var list: [[String: Any]] = []
             for await result in Transaction.currentEntitlements {
                 if case .verified(let transaction) = result {
-                    let receipt = String(decoding: transaction.jsonRepresentation, as: UTF8.self)
                     list.append([
                         "productId": transaction.productID,
-                        "receipt": receipt,
+                        "receipt": result.jwsRepresentation,
                     ])
                 }
             }
@@ -108,11 +109,10 @@ class PaymentsPlugin: Plugin {
             for await result in Transaction.currentEntitlements {
                 if case .verified(let transaction) = result {
                     if !filter.isEmpty && !filter.contains(transaction.productID) { continue }
-                    let receipt = String(decoding: transaction.jsonRepresentation, as: UTF8.self)
                     var entry: [String: Any] = [
                         "productId": transaction.productID,
                         "active": transaction.revocationDate == nil,
-                        "receipt": receipt,
+                        "receipt": result.jwsRepresentation,
                     ]
                     if let expires = transaction.expirationDate {
                         entry["expiresAt"] = expires.timeIntervalSince1970

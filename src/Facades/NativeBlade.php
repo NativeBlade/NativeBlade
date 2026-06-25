@@ -53,10 +53,10 @@ use Illuminate\Support\Facades\Facade;
  * @method static \NativeBlade\NativeResponse requestAdConsent(array $testDeviceIds = [])
  * @method static \NativeBlade\NativeResponse rewardedAd(\Closure $callback)
  * @method static \NativeBlade\NativeResponse interstitialAd(\Closure $callback)
- * @method static \NativeBlade\NativeResponse products(array $productIds)
+ * @method static \NativeBlade\NativeResponse products(array $productIds, ?string $id = null)
  * @method static \NativeBlade\NativeResponse purchase(\Closure $callback)
- * @method static \NativeBlade\NativeResponse restorePurchases()
- * @method static \NativeBlade\NativeResponse subscriptionStatus(array $productIds = [])
+ * @method static \NativeBlade\NativeResponse restorePurchases(?string $id = null)
+ * @method static \NativeBlade\NativeResponse subscriptionStatus(array $productIds = [], ?string $id = null)
  *
  * OS info.
  *

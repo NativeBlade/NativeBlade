@@ -432,19 +432,20 @@ class NativeResponse
      * `[['id' => ..., 'price' => ..., 'title' => ..., 'type' => ...], ...]`.
      * Mobile only; reports an empty list on desktop. Requires `Plugin::PAYMENTS`.
      *
-     * @param  string[]  $productIds
+     * @param  string[]     $productIds
+     * @param  string|null  $id          Tag echoed back on `nb:products` for routing concurrent requests
      */
-    public function products(array $productIds): static
+    public function products(array $productIds, ?string $id = null): static
     {
-        return $this->push('query_products', ['products' => array_values($productIds)]);
+        return $this->push('query_products', ['products' => array_values($productIds), 'id' => $id]);
     }
 
     /**
      * Start an in-app purchase. The outcome arrives on the `nb:purchase-result`
-     * event (`success`, `receipt`, `productId`, `error`, `id`). Always validate
-     * the receipt on a server before granting entitlement. Mobile only; on
-     * desktop it opens the builder's `external(...)` web checkout if set,
-     * otherwise reports a failure result.
+     * event (`success`, `status`, `receipt`, `productId`, `error`, `id`). Always
+     * validate the receipt on a server before granting entitlement. Mobile only;
+     * on desktop it opens the builder's `external(...)` web checkout if set
+     * (reporting `status: 'external'`), otherwise reports a failure result.
      *
      * @param  \Closure(\NativeBlade\Plugins\Purchase): void  $callback
      */
@@ -460,10 +461,12 @@ class NativeResponse
      * subscriptions). The result arrives on the `nb:purchases-restored` event
      * as `['purchases' => [['productId' => ..., 'receipt' => ...], ...]]`.
      * Requires `Plugin::PAYMENTS`.
+     *
+     * @param  string|null  $id  Tag echoed back on `nb:purchases-restored` for routing concurrent requests
      */
-    public function restorePurchases(): static
+    public function restorePurchases(?string $id = null): static
     {
-        return $this->push('restore_purchases', []);
+        return $this->push('restore_purchases', ['id' => $id]);
     }
 
     /**
@@ -472,11 +475,12 @@ class NativeResponse
      * `['entitlements' => [['productId' => ..., 'active' => ..., 'receipt' => ...], ...]]`.
      * Pass product ids to narrow the report, or none for every entitlement.
      *
-     * @param  string[]  $productIds
+     * @param  string[]     $productIds
+     * @param  string|null  $id          Tag echoed back on `nb:subscription-status` for routing concurrent requests
      */
-    public function subscriptionStatus(array $productIds = []): static
+    public function subscriptionStatus(array $productIds = [], ?string $id = null): static
     {
-        return $this->push('subscription_status', ['products' => array_values($productIds)]);
+        return $this->push('subscription_status', ['products' => array_values($productIds), 'id' => $id]);
     }
 
     // ------------------------------------------------------------------

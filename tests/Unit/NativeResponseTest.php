@@ -122,7 +122,17 @@ final class NativeResponseTest extends TestCase
     {
         $r = (new NativeResponse())->products(['com.app.pro', 'com.app.coins']);
         self::assertSame(
-            [['action' => 'query_products', 'data' => ['products' => ['com.app.pro', 'com.app.coins']]]],
+            [['action' => 'query_products', 'data' => ['products' => ['com.app.pro', 'com.app.coins'], 'id' => null]]],
+            $r->toArray()
+        );
+    }
+
+    #[Test]
+    public function products_passes_the_optional_id_through(): void
+    {
+        $r = (new NativeResponse())->products(['com.app.pro'], 'pro_group');
+        self::assertSame(
+            [['action' => 'query_products', 'data' => ['products' => ['com.app.pro'], 'id' => 'pro_group']]],
             $r->toArray()
         );
     }
@@ -143,7 +153,7 @@ final class NativeResponseTest extends TestCase
     public function restore_purchases_queues_a_restore_action(): void
     {
         $r = (new NativeResponse())->restorePurchases();
-        self::assertSame([['action' => 'restore_purchases', 'data' => []]], $r->toArray());
+        self::assertSame([['action' => 'restore_purchases', 'data' => ['id' => null]]], $r->toArray());
     }
 
     #[Test]
@@ -151,7 +161,7 @@ final class NativeResponseTest extends TestCase
     {
         $r = (new NativeResponse())->subscriptionStatus(['com.app.pro.monthly']);
         self::assertSame(
-            [['action' => 'subscription_status', 'data' => ['products' => ['com.app.pro.monthly']]]],
+            [['action' => 'subscription_status', 'data' => ['products' => ['com.app.pro.monthly'], 'id' => null]]],
             $r->toArray()
         );
     }
@@ -161,7 +171,7 @@ final class NativeResponseTest extends TestCase
     {
         $r = (new NativeResponse())->subscriptionStatus();
         self::assertSame(
-            [['action' => 'subscription_status', 'data' => ['products' => []]]],
+            [['action' => 'subscription_status', 'data' => ['products' => [], 'id' => null]]],
             $r->toArray()
         );
     }

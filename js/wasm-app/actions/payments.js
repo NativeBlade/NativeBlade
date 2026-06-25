@@ -33,7 +33,7 @@ export async function purchase(payload, ctx) {
             ctx.openerApi.openUrl(payload.external);
             ctx.post('nativeblade-purchase-result', { success: false, status: 'external', id });
         } else {
-            ctx.post('nativeblade-purchase-result', { success: false, error: 'unsupported', id });
+            ctx.post('nativeblade-purchase-result', { success: false, status: 'failed', error: 'unsupported', id });
         }
         return;
     }
@@ -53,7 +53,7 @@ export async function purchase(payload, ctx) {
             id,
         });
     } catch (e) {
-        ctx.post('nativeblade-purchase-result', { success: false, error: String(e), id });
+        ctx.post('nativeblade-purchase-result', { success: false, status: 'failed', error: String(e), id });
     }
 }
 
