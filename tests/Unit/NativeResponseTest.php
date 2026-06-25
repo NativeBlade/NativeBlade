@@ -50,6 +50,10 @@ final class NativeResponseTest extends TestCase
         self::assertSame($r, $r->forgetSecure('k'));
         self::assertSame($r, $r->share('hi'));
         self::assertSame($r, $r->analytics(fn ($a) => $a->event('x')));
+        self::assertSame($r, $r->products(['com.app.pro']));
+        self::assertSame($r, $r->purchase(fn ($p) => $p->product('com.app.pro')));
+        self::assertSame($r, $r->restorePurchases());
+        self::assertSame($r, $r->subscriptionStatus());
     }
 
     #[Test]
@@ -109,6 +113,65 @@ final class NativeResponseTest extends TestCase
         $r = (new NativeResponse())->forgetSecure('auth.token');
         self::assertSame(
             [['action' => 'forget_secure', 'data' => ['key' => 'auth.token']]],
+            $r->toArray()
+        );
+    }
+
+    #[Test]
+    public function products_queues_a_query_products_action(): void
+    {
+        $r = (new NativeResponse())->products(['com.app.pro', 'com.app.coins']);
+        self::assertSame(
+            [['action' => 'query_products', 'data' => ['products' => ['com.app.pro', 'com.app.coins'], 'id' => null]]],
+            $r->toArray()
+        );
+    }
+
+    #[Test]
+    public function products_passes_the_optional_id_through(): void
+    {
+        $r = (new NativeResponse())->products(['com.app.pro'], 'pro_group');
+        self::assertSame(
+            [['action' => 'query_products', 'data' => ['products' => ['com.app.pro'], 'id' => 'pro_group']]],
+            $r->toArray()
+        );
+    }
+
+    #[Test]
+    public function purchase_queues_a_purchase_action_from_the_builder(): void
+    {
+        $r = (new NativeResponse())->purchase(function ($p) {
+            $p->product('com.app.pro.monthly')->id('pro');
+        });
+        self::assertSame(
+            [['action' => 'purchase', 'data' => ['product' => 'com.app.pro.monthly', 'id' => 'pro']]],
+            $r->toArray()
+        );
+    }
+
+    #[Test]
+    public function restore_purchases_queues_a_restore_action(): void
+    {
+        $r = (new NativeResponse())->restorePurchases();
+        self::assertSame([['action' => 'restore_purchases', 'data' => ['id' => null]]], $r->toArray());
+    }
+
+    #[Test]
+    public function subscription_status_queues_the_product_filter(): void
+    {
+        $r = (new NativeResponse())->subscriptionStatus(['com.app.pro.monthly']);
+        self::assertSame(
+            [['action' => 'subscription_status', 'data' => ['products' => ['com.app.pro.monthly'], 'id' => null]]],
+            $r->toArray()
+        );
+    }
+
+    #[Test]
+    public function subscription_status_defaults_to_an_empty_filter(): void
+    {
+        $r = (new NativeResponse())->subscriptionStatus();
+        self::assertSame(
+            [['action' => 'subscription_status', 'data' => ['products' => [], 'id' => null]]],
             $r->toArray()
         );
     }

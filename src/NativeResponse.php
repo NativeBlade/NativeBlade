@@ -424,6 +424,66 @@ class NativeResponse
     }
 
     // ------------------------------------------------------------------
+    // Payments (in-app purchases and subscriptions)
+
+    /**
+     * Fetch products from the store so real localized prices can be shown. The
+     * result arrives on the `nb:products` event as
+     * `[['id' => ..., 'price' => ..., 'title' => ..., 'type' => ...], ...]`.
+     * Mobile only; reports an empty list on desktop. Requires `Plugin::PAYMENTS`.
+     *
+     * @param  string[]     $productIds
+     * @param  string|null  $id          Tag echoed back on `nb:products` for routing concurrent requests
+     */
+    public function products(array $productIds, ?string $id = null): static
+    {
+        return $this->push('query_products', ['products' => array_values($productIds), 'id' => $id]);
+    }
+
+    /**
+     * Start an in-app purchase. The outcome arrives on the `nb:purchase-result`
+     * event (`success`, `status`, `receipt`, `productId`, `error`, `id`). Always
+     * validate the receipt on a server before granting entitlement. Mobile only;
+     * on desktop it opens the builder's `external(...)` web checkout if set
+     * (reporting `status: 'external'`), otherwise reports a failure result.
+     *
+     * @param  \Closure(\NativeBlade\Plugins\Purchase): void  $callback
+     */
+    public function purchase(\Closure $callback): static
+    {
+        $purchase = new \NativeBlade\Plugins\Purchase();
+        $callback($purchase);
+        return $this->push('purchase', $purchase->toArray());
+    }
+
+    /**
+     * Restore previous purchases (required by Apple for non-consumables and
+     * subscriptions). The result arrives on the `nb:purchases-restored` event
+     * as `['purchases' => [['productId' => ..., 'receipt' => ...], ...]]`.
+     * Requires `Plugin::PAYMENTS`.
+     *
+     * @param  string|null  $id  Tag echoed back on `nb:purchases-restored` for routing concurrent requests
+     */
+    public function restorePurchases(?string $id = null): static
+    {
+        return $this->push('restore_purchases', ['id' => $id]);
+    }
+
+    /**
+     * Read active entitlements (owned non-consumables and active subscriptions).
+     * The result arrives on the `nb:subscription-status` event as
+     * `['entitlements' => [['productId' => ..., 'active' => ..., 'receipt' => ...], ...]]`.
+     * Pass product ids to narrow the report, or none for every entitlement.
+     *
+     * @param  string[]     $productIds
+     * @param  string|null  $id          Tag echoed back on `nb:subscription-status` for routing concurrent requests
+     */
+    public function subscriptionStatus(array $productIds = [], ?string $id = null): static
+    {
+        return $this->push('subscription_status', ['products' => array_values($productIds), 'id' => $id]);
+    }
+
+    // ------------------------------------------------------------------
     // OS info
     // ------------------------------------------------------------------
 

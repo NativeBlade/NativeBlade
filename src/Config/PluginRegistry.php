@@ -91,6 +91,14 @@ class PluginRegistry
                 'mobile_capabilities' => ['nativeblade-admob:default'],
             ],
 
+            Plugin::PAYMENTS => [
+                'feature' => 'payments',
+                'feature_crate' => 'tauri-plugin-nativeblade-payments',
+                'rust_init' => 'tauri_plugin_nativeblade_payments::init()',
+                'mobile_only' => true,
+                'mobile_capabilities' => ['nativeblade-payments:default'],
+            ],
+
             Plugin::GEOLOCATION => [
                 'feature' => 'geolocation',
                 'feature_crate' => 'tauri-plugin-geolocation',

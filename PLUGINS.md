@@ -24,6 +24,7 @@ This document lists every built-in bridge, what it does, and how to call it from
 - [Sharing](#sharing)
 - [Analytics](#analytics)
 - [AdMob](#admob)
+- [Payments](#payments)
 - [Camera & Gallery](#camera--gallery)
 - [Navigation](#navigation)
 - [Modal](#modal)
@@ -86,6 +87,7 @@ When you run `nativeblade:dev` or `nativeblade:build`, the CLI passes `--feature
 | `Plugin::SHARING` | Native share sheet via `NativeBlade::share()` (mobile only) |
 | `Plugin::ANALYTICS` | Firebase Analytics via `NativeBlade::analytics()` (mobile only) |
 | `Plugin::ADMOB` | AdMob rewarded + interstitial ads via `NativeBlade::rewardedAd()` / `interstitialAd()` (mobile only) |
+| `Plugin::PAYMENTS` | In-app purchases + subscriptions (StoreKit 2 / Play Billing) via `NativeBlade::products()` / `purchase()` / `restorePurchases()` / `subscriptionStatus()` (mobile only) |
 | `Plugin::GEOLOCATION` | `nb:geolocation` event with current position |
 | `Plugin::BIOMETRIC` | `NativeBlade::biometric()` (mobile only) |
 | `Plugin::BARCODE_SCANNER` | `NativeBlade::scan()` (mobile only) |
@@ -183,6 +185,7 @@ return NativeBlade::notification(fn (Notification $n) => $n->title('Saved')->bod
 | Sharing | `share($text = null, $url = null)` |
 | Analytics | `analytics(Closure)` |
 | AdMob | `requestAdConsent(array $testDeviceIds = [])`, `rewardedAd(Closure)`, `interstitialAd(Closure)` |
+| Payments | `products(array $productIds)`, `purchase(Closure)`, `restorePurchases()`, `subscriptionStatus(array $productIds = [])` |
 | Camera | `camera(?Closure)`, `gallery(?Closure)` |
 | Navigation | `navigate($path, $replace = false)` |
 | Modal | `showModal()`, `hideModal()` |
@@ -1129,6 +1132,28 @@ return NativeBlade::interstitialAd(fn (InterstitialAd $a) => $a->unit('ca-app-pu
 ```
 
 Outcomes arrive on the `nb:ad-reward` event (`earned`, `amount`, `rewardType`, `id`) and the `nb:ad-result` event (`status` = `dismissed|failed|capped`, `error`, `id`). Grant the reward only when `earned` is true. Full guide, including consent and testing with real units on a registered device, in [ADMOB.md](ADMOB.md).
+
+---
+
+## Payments
+
+In-app purchases and subscriptions through StoreKit 2 (iOS 15+) and Google Play Billing. Mobile only. Requires `Plugin::PAYMENTS`. The native side starts the flow and hands back the store receipt; you validate it on your server before granting access.
+
+```php
+use NativeBlade\Plugins\Purchase;
+
+// Load products so you can show real localized prices
+return NativeBlade::products(['com.app.pro.monthly'])->toResponse();
+
+// Start a purchase (mark ->consumable() for credits/coins)
+return NativeBlade::purchase(fn (Purchase $p) => $p->id('pro')->product('com.app.pro.monthly'))->toResponse();
+
+// Restore previous purchases (required by Apple) and read active entitlements
+return NativeBlade::restorePurchases()->toResponse();
+return NativeBlade::subscriptionStatus(['com.app.pro.monthly'])->toResponse();
+```
+
+Outcomes arrive on `nb:products` (`products`, `error`, `id`), `nb:purchase-result` (`success`, `status`, `receipt`, `productId`, `error`, `id`), `nb:purchases-restored` (`purchases`, `error`, `id`) and `nb:subscription-status` (`entitlements`, `error`, `id`). Always validate the receipt on a server before unlocking, never trust the event alone. Full guide, including how to test without publishing (StoreKit local on iOS, internal track on Android), in [PAYMENTS.md](PAYMENTS.md).
 
 ---
 

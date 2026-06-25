@@ -29,6 +29,7 @@ import * as secure from './secure.js';
 import * as shareMod from './share.js';
 import * as analyticsMod from './analytics.js';
 import * as admobMod from './admob.js';
+import * as paymentsMod from './payments.js';
 
 export const actions = {
     // dialog
@@ -130,4 +131,10 @@ export const actions = {
     request_ad_consent: admobMod.request_ad_consent,
     rewarded_ad: admobMod.rewarded_ad,
     interstitial_ad: admobMod.interstitial_ad,
+
+    // payments (in-app purchases)
+    query_products: paymentsMod.query_products,
+    purchase: paymentsMod.purchase,
+    restore_purchases: paymentsMod.restore_purchases,
+    subscription_status: paymentsMod.subscription_status,
 };

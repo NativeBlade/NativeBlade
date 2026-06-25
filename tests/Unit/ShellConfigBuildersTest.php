@@ -277,6 +277,28 @@ final class ShellConfigBuildersTest extends TestCase
     }
 
     #[Test]
+    public function purchase_builder_collects_fields(): void
+    {
+        $purchase = (new \NativeBlade\Plugins\Purchase())
+            ->product('com.nativeblade.pro.monthly')
+            ->id('pro_monthly');
+        self::assertSame(
+            ['product' => 'com.nativeblade.pro.monthly', 'id' => 'pro_monthly'],
+            $purchase->toArray()
+        );
+
+        $coins = (new \NativeBlade\Plugins\Purchase())
+            ->product('com.nativeblade.coins.100')
+            ->consumable()
+            ->external('https://example.com/checkout');
+        self::assertSame([
+            'product' => 'com.nativeblade.coins.100',
+            'consumable' => true,
+            'external' => 'https://example.com/checkout',
+        ], $coins->toArray());
+    }
+
+    #[Test]
     public function ios_info_plist_entries_are_stored_and_merge_across_calls(): void
     {
         $this->config->ios(function (IosConfig $cfg) {

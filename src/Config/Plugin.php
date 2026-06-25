@@ -34,6 +34,9 @@ enum Plugin: string
     /** AdMob rewarded and interstitial ads (with UMP/ATT consent) via the Google Mobile Ads SDK. Powers `NativeBlade::rewardedAd()` / `interstitialAd()`. Needs `NativeBladeConfig::admob(...)`. NativeBlade native plugin. */
     case ADMOB = 'admob';
 
+    /** In-app purchases and subscriptions (StoreKit 2 on iOS, Play Billing on Android). Powers `NativeBlade::products()`, `purchase()`, `restorePurchases()`, `subscriptionStatus()`. NativeBlade native plugin. */
+    case PAYMENTS = 'payments';
+
     /** Device GPS / network-based location. Powers `NativeBlade::geolocation()`. */
     case GEOLOCATION = 'geolocation';
 

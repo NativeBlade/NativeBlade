@@ -60,6 +60,7 @@ tauri-plugin-nativeblade-secure-storage = { path = "{{NATIVEBLADE_RUST_PATH}}/pl
 tauri-plugin-nativeblade-sharing = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/sharing", optional = true }
 tauri-plugin-nativeblade-analytics = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/analytics", optional = true }
 tauri-plugin-nativeblade-admob = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/admob", optional = true }
+tauri-plugin-nativeblade-payments = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/payments", optional = true }
 
 # nativeblade:plugins:start
 [features]
