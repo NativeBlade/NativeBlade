@@ -20,7 +20,7 @@ import './nb.js';
 
 const splash = document.getElementById('splash');
 const appFrame = document.getElementById('app');
-const status = document.getElementById('status');
+const status = document.getElementById('status') || { textContent: '', style: {} };
 
 async function main() {
     try {
