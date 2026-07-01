@@ -44,7 +44,7 @@ class InstallCommand extends Command
         $this->patchEnv();
         $this->createDirectories();
         $this->call('nativeblade:icon');
-        $this->call('nativeblade:config');
+        $this->runConfigInFreshProcess();
 
         $this->info('');
         $this->info('  ✓ NativeBlade installed successfully!');
@@ -57,6 +57,27 @@ class InstallCommand extends Command
         $this->info('');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * `nativeblade:config` reads the plugin set from the AppServiceProvider
+     * published above — but this process booted with the project's previous
+     * provider, so ShellConfig is empty here and `$this->call()` would fall
+     * back to "no plugins() declared = every plugin enabled". A fresh PHP
+     * process boots the new provider before generating.
+     */
+    private function runConfigInFreshProcess(): void
+    {
+        $cmd = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(base_path('artisan')) . ' nativeblade:config 2>&1';
+        exec($cmd, $output, $code);
+
+        foreach ($output as $line) {
+            $this->line($line);
+        }
+
+        if ($code !== 0) {
+            $this->line("  <fg=yellow>→</> nativeblade:config failed, run manually: php artisan nativeblade:config");
+        }
     }
 
     private function installComposerDependencies(): void
