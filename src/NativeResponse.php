@@ -423,6 +423,30 @@ class NativeResponse
         return $this->push('interstitial_ad', $ad->toArray());
     }
 
+    /**
+     * Show an anchored adaptive banner pinned below the WebView; the page
+     * shrinks to make room. The result arrives on the `nb:ad-result` event
+     * (`status: shown|failed`). Showing again replaces the current banner;
+     * remove it with `hideBannerAd()`. Mobile only.
+     *
+     * @param  \Closure(\NativeBlade\Plugins\BannerAd): void  $callback
+     */
+    public function bannerAd(\Closure $callback): static
+    {
+        $ad = new \NativeBlade\Plugins\BannerAd();
+        $callback($ad);
+        return $this->push('banner_ad', $ad->toArray());
+    }
+
+    /**
+     * Remove the banner shown by `bannerAd()` and give the WebView its space
+     * back. A silent no-op when no banner is showing.
+     */
+    public function hideBannerAd(): static
+    {
+        return $this->push('hide_banner_ad', []);
+    }
+
     // ------------------------------------------------------------------
     // Payments (in-app purchases and subscriptions)
 

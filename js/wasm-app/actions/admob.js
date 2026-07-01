@@ -1,4 +1,5 @@
-// AdMob actions — request_ad_consent, rewarded_ad, interstitial_ad
+// AdMob actions — request_ad_consent, rewarded_ad, interstitial_ad,
+// banner_ad, hide_banner_ad
 //
 // Mobile only: drives the Google Mobile Ads SDK via the nativeblade-admob
 // native plugin. On desktop every call posts a failure result so handler code
@@ -37,6 +38,32 @@ export async function rewarded_ad(payload, ctx) {
         ctx.post('nativeblade-ad-result', { status: res.status, error: res.error ?? null, id });
     } catch (e) {
         ctx.post('nativeblade-ad-result', { status: 'failed', error: String(e), id });
+    }
+}
+
+export async function banner_ad(payload, ctx) {
+    const id = payload.id || null;
+    if (!ctx.isMobile || !ctx.invokeTauri) {
+        ctx.post('nativeblade-ad-result', { status: 'failed', error: 'unsupported', id });
+        return;
+    }
+    try {
+        const res = await ctx.invokeTauri('plugin:nativeblade-admob|show_banner', {
+            unit: payload.unit,
+            id,
+        });
+        ctx.post('nativeblade-ad-result', { status: res.status, error: res.error ?? null, id });
+    } catch (e) {
+        ctx.post('nativeblade-ad-result', { status: 'failed', error: String(e), id });
+    }
+}
+
+export async function hide_banner_ad(payload, ctx) {
+    if (!ctx.isMobile || !ctx.invokeTauri) return;
+    try {
+        await ctx.invokeTauri('plugin:nativeblade-admob|hide_banner', {});
+    } catch (e) {
+        console.warn('[NB AdMob] hide banner failed:', e);
     }
 }
 

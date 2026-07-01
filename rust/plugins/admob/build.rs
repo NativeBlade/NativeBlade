@@ -1,4 +1,10 @@
-const COMMANDS: &[&str] = &["request_consent", "show_rewarded", "show_interstitial"];
+const COMMANDS: &[&str] = &[
+    "request_consent",
+    "show_rewarded",
+    "show_interstitial",
+    "show_banner",
+    "hide_banner",
+];
 
 fn main() {
     let result = tauri_plugin::Builder::new(COMMANDS)

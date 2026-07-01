@@ -25,3 +25,10 @@ pub struct InterstitialArgs {
     #[serde(default)]
     pub min_interval: Option<u64>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BannerArgs {
+    pub unit: String,
+    #[serde(default)]
+    pub id: Option<String>,
+}

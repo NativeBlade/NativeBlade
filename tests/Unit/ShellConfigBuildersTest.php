@@ -267,13 +267,16 @@ final class ShellConfigBuildersTest extends TestCase
     }
 
     #[Test]
-    public function rewarded_and_interstitial_builders_collect_fields(): void
+    public function ad_builders_collect_fields(): void
     {
         $rewarded = (new \NativeBlade\Plugins\RewardedAd())->unit('u/r')->id('coins');
         self::assertSame(['unit' => 'u/r', 'id' => 'coins'], $rewarded->toArray());
 
         $interstitial = (new \NativeBlade\Plugins\InterstitialAd())->unit('u/i')->minInterval(120);
         self::assertSame(['unit' => 'u/i', 'minInterval' => 120], $interstitial->toArray());
+
+        $banner = (new \NativeBlade\Plugins\BannerAd())->unit('u/b')->id('home');
+        self::assertSame(['unit' => 'u/b', 'id' => 'home'], $banner->toArray());
     }
 
     #[Test]

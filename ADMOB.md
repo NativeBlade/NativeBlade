@@ -1,12 +1,12 @@
 # AdMob
 
-Native mobile ads through the Google Mobile Ads SDK. v1 covers the two full-screen formats that fit NativeBlade's overlay model and carry most of the revenue: **rewarded** (the opt-in "watch for a reward" flow) and **interstitial** (with frequency capping baked in). The required consent layer (Google UMP on both platforms, App Tracking Transparency on iOS) is part of v1. Requires `Plugin::ADMOB`.
+Native mobile ads through the Google Mobile Ads SDK. Three formats are covered: **rewarded** (the opt-in "watch for a reward" flow), **interstitial** (with frequency capping baked in) and **banner** (an adaptive banner anchored below the WebView). The required consent layer (Google UMP on both platforms, App Tracking Transparency on iOS) is included. Requires `Plugin::ADMOB`.
 
-Banner and native ads are out of scope for v1 — they are embedded views composited with the WebView, a harder problem for a later version.
+Native (in-content) ads are out of scope — they are embedded views composited with the WebView, a harder problem for a later version. The banner works because it never overlaps the page: it is pinned to the bottom edge and the WebView shrinks to make room.
 
 ## Platforms
 
-Mobile-only (Android + iOS). On desktop and web, ad-show calls (`rewardedAd`, `interstitialAd`) are no-ops that report a `failed` result on `nb:ad-result`, so the same handler code runs on all platforms without branching. `requestAdConsent` is a silent no-op there (it emits no event on any platform).
+Mobile-only (Android + iOS). On desktop and web, ad-show calls (`rewardedAd`, `interstitialAd`, `bannerAd`) are no-ops that report a `failed` result on `nb:ad-result`, so the same handler code runs on all platforms without branching. `requestAdConsent` and `hideBannerAd` are silent no-ops there (they emit no event on any platform).
 
 ## Testing (important)
 
@@ -111,22 +111,45 @@ public function nextLevel()
 
 When called within `minInterval` seconds of the last interstitial for that unit, the ad is skipped and the result reports `status: 'capped'`.
 
+## Banner ads
+
+An anchored adaptive banner pinned **below the WebView** — the page shrinks to make room (above the navigation bar / home indicator), so the banner never covers content. Show it when the screen opens, hide it when the screen should be ad-free:
+
+```php
+use NativeBlade\Facades\NativeBlade;
+use NativeBlade\Plugins\BannerAd;
+
+public function showBanner()
+{
+    return NativeBlade::bannerAd(function (BannerAd $a) {
+        $a->id('home')->unit('ca-app-pub-XXXX/banner');
+    })->toResponse();
+}
+
+public function hideBanner()
+{
+    return NativeBlade::hideBannerAd()->toResponse();
+}
+```
+
+The result arrives on `nb:ad-result` with `status: 'shown'` once the first ad fills (the SDK refreshes it on its own afterwards) or `status: 'failed'` when nothing fills — on failure the reserved space is given back automatically. Calling `bannerAd` while a banner is showing replaces it; the banner also stays up across Livewire navigation, so hide it explicitly when leaving ad-supported screens. On device rotation the banner is rebuilt for the new width automatically (adaptive banners are sized for the width they were loaded with).
+
 ## Result events
 
-Both formats report on `nb:ad-result`; rewarded additionally reports on `nb:ad-reward`.
+All formats report on `nb:ad-result`; rewarded additionally reports on `nb:ad-reward`.
 
 ```php
 #[On('nb:ad-result')]
 public function onAdResult($status, $error = null, $id = null)
 {
-    // $status = 'dismissed' | 'failed' | 'capped'
+    // $status = 'dismissed' | 'failed' | 'capped' (full-screen) | 'shown' (banner)
 }
 ```
 
 | Builder method | Applies to | Description |
 |---|---|---|
-| `->unit($adUnitId)` | both | AdMob ad unit id (a test unit is substituted in debug) |
-| `->id($tag)` | both | Tag echoed back on the result events for routing |
+| `->unit($adUnitId)` | all | AdMob ad unit id (a test unit is substituted in debug) |
+| `->id($tag)` | all | Tag echoed back on the result events for routing |
 | `->minInterval($seconds)` | interstitial | Frequency cap; returns `status: 'capped'` if shown too soon |
 
 The `->toResponse()` rule applies: inside a Livewire component action call `->toResponse()`; inside a push or deep-link handler return the bare `NativeResponse`.

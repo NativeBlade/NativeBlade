@@ -31,7 +31,7 @@ enum Plugin: string
     /** Firebase Analytics via the native SDK (events, screens, user properties, consent). Powers `NativeBlade::analytics()`. Needs `NativeBladeConfig::firebase(...)`. NativeBlade native plugin. */
     case ANALYTICS = 'analytics';
 
-    /** AdMob rewarded and interstitial ads (with UMP/ATT consent) via the Google Mobile Ads SDK. Powers `NativeBlade::rewardedAd()` / `interstitialAd()`. Needs `NativeBladeConfig::admob(...)`. NativeBlade native plugin. */
+    /** AdMob rewarded, interstitial and anchored banner ads (with UMP/ATT consent) via the Google Mobile Ads SDK. Powers `NativeBlade::rewardedAd()` / `interstitialAd()` / `bannerAd()`. Needs `NativeBladeConfig::admob(...)`. NativeBlade native plugin. */
     case ADMOB = 'admob';
 
     /** In-app purchases and subscriptions (StoreKit 2 on iOS, Play Billing on Android). Powers `NativeBlade::products()`, `purchase()`, `restorePurchases()`, `subscriptionStatus()`. NativeBlade native plugin. */

@@ -2,7 +2,7 @@ use serde::de::DeserializeOwned;
 use tauri::{plugin::PluginApi, AppHandle, Runtime};
 
 use crate::error::{Error, Result};
-use crate::models::{ConsentArgs, InterstitialArgs, RewardedArgs};
+use crate::models::{BannerArgs, ConsentArgs, InterstitialArgs, RewardedArgs};
 
 /// Desktop stub. AdMob is mobile-only; the JS bridge makes every call a no-op
 /// that reports a failure event so handler code runs unchanged everywhere.
@@ -20,6 +20,14 @@ impl<R: Runtime> NativeBladeAdmob<R> {
     }
 
     pub fn show_interstitial(&self, _args: InterstitialArgs) -> Result<serde_json::Value> {
+        Err(Error::Unsupported)
+    }
+
+    pub fn show_banner(&self, _args: BannerArgs) -> Result<serde_json::Value> {
+        Err(Error::Unsupported)
+    }
+
+    pub fn hide_banner(&self) -> Result<()> {
         Err(Error::Unsupported)
     }
 }
