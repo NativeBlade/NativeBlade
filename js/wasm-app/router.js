@@ -73,6 +73,14 @@ export function init(frame, splashEl) {
 
     window.addEventListener('message', async (event) => {
         const { type } = event.data || {};
+        // The buffer's first-render mirror copy runs the same page as the
+        // visible frame; drop its bridge traffic so page side effects
+        // (Livewire boot, wire:init) don't execute twice. Real buffer loads
+        // during navigation clear the flag and are served normally.
+        if (bufferFrame?.dataset.nbMirror === '1'
+            && event.source === bufferFrame.contentWindow) {
+            return;
+        }
         // Reply to whichever iframe asked. During navigation animations both
         // appFrame and bufferFrame may post messages; using event.source
         // routes the response back correctly.
@@ -217,12 +225,19 @@ async function renderPage(text, path, options, version) {
 
     if (isFirstRender || !appFrame.contentDocument || !appFrame.contentDocument.body) {
         appFrame.srcdoc = html;
+        // The buffer keeps a mirror of the page for the transition system,
+        // but that copy also *runs* (Livewire boots, wire:init fires), which
+        // would execute every page side effect twice. Flag it so the message
+        // listener drops its bridge traffic; the flag is cleared when a
+        // navigation loads a real page into the buffer.
+        bufferFrame.dataset.nbMirror = '1';
         bufferFrame.srcdoc = html;
         return;
     }
 
     if (!appFrame.contentDocument || !appFrame.contentDocument.body) {
         appFrame.srcdoc = html;
+        bufferFrame.dataset.nbMirror = '1';
         bufferFrame.srcdoc = html;
         return;
     }
@@ -251,6 +266,7 @@ async function renderPage(text, path, options, version) {
             };
             bufferFrame.addEventListener('load', onLoad);
         });
+        delete bufferFrame.dataset.nbMirror;
         bufferFrame.srcdoc = html;
         await loaded;
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -306,6 +322,7 @@ async function renderPage(text, path, options, version) {
         };
         bufferFrame.addEventListener('load', onLoad);
     });
+    delete bufferFrame.dataset.nbMirror;
     bufferFrame.srcdoc = html;
     await loaded;
 
