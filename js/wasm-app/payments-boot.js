@@ -6,6 +6,8 @@
 // as a late `nb:purchase-result` with `late: true`. The payload carries the
 // same receipt/token as the original attempt, so grants can dedupe on it.
 
+import { postToApp } from './bridge.js';
+
 export async function init(appFrame) {
     if (!window.__TAURI_INTERNALS__) return;
 
@@ -25,8 +27,9 @@ export async function init(appFrame) {
             return; // payments plugin not declared, or desktop
         }
         for (const r of results) {
-            appFrame?.contentWindow?.postMessage({
-                type: 'nativeblade-purchase-result',
+            // postToApp follows router frame swaps, in case the user
+            // navigated within the drain delay.
+            postToApp('nativeblade-purchase-result', {
                 success: !!r.success,
                 status: r.status ?? 'purchased',
                 receipt: r.receipt ?? null,
@@ -36,7 +39,7 @@ export async function init(appFrame) {
                 error: null,
                 late: true,
                 id: null,
-            }, '*');
+            });
         }
     };
 

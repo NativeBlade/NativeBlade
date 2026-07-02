@@ -30,6 +30,7 @@ import * as shareMod from './share.js';
 import * as analyticsMod from './analytics.js';
 import * as admobMod from './admob.js';
 import * as paymentsMod from './payments.js';
+import * as networkMod from './network.js';
 
 export const actions = {
     // dialog
@@ -139,4 +140,7 @@ export const actions = {
     purchase: paymentsMod.purchase,
     restore_purchases: paymentsMod.restore_purchases,
     subscription_status: paymentsMod.subscription_status,
+
+    // network (connectivity)
+    network_status: networkMod.network_status,
 };

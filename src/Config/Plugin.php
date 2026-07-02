@@ -37,6 +37,9 @@ enum Plugin: string
     /** In-app purchases and subscriptions (StoreKit 2 on iOS, Play Billing on Android). Powers `NativeBlade::products()`, `purchase()`, `restorePurchases()`, `subscriptionStatus()`. NativeBlade native plugin. */
     case PAYMENTS = 'payments';
 
+    /** Connectivity status and live change events (ConnectivityManager on Android, NWPathMonitor on iOS; browser fallback on desktop/web). Powers `NativeBlade::networkStatus()` and the `nb:network-changed` event. NativeBlade native plugin. */
+    case NETWORK = 'network';
+
     /** Device GPS / network-based location. Powers `NativeBlade::geolocation()`. */
     case GEOLOCATION = 'geolocation';
 

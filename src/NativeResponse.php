@@ -448,6 +448,24 @@ class NativeResponse
     }
 
     // ------------------------------------------------------------------
+    // Network (connectivity status)
+
+    /**
+     * Read connectivity. The result arrives on the `nb:network-status` event
+     * as `connected` (validated internet, not just an interface up), `type`
+     * (`wifi|cellular|ethernet|none|unknown`) and `metered`. Live changes
+     * arrive on `nb:network-changed` with the same payload, no call needed.
+     * On desktop and web this reports the browser's online flag with
+     * `type: 'unknown'`. Requires `Plugin::NETWORK` on mobile.
+     *
+     * @param  string|null  $id  Tag echoed back on `nb:network-status` for routing concurrent requests
+     */
+    public function networkStatus(?string $id = null): static
+    {
+        return $this->push('network_status', $id !== null ? ['id' => $id] : []);
+    }
+
+    // ------------------------------------------------------------------
     // Payments (in-app purchases and subscriptions)
 
     /**

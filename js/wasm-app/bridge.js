@@ -40,6 +40,13 @@ export function setFrame(appFrame) {
     cameraModule.init(appFrame);
 }
 
+// Post a message into the active app iframe (follows router frame swaps).
+// For boot-level modules that emit events outside a dispatched action
+// (network changes, late purchase results).
+export function postToApp(type, data = {}) {
+    appFrameRef?.contentWindow?.postMessage({ type, ...data }, '*');
+}
+
 export async function init(appFrame) {
     appFrameRef = appFrame;
     cameraModule.init(appFrame);

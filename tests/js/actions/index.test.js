@@ -64,6 +64,7 @@ const EXPECTED_ACTIONS = [
     'purchase',
     'restore_purchases',
     'subscription_status',
+    'network_status',
 ];
 
 describe('actions/index', () => {

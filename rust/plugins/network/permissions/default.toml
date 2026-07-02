@@ -1,0 +1,11 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = """
+Default permission set for the NativeBlade network plugin.
+Allows reading connectivity status; change events need no permission.
+"""
+
+permissions = [
+  "allow-get-status",
+]

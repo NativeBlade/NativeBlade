@@ -86,8 +86,9 @@ When you run `nativeblade:dev` or `nativeblade:build`, the CLI passes `--feature
 | `Plugin::SECURE_STORAGE` | Encrypted key-value via `NativeBlade::setSecure()` / `getSecure()` (mobile only) |
 | `Plugin::SHARING` | Native share sheet via `NativeBlade::share()` (mobile only) |
 | `Plugin::ANALYTICS` | Firebase Analytics via `NativeBlade::analytics()` (mobile only) |
-| `Plugin::ADMOB` | AdMob rewarded + interstitial ads via `NativeBlade::rewardedAd()` / `interstitialAd()` (mobile only) |
+| `Plugin::ADMOB` | AdMob rewarded, interstitial + banner ads via `NativeBlade::rewardedAd()` / `interstitialAd()` / `bannerAd()` (mobile only) |
 | `Plugin::PAYMENTS` | In-app purchases + subscriptions (StoreKit 2 / Play Billing) via `NativeBlade::products()` / `purchase()` / `restorePurchases()` / `subscriptionStatus()` (mobile only) |
+| `Plugin::NETWORK` | Connectivity status + live changes via `NativeBlade::networkStatus()` and the `nb:network-changed` event (browser fallback on desktop/web) — see [NETWORK.md](NETWORK.md) |
 | `Plugin::GEOLOCATION` | `nb:geolocation` event with current position |
 | `Plugin::BIOMETRIC` | `NativeBlade::biometric()` (mobile only) |
 | `Plugin::BARCODE_SCANNER` | `NativeBlade::scan()` (mobile only) |

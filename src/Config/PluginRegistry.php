@@ -99,6 +99,14 @@ class PluginRegistry
                 'mobile_capabilities' => ['nativeblade-payments:default'],
             ],
 
+            Plugin::NETWORK => [
+                'feature' => 'network',
+                'feature_crate' => 'tauri-plugin-nativeblade-network',
+                'rust_init' => 'tauri_plugin_nativeblade_network::init()',
+                'mobile_only' => true,
+                'mobile_capabilities' => ['nativeblade-network:default'],
+            ],
+
             Plugin::GEOLOCATION => [
                 'feature' => 'geolocation',
                 'feature_crate' => 'tauri-plugin-geolocation',

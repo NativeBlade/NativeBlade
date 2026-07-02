@@ -5033,6 +5033,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-nativeblade-network"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "tauri-plugin-nativeblade-payments"
 version = "0.1.0"
 dependencies = [

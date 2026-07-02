@@ -14,6 +14,7 @@ import { init as initStore, restoreToWasm, startAutoSync } from './state-store.j
 import { init as initPush } from './push.js';
 import { init as initDeepLink } from './deep-link.js';
 import { init as initPaymentsBoot } from './payments-boot.js';
+import { init as initNetworkBoot } from './network-boot.js';
 import { init as initMedia } from './media.js';
 import { init as initViewport } from './viewport.js';
 import { checkAndDownload as checkBundlePush } from '../runtime/bundle-push.js';
@@ -48,6 +49,7 @@ async function main() {
         await initPush(appFrame, handleNativeAction);
         await initDeepLink(appFrame, handleNativeAction);
         await initPaymentsBoot(appFrame);
+        await initNetworkBoot();
         await initMedia();
         initHotReload(navigate, getCurrentPath);
         startAutoSync();
