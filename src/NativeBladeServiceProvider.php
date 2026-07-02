@@ -251,15 +251,22 @@ class NativeBladeServiceProvider extends ServiceProvider
                 }
             }
 
-            if ($name === '' || $handler === null || !class_exists($handler)) {
+            if ($name === '' || $handler === null || !class_exists($handler) || !method_exists($handler, 'handle')) {
                 return response()->json(['ok' => false, 'error' => 'no handler for task'], 422);
             }
 
-            app($handler)->handle(new \NativeBlade\Tasks\TaskResult(
-                $name,
-                (int) ($body['ranAt'] ?? 0),
-                $body['payload'] ?? null,
-            ));
+            // One bad handler must not poison the whole drain: the JS side
+            // posts each result separately and moves on.
+            try {
+                app($handler)->handle(new \NativeBlade\Tasks\TaskResult(
+                    $name,
+                    (int) ($body['ranAt'] ?? 0),
+                    $body['payload'] ?? null,
+                ));
+            } catch (\Throwable $e) {
+                report($e);
+                return response()->json(['ok' => false, 'error' => 'handler failed: ' . $e->getMessage()], 500);
+            }
 
             return response()->json(['ok' => true]);
         })->withoutMiddleware($skipCsrf);

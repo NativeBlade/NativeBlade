@@ -34,14 +34,35 @@ fn data_dir<R: Runtime>(app: &AppHandle<R>) -> Result<std::path::PathBuf, String
     app.path().app_data_dir().map_err(|e| e.to_string())
 }
 
+/// Task names become path segments under the parking store, so anything a
+/// webview hands us is validated against the same `[a-z0-9][a-z0-9_-]*`
+/// grammar the PHP builder enforces — no separators, no `..`, no absolute
+/// paths escaping `<app_data_dir>/nativeblade/tasks/`.
+fn validate_name(name: &str) -> Result<(), String> {
+    let mut chars = name.chars();
+    let valid = matches!(chars.next(), Some(c) if c.is_ascii_lowercase() || c.is_ascii_digit())
+        && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-');
+    if valid {
+        Ok(())
+    } else {
+        Err(format!("invalid task name: {name:?}"))
+    }
+}
+
 /// Latest parked result + meta for one task (idempotent read — nothing is
 /// consumed). Powers `NativeBlade::getTask($name)`.
 #[tauri::command]
 pub fn get_task<R: Runtime>(app: AppHandle<R>, name: String) -> Result<TaskAnswer, String> {
+    validate_name(&name)?;
     let dir = store::task_dir(&data_dir(&app)?, &name);
     let meta = store::read_meta(&dir);
-    let payload = store::read_latest(&dir)
-        .and_then(|bytes| serde_json::from_slice(&bytes).ok().or(Some(serde_json::Value::Null)));
+    // Non-JSON responses (a text/plain endpoint) surface as a string payload
+    // instead of silently degrading to null.
+    let payload = store::read_latest(&dir).map(|bytes| {
+        serde_json::from_slice(&bytes).unwrap_or_else(|_| {
+            serde_json::Value::String(String::from_utf8_lossy(&bytes).into_owned())
+        })
+    });
 
     Ok(TaskAnswer {
         found: payload.is_some() || meta.is_some(),
@@ -62,6 +83,7 @@ pub fn drain_results<R: Runtime>(
     let base = data_dir(&app)?;
     let mut out = Vec::new();
     for name in names {
+        validate_name(&name)?;
         let dir = store::task_dir(&base, &name);
         for (ran_at, bytes) in store::drain_queued(&dir) {
             let payload = serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null);
@@ -115,6 +137,7 @@ pub fn enqueue_task<R: Runtime>(
     name: String,
     payload: serde_json::Value,
 ) -> Result<(), String> {
+    validate_name(&name)?;
     let serde_json::Value::Object(mut obj) = payload else {
         return Err("payload must be a JSON object".into());
     };
@@ -221,4 +244,21 @@ fn now_secs() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_name;
+
+    #[test]
+    fn names_cannot_traverse_paths() {
+        assert!(validate_name("photo-sync").is_ok());
+        assert!(validate_name("utc_time2").is_ok());
+        assert!(validate_name("../secrets").is_err());
+        assert!(validate_name("a/b").is_err());
+        assert!(validate_name("a\\b").is_err());
+        assert!(validate_name("").is_err());
+        assert!(validate_name("-starts-wrong").is_err());
+        assert!(validate_name("UPPER").is_err());
+    }
 }

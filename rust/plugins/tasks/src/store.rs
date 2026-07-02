@@ -28,6 +28,11 @@ pub fn task_dir(base: &Path, name: &str) -> PathBuf {
 }
 
 /// All-or-nothing write: temp file in the same directory, then rename.
+///
+/// Overwriting works cross-platform: Rust's `fs::rename` maps to
+/// `MoveFileExW(MOVEFILE_REPLACE_EXISTING)` on Windows (covered by the
+/// `latest_overwrites` test). Do NOT "fix" this by removing the destination
+/// first — that reopens the torn-state window this function exists to close.
 pub fn atomic_write(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
