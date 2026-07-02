@@ -1,4 +1,4 @@
-const COMMANDS: &[&str] = &["get_task", "drain_results", "register_tasks"];
+const COMMANDS: &[&str] = &["get_task", "drain_results", "register_tasks", "enqueue_task"];
 
 fn main() {
     let result = tauri_plugin::Builder::new(COMMANDS)

@@ -5,11 +5,21 @@ Android it rides WorkManager; on iOS, BGTaskScheduler. Requires
 `Plugin::TASK_MANAGER`.
 
 The design is the **courier model**: no PHP, no JS and no WebView ever run in
-the background. The work itself is native Rust — a `fetch` GETs a URL and
-parks the response on disk for the app to consume, a `post` fires a payload
-(with an outbox that retries failures in order). PHP participates at the two
-ends where it already lives: it *declares* tasks at build time and *consumes*
-results when the app opens. That trade is deliberate: it removes every
+the background. The work itself is native Rust, in three kinds — named by
+**where the payload comes from**, not the HTTP verb:
+
+| Kind | HTTP | Payload comes from | Typical use |
+|---|---|---|---|
+| `fetch` | GET | the **server** — response parked for the app to read | prices, news, remote config |
+| `post` | POST | **the run itself** — fixed `body()` + native collectors (`withLocation()`) | hourly technician ping |
+| `queue` | POST | **the app**, dispatched at runtime with `NativeBlade::task()` | photos/mutations made offline |
+
+`post` and `queue` speak the same HTTP; the difference is who authors the
+payload. A `post` run builds its own; a `queue` run builds nothing — it only
+flushes what was dispatched (empty outbox = successful no-op). `post` also
+keeps an outbox, but just for its own failed sends. PHP participates at the
+two ends where it already lives: it *declares* tasks at build time and
+*consumes* results when the app opens. That trade is deliberate: it removes every
 webview/wasm-boot edge case from the background path. Logic that must run
 while the app is closed belongs on your server; the courier fetches its
 results.
@@ -109,12 +119,60 @@ class PricesFetched
 
 With `->latestOnly()` there is no queue — pair it with pull, not handlers.
 
+## Send-when-possible queues
+
+The third kind, for data born at **runtime** — the user did things (possibly
+offline) and the results must reach your server eventually:
+
+```php
+// Declared like any task; runs only flush the outbox (empty = no-op).
+BackgroundTask::queue('photo-sync', 'https://api.myapp.com/photos/sync')
+    ->every(minutes: 15)
+    ->bearerFromSecure('api_token')
+    ->requiresNetwork(),
+```
+
+The Laravel analogy: the provider declaration is your `config/queue.php`;
+`NativeBlade::task()` is `dispatch()` — called anywhere, as often as needed,
+offline included (that's the point):
+
+```php
+use NativeBlade\Plugins\Task;
+
+public function savePhotos()
+{
+    return NativeBlade::task(function (Task $t) {
+        $t->dispatch('photo-sync', [
+            'thumb' => $this->thumbBase64,   // payloads: JSON objects up to 1 MB
+            'takenAt' => now()->timestamp,
+        ]);
+        $t->dispatch('photo-sync', ['thumb' => $this->secondThumb]);
+        $t->dispatch('audit-log', ['event' => 'photos_saved']);  // other queues too
+    })->toResponse();
+}
+
+#[On('nb:task-queued')]
+public function onQueued($name, $ok, $error = null) { /* parked (not yet sent) */ }
+```
+
+Each payload is written atomically to the task's outbox with a `queuedAt`
+timestamp and sent **as soon as possible**: immediately when online, else on
+the next run with connectivity — including an OS wake with the app closed
+(`requiresNetwork` makes WorkManager fire when connectivity returns). Order
+is preserved: oldest first, stopping at the first failure. The outbox holds
+up to 100 entries (oldest evicted beyond that).
+
+Full-size photo/file upload is not what the 1 MB JSON payloads are for —
+queue the metadata + a thumbnail, and upload the binary with the UPLOAD
+plugin when the app is open (a file-upload courier is a planned extension).
+
 ## Builder methods
 
 | Method | Description |
 |---|---|
 | `BackgroundTask::fetch($name, $url)` | GET; response parked for the app |
 | `BackgroundTask::post($name, $url)` | POST fire-and-forget; failures queue in an outbox and are re-sent in order on the next run with connectivity |
+| `BackgroundTask::queue($name, $url)` | Pure outbox: flushes what `NativeBlade::task()` dispatched at runtime |
 | `->every(minutes, hours, days)` | Cadence (floor: 15 minutes) |
 | `->latestOnly()` | Keep only the newest response |
 | `->header($name, $value)` | Static header |

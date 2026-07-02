@@ -45,6 +45,18 @@ class BackgroundTask
         return new static($name, 'post', $url);
     }
 
+    /**
+     * A pure outbox: runs send nothing of their own, they only flush what the
+     * app parked at runtime with `NativeBlade::enqueueTask($name, $payload)` —
+     * oldest first, stopping at the first failure so order is preserved.
+     * Pair with `requiresNetwork()` so the OS itself wakes the flush when
+     * connectivity returns, even with the app closed.
+     */
+    public static function queue(string $name, string $url): static
+    {
+        return new static($name, 'queue', $url);
+    }
+
     /** Run cadence. OS schedulers floor this at 15 minutes. */
     public function every(int $minutes = 0, int $hours = 0, int $days = 0): static
     {

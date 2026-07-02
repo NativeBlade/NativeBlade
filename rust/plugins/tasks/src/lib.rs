@@ -51,6 +51,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::get_task,
             commands::drain_results,
             commands::register_tasks,
+            commands::enqueue_task,
         ])
         .setup(|_app, _api| {
             use tauri::Manager;

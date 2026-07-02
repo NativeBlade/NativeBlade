@@ -28,6 +28,7 @@ pub fn run_task(def: &TaskDef, collected: &Collected, data_dir: &Path) -> RunOut
     let outcome = match def.kind.as_str() {
         "fetch" => run_fetch(def, collected, &dir, ran_at),
         "post" => run_post(def, collected, &dir, ran_at),
+        "queue" => run_queue(def, collected, &dir),
         other => RunOutcome { ok: false, status: 0, error: Some(format!("unknown task kind: {other}")) },
     };
 
@@ -98,19 +99,7 @@ fn run_post(def: &TaskDef, collected: &Collected, dir: &Path, ran_at: u64) -> Ru
     let payload = serde_json::Value::Object(body);
     let payload_bytes = serde_json::to_vec(&payload).unwrap_or_default();
 
-    // Older stranded payloads go first so the server sees chronological order.
-    let mut flushed_all = true;
-    for entry in store::outbox_entries(dir) {
-        let Ok(bytes) = std::fs::read(&entry) else { continue };
-        if send_json(&client, def, collected, &bytes).is_some_and(|s| (200..300).contains(&s)) {
-            let _ = std::fs::remove_file(&entry);
-        } else {
-            flushed_all = false;
-            break; // keep order: stop at the first failure
-        }
-    }
-
-    if !flushed_all {
+    if !flush_outbox(&client, def, collected, dir) {
         let _ = store::outbox_push(dir, &payload_bytes, ran_at);
         return failed(0, "offline or server unreachable; payload queued".into());
     }
@@ -126,6 +115,46 @@ fn run_post(def: &TaskDef, collected: &Collected, dir: &Path, ran_at: u64) -> Ru
             failed(0, "request failed; payload queued".into())
         }
     }
+}
+
+/// Flush-only run for queue tasks: whatever `enqueueTask` parked gets sent
+/// (oldest first, stopping at the first failure so order is preserved). An
+/// empty outbox is a successful no-op — the schedule just found nothing to do.
+fn run_queue(def: &TaskDef, collected: &Collected, dir: &Path) -> RunOutcome {
+    let client = match client() {
+        Ok(c) => c,
+        Err(e) => return failed(0, e),
+    };
+
+    if store::outbox_entries(dir).is_empty() {
+        return RunOutcome { ok: true, status: 0, error: None };
+    }
+    if flush_outbox(&client, def, collected, dir) {
+        RunOutcome { ok: true, status: 200, error: None }
+    } else {
+        let left = store::outbox_entries(dir).len();
+        failed(0, format!("send failed; {left} entr(y/ies) kept"))
+    }
+}
+
+/// Older stranded payloads go first so the server sees chronological order;
+/// stops at the first failure to keep it that way. True when the outbox is
+/// empty afterwards.
+fn flush_outbox(
+    client: &reqwest::blocking::Client,
+    def: &TaskDef,
+    collected: &Collected,
+    dir: &Path,
+) -> bool {
+    for entry in store::outbox_entries(dir) {
+        let Ok(bytes) = std::fs::read(&entry) else { continue };
+        if send_json(client, def, collected, &bytes).is_some_and(|s| (200..300).contains(&s)) {
+            let _ = std::fs::remove_file(&entry);
+        } else {
+            return false;
+        }
+    }
+    true
 }
 
 fn send_json(
@@ -275,6 +304,36 @@ mod tests {
         // Server back: the run sends 2 stranded + 1 current = 3 POSTs.
         server.mock("POST", "/ping").with_status(200).expect(3).create();
         let out = run_task(&d, &Collected::default(), tmp.path());
+        assert!(out.ok);
+        assert!(store::outbox_entries(&dir).is_empty());
+    }
+
+    #[test]
+    fn queue_kind_empty_outbox_is_success_noop() {
+        let tmp = tempdir().unwrap();
+        let out = run_task(&def("queue", "http://unreachable.invalid".into(), false), &Collected::default(), tmp.path());
+        assert!(out.ok); // nothing to send, no request made
+    }
+
+    #[test]
+    fn queue_kind_flushes_enqueued_payloads_in_order() {
+        let mut server = mockito::Server::new();
+        let tmp = tempdir().unwrap();
+        let d = def("queue", format!("{}/sync", server.url()), false);
+        let dir = store::task_dir(tmp.path(), "t1");
+
+        // Two enqueued collections (what enqueueTask parks).
+        store::outbox_push(&dir, b"{\"img\":1}", 10).unwrap();
+        store::outbox_push(&dir, b"{\"img\":2}", 20).unwrap();
+
+        // Offline: everything stays.
+        assert!(!run_task(&d, &Collected::default(), tmp.path()).ok);
+        assert_eq!(store::outbox_entries(&dir).len(), 2);
+
+        // Online: both go, oldest first, outbox ends empty.
+        let m = server.mock("POST", "/sync").with_status(200).expect(2).create();
+        let out = run_task(&d, &Collected::default(), tmp.path());
+        m.assert();
         assert!(out.ok);
         assert!(store::outbox_entries(&dir).is_empty());
     }

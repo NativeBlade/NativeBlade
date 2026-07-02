@@ -61,6 +61,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \NativeBlade\NativeResponse subscriptionStatus(array $productIds = [], ?string $id = null)
  * @method static \NativeBlade\NativeResponse networkStatus(?string $id = null)
  * @method static \NativeBlade\NativeResponse getTask(string $name)
+ * @method static \NativeBlade\NativeResponse task(\Closure $callback)
  *
  * OS info.
  *

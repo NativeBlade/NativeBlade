@@ -307,6 +307,18 @@
           "markdownDescription": "Denies the drain_results command without any pre-configured scope."
         },
         {
+          "description": "Enables the enqueue_task command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-enqueue-task",
+          "markdownDescription": "Enables the enqueue_task command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the enqueue_task command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-enqueue-task",
+          "markdownDescription": "Denies the enqueue_task command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_task command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-task",
@@ -331,10 +343,10 @@
           "markdownDescription": "Denies the register_tasks command without any pre-configured scope."
         },
         {
-          "description": "Default permission set for the NativeBlade tasks plugin.\nAllows reading parked task results, draining handler queues and\nregistering the task manifest.\n\n#### This default permission set includes:\n\n- `allow-get-task`\n- `allow-drain-results`\n- `allow-register-tasks`",
+          "description": "Default permission set for the NativeBlade tasks plugin.\nAllows reading parked task results, draining handler queues, registering\nthe task manifest and enqueueing runtime payloads.\n\n#### This default permission set includes:\n\n- `allow-get-task`\n- `allow-drain-results`\n- `allow-register-tasks`\n- `allow-enqueue-task`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permission set for the NativeBlade tasks plugin.\nAllows reading parked task results, draining handler queues and\nregistering the task manifest.\n\n#### This default permission set includes:\n\n- `allow-get-task`\n- `allow-drain-results`\n- `allow-register-tasks`"
+          "markdownDescription": "Default permission set for the NativeBlade tasks plugin.\nAllows reading parked task results, draining handler queues, registering\nthe task manifest and enqueueing runtime payloads.\n\n#### This default permission set includes:\n\n- `allow-get-task`\n- `allow-drain-results`\n- `allow-register-tasks`\n- `allow-enqueue-task`"
         }
       ]
     }

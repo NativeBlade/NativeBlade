@@ -104,6 +104,49 @@ pub fn register_tasks<R: Runtime>(app: AppHandle<R>, tasks: Vec<TaskDef>) -> Res
     Ok(())
 }
 
+/// Park a runtime payload in a task's outbox and try to flush right away.
+/// Offline (or send failure) is fine — the entry stays and goes out on the
+/// task's next run with connectivity: the open-app timer, the catch-up, or a
+/// WorkManager wake (which, with requiresNetwork, fires when connectivity
+/// returns even with the app closed).
+#[tauri::command]
+pub fn enqueue_task<R: Runtime>(
+    app: AppHandle<R>,
+    name: String,
+    payload: serde_json::Value,
+) -> Result<(), String> {
+    let serde_json::Value::Object(mut obj) = payload else {
+        return Err("payload must be a JSON object".into());
+    };
+    obj.insert("queuedAt".into(), serde_json::json!(now_secs()));
+    let bytes = serde_json::to_vec(&serde_json::Value::Object(obj)).map_err(|e| e.to_string())?;
+    if bytes.len() > store::MAX_PAYLOAD_BYTES {
+        return Err(format!(
+            "payload too large: {} bytes (max {})",
+            bytes.len(),
+            store::MAX_PAYLOAD_BYTES
+        ));
+    }
+
+    let base = data_dir(&app)?;
+    store::outbox_push(&store::task_dir(&base, &name), &bytes, now_secs())
+        .map_err(|e| e.to_string())?;
+
+    // Best-effort immediate flush via the task's manifest definition.
+    let def = std::fs::read(base.join("nativeblade").join("tasks").join("manifest.json"))
+        .ok()
+        .and_then(|b| serde_json::from_slice::<Vec<TaskDef>>(&b).ok())
+        .and_then(|defs| defs.into_iter().find(|t| t.name == name));
+    if let Some(def) = def {
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            run_open(&app, &def, &base).await;
+        });
+    }
+
+    Ok(())
+}
+
 /// The app-open side of the schedule: catch-up for overdue tasks right away,
 /// then a timer per run_while_open task. The courier is blocking reqwest, so
 /// each run goes through spawn_blocking and never parks the async runtime.

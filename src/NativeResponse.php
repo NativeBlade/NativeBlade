@@ -480,6 +480,23 @@ class NativeResponse
         return $this->push('get_task', ['name' => $name]);
     }
 
+    /**
+     * Dispatch payloads into `BackgroundTask::queue(...)` outboxes, to be
+     * sent as soon as possible — immediately when online, otherwise on the
+     * queue's next run with connectivity (including an OS wake with the app
+     * closed). Payloads are JSON objects up to 1 MB, delivered in dispatch
+     * order with an automatic `queuedAt` timestamp; each entry is acked on
+     * `nb:task-queued` (`name`, `ok`, `error`).
+     *
+     * @param  \Closure(\NativeBlade\Plugins\Task): void  $callback
+     */
+    public function task(\Closure $callback): static
+    {
+        $task = new \NativeBlade\Plugins\Task();
+        $callback($task);
+        return $this->push('enqueue_task', ['entries' => $task->toArray()]);
+    }
+
     // ------------------------------------------------------------------
     // Payments (in-app purchases and subscriptions)
 
