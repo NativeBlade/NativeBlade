@@ -2,7 +2,7 @@
 
 Default permission set for the NativeBlade tasks plugin.
 Allows reading parked task results, draining handler queues, registering
-the task manifest and enqueueing runtime payloads.
+the task manifest, and enqueueing, peeking at and clearing queue entries.
 
 #### This default permission set includes the following:
 
@@ -10,6 +10,8 @@ the task manifest and enqueueing runtime payloads.
 - `allow-drain-results`
 - `allow-register-tasks`
 - `allow-enqueue-task`
+- `allow-get-queue`
+- `allow-clear-queue`
 
 ## Permission Table
 
@@ -19,6 +21,32 @@ the task manifest and enqueueing runtime payloads.
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`nativeblade-tasks:allow-clear-queue`
+
+</td>
+<td>
+
+Enables the clear_queue command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nativeblade-tasks:deny-clear-queue`
+
+</td>
+<td>
+
+Denies the clear_queue command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>
@@ -68,6 +96,32 @@ Enables the enqueue_task command without any pre-configured scope.
 <td>
 
 Denies the enqueue_task command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nativeblade-tasks:allow-get-queue`
+
+</td>
+<td>
+
+Enables the get_queue command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nativeblade-tasks:deny-get-queue`
+
+</td>
+<td>
+
+Denies the get_queue command without any pre-configured scope.
 
 </td>
 </tr>

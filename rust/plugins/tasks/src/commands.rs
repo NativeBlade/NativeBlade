@@ -126,22 +126,29 @@ pub fn register_tasks<R: Runtime>(app: AppHandle<R>, tasks: Vec<TaskDef>) -> Res
     Ok(())
 }
 
-/// Park a runtime payload in a task's outbox and try to flush right away.
-/// Offline (or send failure) is fine — the entry stays and goes out on the
-/// task's next run with connectivity: the open-app timer, the catch-up, or a
-/// WorkManager wake (which, with requiresNetwork, fires when connectivity
-/// returns even with the app closed).
+/// Park a runtime payload in a task's outbox. Parking is ALL this does —
+/// "send now" is what Laravel's Http is for; the task manager owns the
+/// not-now. Delivery happens on the queue's clock: the open-app timer, the
+/// catch-up at open (a non-empty outbox counts as overdue), or a WorkManager
+/// wake (which, with requiresNetwork, fires when connectivity returns even
+/// with the app closed).
 #[tauri::command]
 pub fn enqueue_task<R: Runtime>(
     app: AppHandle<R>,
     name: String,
     payload: serde_json::Value,
+    id: Option<String>,
 ) -> Result<(), String> {
     validate_name(&name)?;
     let serde_json::Value::Object(mut obj) = payload else {
         return Err("payload must be a JSON object".into());
     };
     obj.insert("queuedAt".into(), serde_json::json!(now_secs()));
+    // The dispatch id rides inside the payload: it makes the entry targetable
+    // by clear_queue and doubles as an idempotency key on the server.
+    if let Some(id) = id {
+        obj.insert("id".into(), serde_json::json!(id));
+    }
     let bytes = serde_json::to_vec(&serde_json::Value::Object(obj)).map_err(|e| e.to_string())?;
     if bytes.len() > store::MAX_PAYLOAD_BYTES {
         return Err(format!(
@@ -153,21 +160,38 @@ pub fn enqueue_task<R: Runtime>(
 
     let base = data_dir(&app)?;
     store::outbox_push(&store::task_dir(&base, &name), &bytes, now_secs())
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())
+}
 
-    // Best-effort immediate flush via the task's manifest definition.
-    let def = std::fs::read(base.join("nativeblade").join("tasks").join("manifest.json"))
-        .ok()
-        .and_then(|b| serde_json::from_slice::<Vec<TaskDef>>(&b).ok())
-        .and_then(|defs| defs.into_iter().find(|t| t.name == name));
-    if let Some(def) = def {
-        let app = app.clone();
-        tauri::async_runtime::spawn(async move {
-            run_open(&app, &def, &base).await;
-        });
-    }
+/// Peek at a queue's pending entries (oldest first) without consuming them.
+/// Powers `NativeBlade::getTaskOnQueue($name)` — "what is still waiting to
+/// go out". Entries disappear from here as runs deliver them.
+#[tauri::command]
+pub fn get_queue<R: Runtime>(
+    app: AppHandle<R>,
+    name: String,
+) -> Result<Vec<serde_json::Value>, String> {
+    validate_name(&name)?;
+    let dir = store::task_dir(&data_dir(&app)?, &name);
+    Ok(store::outbox_entries(&dir)
+        .into_iter()
+        .filter_map(|path| std::fs::read(path).ok())
+        .filter_map(|bytes| serde_json::from_slice(&bytes).ok())
+        .collect())
+}
 
-    Ok(())
+/// Drop pending entries of a queue (dispatched but not yet delivered) —
+/// all of them, or only those dispatched with a matching `id`. Returns how
+/// many were removed. Does not touch results or meta.
+#[tauri::command]
+pub fn clear_queue<R: Runtime>(
+    app: AppHandle<R>,
+    name: String,
+    id: Option<String>,
+) -> Result<usize, String> {
+    validate_name(&name)?;
+    let dir = store::task_dir(&data_dir(&app)?, &name);
+    Ok(store::clear_outbox(&dir, id.as_deref()))
 }
 
 /// The app-open side of the schedule: catch-up for overdue tasks right away,
@@ -214,6 +238,18 @@ fn start_open_executors<R: Runtime>(app: &AppHandle<R>, tasks: &[TaskDef], base:
 }
 
 async fn run_open<R: Runtime>(app: &AppHandle<R>, def: &TaskDef, base: &std::path::Path) {
+    // Serialize per task: two rapid enqueues (or a timer overlapping an
+    // enqueue flush) must not both read the same outbox mid-send, or the
+    // server receives duplicates.
+    let locks = app.state::<crate::TaskLocks>();
+    let lock = {
+        let mut map = locks.0.lock().unwrap();
+        map.entry(def.name.clone())
+            .or_insert_with(|| std::sync::Arc::new(tokio::sync::Mutex::new(())))
+            .clone()
+    };
+    let _guard = lock.lock().await;
+
     let collected = collect(app, def);
     let def = def.clone();
     let base = base.to_path_buf();

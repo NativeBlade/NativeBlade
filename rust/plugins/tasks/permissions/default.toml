@@ -4,7 +4,7 @@
 description = """
 Default permission set for the NativeBlade tasks plugin.
 Allows reading parked task results, draining handler queues, registering
-the task manifest and enqueueing runtime payloads.
+the task manifest, and enqueueing, peeking at and clearing queue entries.
 """
 
 permissions = [
@@ -12,4 +12,6 @@ permissions = [
   "allow-drain-results",
   "allow-register-tasks",
   "allow-enqueue-task",
+  "allow-get-queue",
+  "allow-clear-queue",
 ]

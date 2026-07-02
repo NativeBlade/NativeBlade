@@ -148,4 +148,6 @@ export const actions = {
     // background tasks (native courier)
     get_task: tasksMod.get_task,
     enqueue_task: tasksMod.enqueue_task,
+    get_task_queue: tasksMod.get_task_queue,
+    clear_task_queue: tasksMod.clear_task_queue,
 };

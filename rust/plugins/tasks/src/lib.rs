@@ -45,6 +45,16 @@ tauri::ios_plugin_binding!(init_plugin_nativeblade_tasks);
 /// reload calling register_tasks twice in one process).
 pub(crate) struct TimersStarted(pub std::sync::atomic::AtomicBool);
 
+/// One async mutex per task name: concurrent in-process runs of the same
+/// task (two rapid enqueues, a timer overlapping a dispatch flush) execute
+/// serially, so an outbox is never read by one flush while another is
+/// mid-send — which would deliver duplicates.
+pub(crate) struct TaskLocks(
+    pub std::sync::Mutex<
+        std::collections::HashMap<String, std::sync::Arc<tokio::sync::Mutex<()>>>,
+    >,
+);
+
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("nativeblade-tasks")
         .invoke_handler(tauri::generate_handler![
@@ -52,10 +62,13 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::drain_results,
             commands::register_tasks,
             commands::enqueue_task,
+            commands::get_queue,
+            commands::clear_queue,
         ])
         .setup(|_app, _api| {
             use tauri::Manager;
             _app.manage(TimersStarted(std::sync::atomic::AtomicBool::new(false)));
+            _app.manage(TaskLocks(std::sync::Mutex::new(std::collections::HashMap::new())));
             #[cfg(target_os = "android")]
             {
                 let handle =

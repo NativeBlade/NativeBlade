@@ -22,11 +22,20 @@ class Task
      * Call as many times as needed — order is preserved — and mix queues
      * freely. Each entry is acked individually on `nb:task-queued`.
      *
+     * The optional `$id` makes the entry targetable later
+     * (`clearTaskOnQueue($name, $id)`) and rides inside the sent payload as
+     * `id`, doubling as an idempotency key on the server. Several entries
+     * may share an id (e.g. all pings of one work order).
+     *
      * @param  array<string, mixed>  $payload
      */
-    public function dispatch(string $name, array $payload): static
+    public function dispatch(string $name, array $payload, ?string $id = null): static
     {
-        $this->entries[] = ['name' => $name, 'payload' => $payload];
+        $entry = ['name' => $name, 'payload' => $payload];
+        if ($id !== null) {
+            $entry['id'] = $id;
+        }
+        $this->entries[] = $entry;
         return $this;
     }
 

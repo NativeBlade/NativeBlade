@@ -481,12 +481,12 @@ class NativeResponse
     }
 
     /**
-     * Dispatch payloads into `BackgroundTask::queue(...)` outboxes, to be
-     * sent as soon as possible — immediately when online, otherwise on the
-     * queue's next run with connectivity (including an OS wake with the app
-     * closed). Payloads are JSON objects up to 1 MB, delivered in dispatch
-     * order with an automatic `queuedAt` timestamp; each entry is acked on
-     * `nb:task-queued` (`name`, `ok`, `error`).
+     * Dispatch payloads into `BackgroundTask::queue(...)` outboxes. Parking
+     * only — "send now" is what Laravel's Http is for; delivery happens on
+     * the queue's clock (open-app timer, catch-up at open, or an OS wake
+     * with the app closed). Payloads are JSON objects up to 1 MB, delivered
+     * in dispatch order with an automatic `queuedAt` timestamp; each entry
+     * is acked (= parked) on `nb:task-queued` (`name`, `ok`, `error`).
      *
      * @param  \Closure(\NativeBlade\Plugins\Task): void  $callback
      */
@@ -495,6 +495,32 @@ class NativeResponse
         $task = new \NativeBlade\Plugins\Task();
         $callback($task);
         return $this->push('enqueue_task', ['entries' => $task->toArray()]);
+    }
+
+    /**
+     * Peek at a queue's pending entries — what was dispatched but not yet
+     * delivered. The answer arrives on the `nb:task-queue` event as `name`,
+     * `entries` (oldest first, each with its `queuedAt`) and `count`.
+     * Non-consuming: entries leave the list as runs deliver them.
+     */
+    public function getTaskOnQueue(string $name): static
+    {
+        return $this->push('get_task_queue', ['name' => $name]);
+    }
+
+    /**
+     * Drop pending entries of a queue — dispatched but not yet delivered
+     * payloads are discarded for good (results and meta are untouched).
+     * Without `$id`, the whole queue; with it, only entries dispatched with
+     * that id. The ack arrives on `nb:task-queue-cleared` as `name` and
+     * `removed` (count).
+     */
+    public function clearTaskOnQueue(string $name, ?string $id = null): static
+    {
+        return $this->push('clear_task_queue', array_filter([
+            'name' => $name,
+            'id' => $id,
+        ], fn($v) => $v !== null));
     }
 
     // ------------------------------------------------------------------

@@ -102,6 +102,29 @@ pub fn outbox_push(dir: &Path, payload: &[u8], ran_at: u64) -> std::io::Result<(
     Ok(())
 }
 
+/// Drop pending outbox entries; returns how many were removed. With an id,
+/// only entries whose payload carries that `id` fall (several can share one);
+/// without, everything goes.
+pub fn clear_outbox(dir: &Path, id: Option<&str>) -> usize {
+    let mut removed = 0;
+    for path in outbox_entries(dir) {
+        if let Some(id) = id {
+            let matches = fs::read(&path)
+                .ok()
+                .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+                .and_then(|v| v.get("id").and_then(|i| i.as_str()).map(|i| i == id))
+                .unwrap_or(false);
+            if !matches {
+                continue;
+            }
+        }
+        if fs::remove_file(path).is_ok() {
+            removed += 1;
+        }
+    }
+    removed
+}
+
 /// Pending outbox entries, oldest first. Entries are removed by the caller
 /// one by one as each send succeeds, so a failure keeps the rest queued.
 pub fn outbox_entries(dir: &Path) -> Vec<PathBuf> {
@@ -185,6 +208,29 @@ mod tests {
         park_queued(tmp.path(), b"a", 42).unwrap();
         park_queued(tmp.path(), b"b", 42).unwrap();
         assert_eq!(drain_queued(tmp.path()).len(), 2);
+    }
+
+    #[test]
+    fn clear_outbox_drops_everything_and_reports_count() {
+        let tmp = tempdir().unwrap();
+        outbox_push(tmp.path(), b"a", 1).unwrap();
+        outbox_push(tmp.path(), b"b", 2).unwrap();
+        assert_eq!(clear_outbox(tmp.path(), None), 2);
+        assert!(outbox_entries(tmp.path()).is_empty());
+        assert_eq!(clear_outbox(tmp.path(), None), 0); // idempotent
+    }
+
+    #[test]
+    fn clear_outbox_by_id_removes_only_matching_entries() {
+        let tmp = tempdir().unwrap();
+        outbox_push(tmp.path(), br#"{"id":"photo-1","x":1}"#, 1).unwrap();
+        outbox_push(tmp.path(), br#"{"id":"photo-2","x":2}"#, 2).unwrap();
+        outbox_push(tmp.path(), br#"{"id":"photo-1","x":3}"#, 3).unwrap();
+        outbox_push(tmp.path(), br#"{"x":4}"#, 4).unwrap(); // no id
+
+        assert_eq!(clear_outbox(tmp.path(), Some("photo-1")), 2);
+        assert_eq!(outbox_entries(tmp.path()).len(), 2);
+        assert_eq!(clear_outbox(tmp.path(), Some("missing")), 0);
     }
 
     #[test]

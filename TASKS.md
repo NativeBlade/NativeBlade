@@ -155,12 +155,48 @@ public function savePhotos()
 public function onQueued($name, $ok, $error = null) { /* parked (not yet sent) */ }
 ```
 
-Each payload is written atomically to the task's outbox with a `queuedAt`
-timestamp and sent **as soon as possible**: immediately when online, else on
-the next run with connectivity — including an OS wake with the app closed
-(`requiresNetwork` makes WorkManager fire when connectivity returns). Order
-is preserved: oldest first, stopping at the first failure. The outbox holds
-up to 100 entries (oldest evicted beyond that).
+Dispatching **only parks** — if you want to send something right now, that's
+what Laravel's `Http` is for; the task manager owns the *not-now*. Each
+payload is written atomically to the queue's outbox with a `queuedAt`
+timestamp and delivered on the queue's clock: the open-app timer, the
+catch-up at open (a non-empty outbox counts as overdue, so pending entries
+never wait out the interval after a fresh open), or an OS wake with the app
+closed (`requiresNetwork` makes WorkManager fire when connectivity returns).
+Each window sends everything pending in one sweep, oldest first, stopping at
+the first failure so order is preserved. The outbox holds up to 100 entries
+(oldest evicted beyond that).
+
+To see what is still waiting to go out:
+
+```php
+public function checkQueue()
+{
+    return NativeBlade::getTaskOnQueue('photo-sync')->toResponse();
+}
+
+#[On('nb:task-queue')]
+public function onQueue($name, $entries, $count, $error = null)
+{
+    // $entries = pending payloads, oldest first, each with its queuedAt.
+    // Non-consuming: entries leave the list as runs deliver them.
+    $this->pendingUploads = $count;
+}
+```
+
+And to discard what was dispatched but not yet delivered (a "cancel pending
+sync" action — results and meta are untouched). Dispatch with an id to make
+entries targetable; the id rides inside the sent payload too, doubling as an
+idempotency key on the server:
+
+```php
+NativeBlade::task(fn (Task $t) =>
+    $t->dispatch('photo-sync', ['thumb' => $b64], id: "photo-{$photo->id}")
+)->toResponse();
+
+NativeBlade::clearTaskOnQueue('photo-sync')->toResponse();                       // tudo
+NativeBlade::clearTaskOnQueue('photo-sync', "photo-{$photo->id}")->toResponse(); // só esse id
+// ack on nb:task-queue-cleared: { name, removed }
+```
 
 Full-size photo/file upload is not what the 1 MB JSON payloads are for —
 queue the metadata + a thumbnail, and upload the binary with the UPLOAD

@@ -295,6 +295,18 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the clear_queue command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-clear-queue",
+          "markdownDescription": "Enables the clear_queue command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the clear_queue command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-clear-queue",
+          "markdownDescription": "Denies the clear_queue command without any pre-configured scope."
+        },
+        {
           "description": "Enables the drain_results command without any pre-configured scope.",
           "type": "string",
           "const": "allow-drain-results",
@@ -317,6 +329,18 @@
           "type": "string",
           "const": "deny-enqueue-task",
           "markdownDescription": "Denies the enqueue_task command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_queue command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-queue",
+          "markdownDescription": "Enables the get_queue command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_queue command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-queue",
+          "markdownDescription": "Denies the get_queue command without any pre-configured scope."
         },
         {
           "description": "Enables the get_task command without any pre-configured scope.",
@@ -343,10 +367,10 @@
           "markdownDescription": "Denies the register_tasks command without any pre-configured scope."
         },
         {
-          "description": "Default permission set for the NativeBlade tasks plugin.\nAllows reading parked task results, draining handler queues, registering\nthe task manifest and enqueueing runtime payloads.\n\n#### This default permission set includes:\n\n- `allow-get-task`\n- `allow-drain-results`\n- `allow-register-tasks`\n- `allow-enqueue-task`",
+          "description": "Default permission set for the NativeBlade tasks plugin.\nAllows reading parked task results, draining handler queues, registering\nthe task manifest, and enqueueing, peeking at and clearing queue entries.\n\n#### This default permission set includes:\n\n- `allow-get-task`\n- `allow-drain-results`\n- `allow-register-tasks`\n- `allow-enqueue-task`\n- `allow-get-queue`\n- `allow-clear-queue`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permission set for the NativeBlade tasks plugin.\nAllows reading parked task results, draining handler queues, registering\nthe task manifest and enqueueing runtime payloads.\n\n#### This default permission set includes:\n\n- `allow-get-task`\n- `allow-drain-results`\n- `allow-register-tasks`\n- `allow-enqueue-task`"
+          "markdownDescription": "Default permission set for the NativeBlade tasks plugin.\nAllows reading parked task results, draining handler queues, registering\nthe task manifest, and enqueueing, peeking at and clearing queue entries.\n\n#### This default permission set includes:\n\n- `allow-get-task`\n- `allow-drain-results`\n- `allow-register-tasks`\n- `allow-enqueue-task`\n- `allow-get-queue`\n- `allow-clear-queue`"
         }
       ]
     }
