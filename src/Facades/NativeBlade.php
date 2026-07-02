@@ -63,6 +63,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \NativeBlade\NativeResponse getTask(string $name)
  * @method static \NativeBlade\NativeResponse task(\Closure $callback)
  * @method static \NativeBlade\NativeResponse getTaskOnQueue(string $name)
+ * @method static \NativeBlade\NativeResponse sensors(\Closure $callback)
  * @method static \NativeBlade\NativeResponse clearTaskOnQueue(string $name, ?string $id = null)
  *
  * OS info.

@@ -63,6 +63,7 @@ tauri-plugin-nativeblade-analytics = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins
 tauri-plugin-nativeblade-admob = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/admob", optional = true }
 tauri-plugin-nativeblade-payments = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/payments", optional = true }
 tauri-plugin-nativeblade-network = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/network", optional = true }
+tauri-plugin-nativeblade-sensors = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/sensors", optional = true }
 
 # nativeblade:plugins:start
 [features]

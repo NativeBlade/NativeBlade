@@ -1,0 +1,14 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = """
+Default permission set for the NativeBlade sensors plugin.
+Allows one-shot sensor reads and starting/stopping throttled watches.
+"""
+
+permissions = [
+  "allow-is-available",
+  "allow-read-sensor",
+  "allow-watch-sensor",
+  "allow-stop-sensor",
+]

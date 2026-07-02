@@ -195,8 +195,8 @@ NativeBlade::task(fn (Task $t) =>
     $t->dispatch('photo-sync', ['thumb' => $b64], id: "photo-{$photo->id}")
 )->toResponse();
 
-NativeBlade::clearTaskOnQueue('photo-sync')->toResponse();                       // tudo
-NativeBlade::clearTaskOnQueue('photo-sync', "photo-{$photo->id}")->toResponse(); // só esse id
+NativeBlade::clearTaskOnQueue('photo-sync')->toResponse();                       // everything
+NativeBlade::clearTaskOnQueue('photo-sync', "photo-{$photo->id}")->toResponse(); // only this id
 // ack on nb:task-queue-cleared: { name, removed }
 ```
 
@@ -232,9 +232,10 @@ time out at 20s so an iOS background window is never blown.
 
 ## Caveats that belong in your planning
 
-- **`withLocation()` in background requires `ACCESS_BACKGROUND_LOCATION` on
-  Android** (Play Console declaration form + demo video) and "Always"
-  authorization on iOS. If tracking is your product, note that a visible
+- **`withLocation()` in background requires `Permission::BACKGROUND_LOCATION`
+  on Android** (declare it alongside `Permission::LOCATION`; Play Console
+  requires a declaration form + demo video) and `Permission::LOCATION_ALWAYS`
+  ("Always" authorization) on iOS. If tracking is your product, note that a visible
   foreground-service tracker is often *easier* to get approved than silent
   background pings — see the location-tracking plugin discussion.
 - Without the permission (or without a fix in 15s) the task still runs,

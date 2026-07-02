@@ -39,6 +39,8 @@ class PluginsConfigGenerator
         'camera' => 'CAMERA',
         'location' => 'ACCESS_FINE_LOCATION',
         'location_coarse' => 'ACCESS_COARSE_LOCATION',
+        'background_location' => 'ACCESS_BACKGROUND_LOCATION',
+        'activity_recognition' => 'ACTIVITY_RECOGNITION',
         'microphone' => 'RECORD_AUDIO',
         'storage' => 'READ_EXTERNAL_STORAGE',
         'storage_write' => 'WRITE_EXTERNAL_STORAGE',
@@ -62,6 +64,7 @@ class PluginsConfigGenerator
         'contacts' => 'NSContactsUsageDescription',
         'calendar' => 'NSCalendarsUsageDescription',
         'bluetooth' => 'NSBluetoothAlwaysUsageDescription',
+        'motion' => 'NSMotionUsageDescription',
     ];
 
     public function __construct(private Command $cmd) {}
@@ -565,6 +568,7 @@ class PluginsConfigGenerator
             'NSContactsUsageDescription' => 'Access your contacts',
             'NSCalendarsUsageDescription' => 'Access your calendar',
             'NSBluetoothAlwaysUsageDescription' => 'Connect to Bluetooth devices',
+            'NSMotionUsageDescription' => 'Track steps and physical activity',
             default => 'Required by app feature',
         };
     }

@@ -335,6 +335,20 @@ final class ShellConfigBuildersTest extends TestCase
     }
 
     #[Test]
+    public function sensor_builder_collects_ops_with_enum_and_interval_floor(): void
+    {
+        $s = new \NativeBlade\Plugins\Sensor();
+        $s->available(\NativeBlade\Plugins\SensorType::BAROMETER, id: 'baro')
+            ->watch(\NativeBlade\Plugins\SensorType::GYROSCOPE, intervalMs: 50, id: 'spin')
+            ->stop(\NativeBlade\Plugins\SensorType::GYROSCOPE);
+
+        $entries = $s->toArray();
+        self::assertSame(['op' => 'available', 'sensor' => 'barometer', 'id' => 'baro'], $entries[0]);
+        self::assertSame(100, $entries[1]['intervalMs']); // floor
+        self::assertSame(['op' => 'stop', 'sensor' => 'gyroscope'], $entries[2]);
+    }
+
+    #[Test]
     public function task_dispatcher_accumulates_entries_in_order(): void
     {
         $t = new \NativeBlade\Plugins\Task();

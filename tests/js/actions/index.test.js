@@ -69,6 +69,7 @@ const EXPECTED_ACTIONS = [
     'enqueue_task',
     'get_task_queue',
     'clear_task_queue',
+    'sensors',
 ];
 
 describe('actions/index', () => {

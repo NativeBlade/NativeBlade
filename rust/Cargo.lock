@@ -5172,6 +5172,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-nativeblade-sensors"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "tauri-plugin-nativeblade-sharing"
 version = "0.1.0"
 dependencies = [
