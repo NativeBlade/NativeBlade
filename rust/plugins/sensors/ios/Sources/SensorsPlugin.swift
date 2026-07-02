@@ -52,11 +52,16 @@ class SensorsPlugin: Plugin {
             invoke.reject("invalid args")
             return
         }
-        start(args.sensor, id: args.id, intervalMs: 100, once: true) { [weak self] payload in
+        let started = start(args.sensor, id: args.id, intervalMs: 100, once: true) { [weak self] payload in
             if !(self?.watching.contains(args.sensor) ?? false) {
                 self?.stop(args.sensor)
             }
             invoke.resolve(payload ?? Self.unavailable(args.sensor, args.id))
+        }
+        if !started {
+            // Unsupported/missing sensor: start() never schedules the 2s
+            // timeout, so answer here or the JS promise hangs forever.
+            invoke.resolve(Self.unavailable(args.sensor, args.id))
         }
     }
 

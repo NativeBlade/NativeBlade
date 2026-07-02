@@ -1,7 +1,8 @@
 // Live sensor stream → nb:sensor-changed.
 //
-// Watches started with NativeBlade::watchSensor() emit deduped/throttled
-// readings through the plugin's `sensor-changed` event; this forwards each
+// Watches started with NativeBlade::sensors(fn (Sensor $s) => $s->watch(...))
+// emit throttled readings through the plugin's `sensor-changed` event; this
+// forwards each
 // into the app frame. Registered once at boot; a no-op while nothing is
 // being watched (and on desktop, where the plugin does not exist).
 
