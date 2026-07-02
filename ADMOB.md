@@ -65,6 +65,16 @@ public function requestConsent()
 
 On iOS this shows the App Tracking Transparency prompt, then the Google UMP (GDPR) form if required; on Android just UMP. Pass hashed test device ids to force the EEA form in debug: `requestAdConsent(['HASHED_ID'])`.
 
+Chaining an ad into the same response is safe — ad loads wait for the in-flight consent flow to finish before requesting:
+
+```php
+return NativeBlade::requestAdConsent()
+    ->bannerAd(fn (BannerAd $a) => $a->id('home')->unit('ca-app-pub-XXXX/banner'))
+    ->toResponse();
+```
+
+> **`failed` with `HTTP response code: 403`?** The ad server refused the request because the stored consent does not allow ads — typically GDPR applies and the user declined (or an interrupted consent form left a denied state). This also blocks Google's **test** units. To retest, clear the app's data (`adb shell pm clear <package>` / reinstall) so the form shows again, and accept it.
+
 ## Rewarded ads
 
 The user opts in, so just load and show. Grant the reward only after the SDK confirms it was earned:
