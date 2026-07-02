@@ -117,6 +117,11 @@ pub fn register_tasks<R: Runtime>(app: AppHandle<R>, tasks: Vec<TaskDef>) -> Res
                     // needing typed @InvokeArg nesting.
                     "tasksJson": serde_json::to_string(&tasks).map_err(|e| e.to_string())?,
                     "dataDir": base.to_string_lossy(),
+                    // The TaskWorker must System.loadLibrary this exact name in
+                    // a bare process. Scanning nativeLibraryDir is unreliable
+                    // (empty with extractNativeLibs=false), so Rust asks the
+                    // linker what file it was loaded from.
+                    "libName": own_lib_name(),
                 }),
             )
             .map_err(|e| e.to_string())?;
@@ -289,6 +294,41 @@ fn collect<R: Runtime>(_app: &AppHandle<R>, _def: &TaskDef) -> crate::model::Col
         }
     }
     crate::model::Collected::default()
+}
+
+/// The short name of the shared library this code lives in (e.g.
+/// `myapp_lib` for `libmyapp_lib.so`), via `dladdr` on one of our own
+/// functions. This is what `System.loadLibrary` needs in the background
+/// worker process.
+#[cfg(target_os = "android")]
+fn own_lib_name() -> Option<String> {
+    use std::os::raw::{c_char, c_int, c_void};
+
+    #[repr(C)]
+    struct DlInfo {
+        dli_fname: *const c_char,
+        dli_fbase: *mut c_void,
+        dli_sname: *const c_char,
+        dli_saddr: *mut c_void,
+    }
+    extern "C" {
+        fn dladdr(addr: *const c_void, info: *mut DlInfo) -> c_int;
+    }
+
+    unsafe {
+        let mut info: DlInfo = std::mem::zeroed();
+        if dladdr(own_lib_name as *const c_void, &mut info) == 0 || info.dli_fname.is_null() {
+            return None;
+        }
+        let path = std::ffi::CStr::from_ptr(info.dli_fname).to_string_lossy();
+        let file = path.rsplit('/').next()?;
+        file.strip_prefix("lib")?.strip_suffix(".so").map(String::from)
+    }
+}
+
+#[cfg(target_os = "ios")]
+fn own_lib_name() -> Option<String> {
+    None // static lib linked into the binary; nothing to load
 }
 
 fn now_secs() -> u64 {

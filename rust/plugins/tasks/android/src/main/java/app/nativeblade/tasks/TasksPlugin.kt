@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit
 class RegisterArgs {
     lateinit var tasksJson: String
     lateinit var dataDir: String
+    var libName: String? = null
 }
 
 @InvokeArg
@@ -49,7 +50,20 @@ class TasksPlugin(private val activity: Activity) : Plugin(activity) {
         val names = mutableSetOf<String>()
         val editor = prefs.edit()
         editor.putString(KEY_DATA_DIR, args.dataDir)
-        findLibName()?.let { editor.putString(KEY_LIB_NAME, it) }
+
+        // The lib name comes from Rust (dladdr on itself — exact). The dir
+        // scan is only a fallback: with extractNativeLibs=false (the modern
+        // default) nativeLibraryDir is EMPTY and the scan finds nothing —
+        // and without a lib name every background wake dies on arrival.
+        val libName = args.libName ?: findLibName()
+        if (libName != null) {
+            editor.putString(KEY_LIB_NAME, libName)
+        } else {
+            android.util.Log.e(
+                "NBTasks",
+                "no native lib name resolved — background task execution will FAIL until this is fixed"
+            )
+        }
 
         for (i in 0 until tasks.length()) {
             val task = tasks.getJSONObject(i)
