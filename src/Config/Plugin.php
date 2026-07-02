@@ -43,6 +43,9 @@ enum Plugin: string
     /** Background task courier (Rust): periodic `fetch` parks API responses for the app, `post` fires payloads with an outbox — configured via `NativeBladeConfig::backgroundTasks()`, consumed via `NativeBlade::getTask()`. NativeBlade native plugin. */
     case TASK_MANAGER = 'task_manager';
 
+    /** Device sensors (accelerometer, gyroscope, magnetometer, barometer, light) via `NativeBlade::sensors()` — one-shot reads on `nb:sensor`, throttled watches on `nb:sensor-changed`. No permissions needed. NativeBlade native plugin. */
+    case SENSORS = 'sensors';
+
     /** Device GPS / network-based location. Powers `NativeBlade::geolocation()`. */
     case GEOLOCATION = 'geolocation';
 

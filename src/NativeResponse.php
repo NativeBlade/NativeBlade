@@ -524,6 +524,24 @@ class NativeResponse
     }
 
     // ------------------------------------------------------------------
+    // Sensors
+
+    /**
+     * Run sensor operations: `available()`, `read()` (one-shot → `nb:sensor`),
+     * `watch()` (polling stream → `nb:sensor-changed`) and `stop()`. Mobile
+     * only; on desktop every operation reports `available: false`. Requires
+     * `Plugin::SENSORS`.
+     *
+     * @param  \Closure(\NativeBlade\Plugins\Sensor): void  $callback
+     */
+    public function sensors(\Closure $callback): static
+    {
+        $sensor = new \NativeBlade\Plugins\Sensor();
+        $callback($sensor);
+        return $this->push('sensors', ['entries' => $sensor->toArray()]);
+    }
+
+    // ------------------------------------------------------------------
     // Payments (in-app purchases and subscriptions)
 
     /**

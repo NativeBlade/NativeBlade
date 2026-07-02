@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-watch-sensor"
+description = "Enables the watch_sensor command without any pre-configured scope."
+commands.allow = ["watch_sensor"]
+
+[[permission]]
+identifier = "deny-watch-sensor"
+description = "Denies the watch_sensor command without any pre-configured scope."
+commands.deny = ["watch_sensor"]

@@ -114,6 +114,14 @@ class PluginRegistry
                 'capabilities' => ['nativeblade-tasks:default'],
             ],
 
+            Plugin::SENSORS => [
+                'feature' => 'sensors',
+                'feature_crate' => 'tauri-plugin-nativeblade-sensors',
+                'rust_init' => 'tauri_plugin_nativeblade_sensors::init()',
+                'mobile_only' => true,
+                'mobile_capabilities' => ['nativeblade-sensors:default'],
+            ],
+
             Plugin::GEOLOCATION => [
                 'feature' => 'geolocation',
                 'feature_crate' => 'tauri-plugin-geolocation',

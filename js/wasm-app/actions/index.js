@@ -32,6 +32,7 @@ import * as admobMod from './admob.js';
 import * as paymentsMod from './payments.js';
 import * as networkMod from './network.js';
 import * as tasksMod from './tasks.js';
+import * as sensorsMod from './sensors.js';
 
 export const actions = {
     // dialog
@@ -150,4 +151,7 @@ export const actions = {
     enqueue_task: tasksMod.enqueue_task,
     get_task_queue: tasksMod.get_task_queue,
     clear_task_queue: tasksMod.clear_task_queue,
+
+    // sensors
+    sensors: sensorsMod.sensors,
 };

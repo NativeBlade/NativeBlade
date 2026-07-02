@@ -29,6 +29,14 @@ class Permission
     /** iOS only: `NSLocationAlwaysUsageDescription` for background location updates. */
     const LOCATION_ALWAYS = 'location_always';
 
+    /**
+     * Android only: `ACCESS_BACKGROUND_LOCATION` — location collected with the
+     * app closed (e.g. a background task with `withLocation()`). Requires
+     * `LOCATION` too, and Google Play requires a declaration form + demo video
+     * justifying it. iOS covers this with `LOCATION_ALWAYS`.
+     */
+    const BACKGROUND_LOCATION = 'background_location';
+
     /** Android only: `ACCESS_COARSE_LOCATION` (network/cell-based, less precise than `LOCATION`). */
     const LOCATION_COARSE = 'location_coarse';
 
@@ -75,4 +83,17 @@ class Permission
 
     /** Android `BLUETOOTH_CONNECT` / iOS `NSBluetoothAlwaysUsageDescription`. */
     const BLUETOOTH = 'bluetooth';
+
+    /**
+     * Android only: `ACTIVITY_RECOGNITION` (Android 10+) — step counting /
+     * physical activity detection (the future pedometer). Play scrutinizes it.
+     */
+    const ACTIVITY_RECOGNITION = 'activity_recognition';
+
+    /**
+     * iOS only: `NSMotionUsageDescription` — CMPedometer / device-motion
+     * activity APIs. Raw sensor reads (`NativeBlade::sensors()`) do NOT need
+     * it; only step counting / activity detection will.
+     */
+    const MOTION = 'motion';
 }
