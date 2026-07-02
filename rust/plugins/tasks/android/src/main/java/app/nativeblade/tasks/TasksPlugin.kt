@@ -55,7 +55,15 @@ class TasksPlugin(private val activity: Activity) : Plugin(activity) {
             val task = tasks.getJSONObject(i)
             val name = task.getString("name")
             names.add(name)
-            editor.putString("task_$name", task.toString())
+
+            // KEEP when the definition is unchanged: re-registering with
+            // UPDATE on every app open can reset the periodic clock, so a
+            // task would never come due in background for a user who opens
+            // the app more often than the interval. Only a real config
+            // change replaces the schedule.
+            val defJson = task.toString()
+            val unchanged = prefs.getString("task_$name", null) == defJson
+            editor.putString("task_$name", defJson)
 
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(
@@ -74,7 +82,11 @@ class TasksPlugin(private val activity: Activity) : Plugin(activity) {
                 .setInputData(workDataOf("name" to name))
                 .build()
 
-            wm.enqueueUniquePeriodicWork(WORK_PREFIX + name, ExistingPeriodicWorkPolicy.UPDATE, request)
+            wm.enqueueUniquePeriodicWork(
+                WORK_PREFIX + name,
+                if (unchanged) ExistingPeriodicWorkPolicy.KEEP else ExistingPeriodicWorkPolicy.UPDATE,
+                request
+            )
         }
 
         // Cancel schedules for tasks removed from the config.
