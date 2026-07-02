@@ -11,4 +11,5 @@ permissions = [
   "allow-read-sensor",
   "allow-watch-sensor",
   "allow-stop-sensor",
+  "allow-register-listener",
 ]

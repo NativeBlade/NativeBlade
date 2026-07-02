@@ -319,6 +319,18 @@
           "markdownDescription": "Denies the read_sensor command without any pre-configured scope."
         },
         {
+          "description": "Enables the register_listener command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-register-listener",
+          "markdownDescription": "Enables the register_listener command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the register_listener command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-register-listener",
+          "markdownDescription": "Denies the register_listener command without any pre-configured scope."
+        },
+        {
           "description": "Enables the stop_sensor command without any pre-configured scope.",
           "type": "string",
           "const": "allow-stop-sensor",
@@ -343,10 +355,10 @@
           "markdownDescription": "Denies the watch_sensor command without any pre-configured scope."
         },
         {
-          "description": "Default permission set for the NativeBlade sensors plugin.\nAllows one-shot sensor reads and starting/stopping throttled watches.\n\n#### This default permission set includes:\n\n- `allow-is-available`\n- `allow-read-sensor`\n- `allow-watch-sensor`\n- `allow-stop-sensor`",
+          "description": "Default permission set for the NativeBlade sensors plugin.\nAllows one-shot sensor reads and starting/stopping throttled watches.\n\n#### This default permission set includes:\n\n- `allow-is-available`\n- `allow-read-sensor`\n- `allow-watch-sensor`\n- `allow-stop-sensor`\n- `allow-register-listener`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permission set for the NativeBlade sensors plugin.\nAllows one-shot sensor reads and starting/stopping throttled watches.\n\n#### This default permission set includes:\n\n- `allow-is-available`\n- `allow-read-sensor`\n- `allow-watch-sensor`\n- `allow-stop-sensor`"
+          "markdownDescription": "Default permission set for the NativeBlade sensors plugin.\nAllows one-shot sensor reads and starting/stopping throttled watches.\n\n#### This default permission set includes:\n\n- `allow-is-available`\n- `allow-read-sensor`\n- `allow-watch-sensor`\n- `allow-stop-sensor`\n- `allow-register-listener`"
         }
       ]
     }

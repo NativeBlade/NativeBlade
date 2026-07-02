@@ -6,6 +6,7 @@ Allows reading connectivity status; change events need no permission.
 #### This default permission set includes the following:
 
 - `allow-get-status`
+- `allow-register-listener`
 
 ## Permission Table
 
@@ -38,6 +39,32 @@ Enables the get_status command without any pre-configured scope.
 <td>
 
 Denies the get_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nativeblade-network:allow-register-listener`
+
+</td>
+<td>
+
+Enables the register_listener command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nativeblade-network:deny-register-listener`
+
+</td>
+<td>
+
+Denies the register_listener command without any pre-configured scope.
 
 </td>
 </tr>

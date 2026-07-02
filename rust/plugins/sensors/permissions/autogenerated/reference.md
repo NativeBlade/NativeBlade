@@ -9,6 +9,7 @@ Allows one-shot sensor reads and starting/stopping throttled watches.
 - `allow-read-sensor`
 - `allow-watch-sensor`
 - `allow-stop-sensor`
+- `allow-register-listener`
 
 ## Permission Table
 
@@ -67,6 +68,32 @@ Enables the read_sensor command without any pre-configured scope.
 <td>
 
 Denies the read_sensor command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nativeblade-sensors:allow-register-listener`
+
+</td>
+<td>
+
+Enables the register_listener command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nativeblade-sensors:deny-register-listener`
+
+</td>
+<td>
+
+Denies the register_listener command without any pre-configured scope.
 
 </td>
 </tr>

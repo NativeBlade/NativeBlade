@@ -307,10 +307,22 @@
           "markdownDescription": "Denies the get_status command without any pre-configured scope."
         },
         {
-          "description": "Default permission set for the NativeBlade network plugin.\nAllows reading connectivity status; change events need no permission.\n\n#### This default permission set includes:\n\n- `allow-get-status`",
+          "description": "Enables the register_listener command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-register-listener",
+          "markdownDescription": "Enables the register_listener command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the register_listener command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-register-listener",
+          "markdownDescription": "Denies the register_listener command without any pre-configured scope."
+        },
+        {
+          "description": "Default permission set for the NativeBlade network plugin.\nAllows reading connectivity status; change events need no permission.\n\n#### This default permission set includes:\n\n- `allow-get-status`\n- `allow-register-listener`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permission set for the NativeBlade network plugin.\nAllows reading connectivity status; change events need no permission.\n\n#### This default permission set includes:\n\n- `allow-get-status`"
+          "markdownDescription": "Default permission set for the NativeBlade network plugin.\nAllows reading connectivity status; change events need no permission.\n\n#### This default permission set includes:\n\n- `allow-get-status`\n- `allow-register-listener`"
         }
       ]
     }

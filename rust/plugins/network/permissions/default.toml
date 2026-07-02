@@ -8,4 +8,5 @@ Allows reading connectivity status; change events need no permission.
 
 permissions = [
   "allow-get-status",
+  "allow-register-listener",
 ]

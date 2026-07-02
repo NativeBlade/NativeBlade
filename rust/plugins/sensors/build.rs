@@ -1,4 +1,4 @@
-const COMMANDS: &[&str] = &["is_available", "read_sensor", "watch_sensor", "stop_sensor"];
+const COMMANDS: &[&str] = &["is_available", "read_sensor", "watch_sensor", "stop_sensor", "register_listener"];
 
 fn main() {
     let result = tauri_plugin::Builder::new(COMMANDS)
