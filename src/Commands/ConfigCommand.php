@@ -62,6 +62,9 @@ class ConfigCommand extends Command
         if (isset($configs['analytics'])) {
             $runtime['analytics'] = ['autoScreenTracking' => (bool) ($configs['analytics']['autoScreenTracking'] ?? false)];
         }
+        if (!empty($configs['backgroundTasks'])) {
+            $runtime['backgroundTasks'] = $configs['backgroundTasks'];
+        }
 
         $path = base_path('public/nativeblade-config.json');
         if (empty($runtime)) {

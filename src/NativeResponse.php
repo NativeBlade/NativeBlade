@@ -466,6 +466,21 @@ class NativeResponse
     }
 
     // ------------------------------------------------------------------
+    // Background tasks (the native courier)
+
+    /**
+     * Read the latest parked result of a background task. The answer arrives
+     * on the `nb:task` event as `name`, `found`, `payload`, `ranAt` (unix
+     * seconds of the run — possibly while the app was closed), `status`
+     * (HTTP) and `error`. Idempotent: nothing is consumed; the payload stays
+     * until the next run overwrites it. Requires `Plugin::TASK_MANAGER`.
+     */
+    public function getTask(string $name): static
+    {
+        return $this->push('get_task', ['name' => $name]);
+    }
+
+    // ------------------------------------------------------------------
     // Payments (in-app purchases and subscriptions)
 
     /**

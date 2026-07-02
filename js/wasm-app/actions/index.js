@@ -31,6 +31,7 @@ import * as analyticsMod from './analytics.js';
 import * as admobMod from './admob.js';
 import * as paymentsMod from './payments.js';
 import * as networkMod from './network.js';
+import * as tasksMod from './tasks.js';
 
 export const actions = {
     // dialog
@@ -143,4 +144,7 @@ export const actions = {
 
     // network (connectivity)
     network_status: networkMod.network_status,
+
+    // background tasks (native courier)
+    get_task: tasksMod.get_task,
 };

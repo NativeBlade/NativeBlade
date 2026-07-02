@@ -185,6 +185,27 @@ class IosConfigGenerator
             $entries[] = "    <{$value}/>";
         }
 
+        // Background tasks: BGTaskScheduler refuses to register identifiers not
+        // listed in the plist, so without these entries the iOS adapter throws
+        // at launch. Identifiers follow the fixed `app.nativeblade.task.<name>`
+        // scheme the Swift adapter uses.
+        $tasks = \NativeBlade\ShellConfig::getAppConfigs()['backgroundTasks'] ?? [];
+        if (!empty($tasks)) {
+            $entries[] = "    <key>UIBackgroundModes</key>";
+            $entries[] = "    <array>";
+            $entries[] = "        <string>fetch</string>";
+            $entries[] = "    </array>";
+            $entries[] = "    <key>BGTaskSchedulerPermittedIdentifiers</key>";
+            $entries[] = "    <array>";
+            foreach ($tasks as $task) {
+                $name = htmlspecialchars((string) ($task['name'] ?? ''), ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                if ($name !== '') {
+                    $entries[] = "        <string>app.nativeblade.task.{$name}</string>";
+                }
+            }
+            $entries[] = "    </array>";
+        }
+
         $admob = \NativeBlade\ShellConfig::getAppConfigs()['admob'] ?? null;
         if ($admob !== null && !empty($admob['iosAppId'])) {
             $appId = htmlspecialchars((string) $admob['iosAppId'], ENT_XML1 | ENT_QUOTES, 'UTF-8');

@@ -176,6 +176,29 @@ class ShellConfig
     }
 
     /**
+     * Background tasks (the native courier). Names must be unique — they
+     * become parking directories and OS scheduler ids.
+     *
+     * @param  \NativeBlade\Config\BackgroundTask[]  $tasks
+     */
+    public function backgroundTasks(array $tasks): void
+    {
+        $seen = [];
+        foreach ($tasks as $task) {
+            $name = $task->name();
+            if (isset($seen[$name])) {
+                throw new \InvalidArgumentException("Duplicate background task name '{$name}'.");
+            }
+            $seen[$name] = true;
+        }
+
+        static::$appConfigs['backgroundTasks'] = array_map(
+            fn(\NativeBlade\Config\BackgroundTask $t) => $t->toArray(),
+            array_values($tasks)
+        );
+    }
+
+    /**
      * @return \NativeBlade\Config\Plugin[]|null  null when the dev hasn't called plugins()
      */
     public static function getDeclaredPlugins(): ?array

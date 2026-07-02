@@ -89,6 +89,7 @@ When you run `nativeblade:dev` or `nativeblade:build`, the CLI passes `--feature
 | `Plugin::ADMOB` | AdMob rewarded, interstitial + banner ads via `NativeBlade::rewardedAd()` / `interstitialAd()` / `bannerAd()` (mobile only) |
 | `Plugin::PAYMENTS` | In-app purchases + subscriptions (StoreKit 2 / Play Billing) via `NativeBlade::products()` / `purchase()` / `restorePurchases()` / `subscriptionStatus()` (mobile only) |
 | `Plugin::NETWORK` | Connectivity status + live changes via `NativeBlade::networkStatus()` and the `nb:network-changed` event (browser fallback on desktop/web) — see [NETWORK.md](NETWORK.md) |
+| `Plugin::TASK_MANAGER` | Background task courier (Rust): periodic `fetch`/`post` declared via `NativeBladeConfig::backgroundTasks()`, consumed via `NativeBlade::getTask()` |
 | `Plugin::GEOLOCATION` | `nb:geolocation` event with current position |
 | `Plugin::BIOMETRIC` | `NativeBlade::biometric()` (mobile only) |
 | `Plugin::BARCODE_SCANNER` | `NativeBlade::scan()` (mobile only) |

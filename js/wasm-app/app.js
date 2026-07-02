@@ -15,6 +15,7 @@ import { init as initPush } from './push.js';
 import { init as initDeepLink } from './deep-link.js';
 import { init as initPaymentsBoot } from './payments-boot.js';
 import { init as initNetworkBoot } from './network-boot.js';
+import { init as initTasksBoot } from './tasks-boot.js';
 import { init as initMedia } from './media.js';
 import { init as initViewport } from './viewport.js';
 import { checkAndDownload as checkBundlePush } from '../runtime/bundle-push.js';
@@ -50,6 +51,7 @@ async function main() {
         await initDeepLink(appFrame, handleNativeAction);
         await initPaymentsBoot(appFrame);
         await initNetworkBoot();
+        await initTasksBoot();
         await initMedia();
         initHotReload(navigate, getCurrentPath);
         startAutoSync();

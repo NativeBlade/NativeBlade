@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Tasks with withLocation() collected in background additionally need
+         ACCESS_BACKGROUND_LOCATION declared by the app (Play requires a
+         declaration form for it) — see the TaskManager docs. -->
+</manifest>
