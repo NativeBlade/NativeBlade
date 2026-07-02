@@ -4,7 +4,8 @@
 description = """
 Default permission set for the NativeBlade payments plugin.
 Allows querying products, starting a purchase, restoring previous
-purchases and reading subscription status.
+purchases, reading subscription status and draining purchase outcomes
+settled outside a purchase call.
 """
 
 permissions = [
@@ -12,4 +13,5 @@ permissions = [
   "allow-purchase",
   "allow-restore-purchases",
   "allow-subscription-status",
+  "allow-drain-pending",
 ]

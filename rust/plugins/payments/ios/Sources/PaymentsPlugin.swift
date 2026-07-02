@@ -2,6 +2,7 @@ import Foundation
 import StoreKit
 import SwiftRs
 import Tauri
+import WebKit
 
 struct NBProductsArgs: Decodable {
     let products: [String]?
@@ -24,6 +25,50 @@ struct NBStatusArgs: Decodable {
 // signed transaction (JWS) as the receipt; the Laravel side validates it on a
 // server before granting entitlement. Requires iOS 15 (set by Package.swift).
 class PaymentsPlugin: Plugin {
+
+    private static let pendingResultsKey = "nativeblade_payments_pending_results"
+    private var updatesTask: Task<Void, Never>?
+
+    @objc public override func load(webview: WKWebView) {
+        super.load(webview: webview)
+        // Transactions that complete outside a purchase() call — Ask to Buy
+        // approvals, SCA follow-ups, renewals, purchases made on another
+        // device — arrive on Transaction.updates and MUST be finished, or
+        // StoreKit re-delivers them on every launch. Each one is queued and
+        // re-delivered through drainPending as a late `nb:purchase-result`.
+        updatesTask = Task {
+            for await result in Transaction.updates {
+                guard case .verified(let transaction) = result else { continue }
+                Self.queueLateResult(
+                    productId: transaction.productID,
+                    receipt: result.jwsRepresentation
+                )
+                await transaction.finish()
+            }
+        }
+    }
+
+    @objc public func drainPending(_ invoke: Invoke) {
+        let defaults = UserDefaults.standard
+        let results = defaults.array(forKey: Self.pendingResultsKey) as? [[String: Any]] ?? []
+        defaults.removeObject(forKey: Self.pendingResultsKey)
+        invoke.resolve(["results": results])
+    }
+
+    // Queue before finish(): if the app dies in between, the unfinished
+    // transaction shows up on Transaction.updates again next launch, and the
+    // duplicate queue entry is harmless (same receipt; grants dedupe on it).
+    private static func queueLateResult(productId: String, receipt: String) {
+        let defaults = UserDefaults.standard
+        var list = defaults.array(forKey: pendingResultsKey) as? [[String: Any]] ?? []
+        list.append([
+            "success": true,
+            "status": "purchased",
+            "productId": productId,
+            "receipt": receipt,
+        ])
+        defaults.set(list, forKey: pendingResultsKey)
+    }
 
     @objc public func queryProducts(_ invoke: Invoke) {
         let ids = (try? invoke.parseArgs(NBProductsArgs.self))?.products ?? []

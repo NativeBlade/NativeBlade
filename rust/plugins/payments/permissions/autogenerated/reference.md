@@ -2,7 +2,8 @@
 
 Default permission set for the NativeBlade payments plugin.
 Allows querying products, starting a purchase, restoring previous
-purchases and reading subscription status.
+purchases, reading subscription status and draining purchase outcomes
+settled outside a purchase call.
 
 #### This default permission set includes the following:
 
@@ -10,6 +11,7 @@ purchases and reading subscription status.
 - `allow-purchase`
 - `allow-restore-purchases`
 - `allow-subscription-status`
+- `allow-drain-pending`
 
 ## Permission Table
 
@@ -19,6 +21,32 @@ purchases and reading subscription status.
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`nativeblade-payments:allow-drain-pending`
+
+</td>
+<td>
+
+Enables the drain_pending command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nativeblade-payments:deny-drain-pending`
+
+</td>
+<td>
+
+Denies the drain_pending command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>

@@ -27,6 +27,10 @@ impl<R: Runtime> NativeBladePayments<R> {
     pub fn subscription_status(&self, _args: StatusArgs) -> Result<serde_json::Value> {
         Err(Error::Unsupported)
     }
+
+    pub fn drain_pending(&self) -> Result<serde_json::Value> {
+        Err(Error::Unsupported)
+    }
 }
 
 pub fn init<R: Runtime, C: DeserializeOwned>(

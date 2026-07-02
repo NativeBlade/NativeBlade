@@ -3,6 +3,7 @@ const COMMANDS: &[&str] = &[
     "purchase",
     "restore_purchases",
     "subscription_status",
+    "drain_pending",
 ];
 
 fn main() {

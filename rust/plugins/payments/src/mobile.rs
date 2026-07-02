@@ -39,6 +39,15 @@ impl<R: Runtime> NativeBladePayments<R> {
             .run_mobile_plugin::<serde_json::Value>("subscriptionStatus", args)
             .map_err(Into::into)
     }
+
+    /// Purchase outcomes settled outside a purchase() call (pending payments
+    /// that cleared, Ask to Buy approvals, renewals), queued by the native
+    /// side at boot. Draining clears the queue.
+    pub fn drain_pending(&self) -> Result<serde_json::Value> {
+        self.0
+            .run_mobile_plugin::<serde_json::Value>("drainPending", serde_json::json!({}))
+            .map_err(Into::into)
+    }
 }
 
 pub fn init<R: Runtime, C: DeserializeOwned>(

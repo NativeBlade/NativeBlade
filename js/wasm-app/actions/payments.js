@@ -48,6 +48,11 @@ export async function purchase(payload, ctx) {
             success: !!res.success,
             status: res.status ?? null,
             receipt: res.receipt ?? null,
+            // Android extras: server-side validation uses the purchase token,
+            // and the signature verifies originalJson. Null on iOS, where the
+            // JWS receipt is self-contained.
+            token: res.token ?? null,
+            signature: res.signature ?? null,
             productId: res.productId ?? null,
             error: res.error ?? null,
             id,

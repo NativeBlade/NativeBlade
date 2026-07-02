@@ -135,6 +135,27 @@ NativeBlade::purchase(fn (Purchase $p) =>
 
 Durable purchases (non-consumables, subscriptions) are acknowledged automatically and should not be marked consumable.
 
+> **Subscriptions with multiple offers:** v1 purchases the first offer Play returns for the product (one base plan per product id is the safe shape). Intro-offer / multi-base-plan selection is reserved for a later version.
+
+### Purchases that finish later
+
+Not every purchase resolves while the sheet is open: a slow card, a cash voucher, or a parental "Ask to Buy" approval reports `status: 'pending'` and completes minutes or days later — possibly while the app is closed. A crash can also interrupt a purchase between payment and settlement. The plugin reconciles all of these **at the next app boot**: it settles the transaction with the store (acknowledges or consumes on Android — Play auto-refunds anything left unacknowledged for 3 days — and finishes it on iOS) and then re-delivers the outcome as a normal `nb:purchase-result` shortly after launch, with `late: true` and the same receipt/token as the original attempt.
+
+So the same listener handles both paths; just accept the extra flag:
+
+```php
+#[On('nb:purchase-result')]
+public function onPurchase($success, $receipt = null, $productId = null, $error = null, $status = null, $id = null, $late = false, $token = null)
+{
+    // $late = true means this outcome was settled at boot (pending payment
+    // cleared, Ask to Buy approved, or a crash-interrupted purchase). $id is
+    // null on late results. Grants should be idempotent on receipt/token —
+    // a crash window can re-deliver an outcome the app already saw.
+}
+```
+
+On iOS the same channel also delivers renewals and purchases made on another device, which pairs naturally with the cache-reconcile pattern below.
+
 ## Restoring and subscription status
 
 Apple requires a visible **Restore purchases** action for non-consumables and subscriptions:
@@ -239,11 +260,11 @@ What you give up by skipping the server: status only refreshes when the app is o
 | Event | Payload |
 |---|---|
 | `nb:products` | `products`, `error`, `id` |
-| `nb:purchase-result` | `success`, `status`, `receipt`, `productId`, `error`, `id` |
+| `nb:purchase-result` | `success`, `status`, `receipt`, `token`, `signature`, `productId`, `error`, `id`, `late` |
 | `nb:purchases-restored` | `purchases`, `error`, `id` |
 | `nb:subscription-status` | `entitlements`, `error`, `id` |
 
-On `nb:purchase-result`, `status` is always present for every outcome: `purchased` on success, and `cancelled`, `pending`, `failed` or `external` (desktop web checkout opened) on a non-success. So you can branch on `status` without null-checking it.
+On `nb:purchase-result`, `status` is always present for every outcome: `purchased` on success, and `cancelled`, `pending`, `failed` or `external` (desktop web checkout opened) on a non-success. So you can branch on `status` without null-checking it. A `pending` purchase completes later — see "Purchases that finish later" above. `token` and `signature` are Android extras (server-side validation uses the purchase token; the signature verifies the receipt JSON); on iOS they are `null` because the JWS receipt is self-contained.
 
 Every action carries an optional `id` echoed back on its event, so one listener can route several concurrent requests. `purchase()` sets it through the builder (`->id($tag)`); `products()`, `restorePurchases()` and `subscriptionStatus()` take it as an optional last argument:
 

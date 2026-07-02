@@ -1,6 +1,8 @@
 package app.nativeblade.payments
 
 import android.app.Activity
+import android.content.Context
+import android.content.SharedPreferences
 import android.webkit.WebView
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
@@ -21,6 +23,8 @@ import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
+import org.json.JSONArray
+import org.json.JSONObject
 
 @InvokeArg
 class ProductsArgs {
@@ -50,12 +54,23 @@ class StatusArgs {
 @TauriPlugin
 class PaymentsPlugin(private val activity: Activity) : Plugin(activity) {
 
+    companion object {
+        private const val KEY_CONSUMABLE_IDS = "consumable_ids"
+        private const val KEY_PENDING_RESULTS = "pending_results"
+    }
+
     // Play Billing reports purchase outcomes through this listener rather than
     // the launchBillingFlow callback, so the pending invoke is parked here and
     // resolved when the listener fires. The system sheet is modal, so a single
     // in-flight purchase at a time is enough.
     private var pendingPurchase: Invoke? = null
     private var pendingConsumable = false
+
+    // Persisted plugin state: which product ids were bought as consumables
+    // (so the boot reconcile knows to consume rather than acknowledge), and
+    // outcomes settled outside a purchase() call, queued for drainPending.
+    private val prefs: SharedPreferences
+        get() = activity.getSharedPreferences("nativeblade_payments", Context.MODE_PRIVATE)
 
     private val purchasesListener = PurchasesUpdatedListener { result, purchases ->
         val invoke = pendingPurchase ?: return@PurchasesUpdatedListener
@@ -96,7 +111,7 @@ class PaymentsPlugin(private val activity: Activity) : Plugin(activity) {
 
     override fun load(webView: WebView) {
         super.load(webView)
-        ensureReady({}, {})
+        ensureReady({ reconcileOwned() }, {})
     }
 
     @Command
@@ -109,11 +124,14 @@ class PaymentsPlugin(private val activity: Activity) : Plugin(activity) {
             return
         }
         ensureReady({
-            queryDetails(args.products) { details ->
+            queryDetails(args.products) { details, error ->
                 val arr = JSArray()
                 for (d in details) arr.put(productToJson(d))
                 val obj = JSObject()
                 obj.put("products", arr)
+                // Partial results are fine (one catalog answered); only surface
+                // the billing error when it explains an empty list.
+                if (error != null && details.isEmpty()) obj.put("error", error)
                 invoke.resolve(obj)
             }
         }, { msg ->
@@ -122,6 +140,23 @@ class PaymentsPlugin(private val activity: Activity) : Plugin(activity) {
             obj.put("error", msg)
             invoke.resolve(obj)
         })
+    }
+
+    @Command
+    fun drainPending(invoke: Invoke) {
+        val raw: String?
+        synchronized(this) {
+            raw = prefs.getString(KEY_PENDING_RESULTS, null)
+            prefs.edit().remove(KEY_PENDING_RESULTS).apply()
+        }
+        val arr = JSArray()
+        if (raw != null) {
+            val parsed = JSONArray(raw)
+            for (i in 0 until parsed.length()) arr.put(parsed.getJSONObject(i))
+        }
+        val obj = JSObject()
+        obj.put("results", arr)
+        invoke.resolve(obj)
     }
 
     @Command
@@ -143,13 +178,20 @@ class PaymentsPlugin(private val activity: Activity) : Plugin(activity) {
 
         pendingPurchase = invoke
         pendingConsumable = args.consumable
+        // Persist the consume intent before the sheet opens: if the payment
+        // completes while the app is closed (or after a crash), the boot
+        // reconcile still knows this product must be consumed, not acknowledged.
+        if (args.consumable) rememberConsumable(productId)
 
         ensureReady({
-            queryDetails(listOf(productId)) { details ->
+            queryDetails(listOf(productId)) { details, error ->
                 val product = details.firstOrNull()
                 if (product == null) {
                     pendingPurchase = null
-                    invoke.resolve(failure("product not found: $productId"))
+                    invoke.resolve(failure(
+                        if (error != null) "product lookup failed: $error"
+                        else "product not found: $productId"
+                    ))
                     return@queryDetails
                 }
 
@@ -250,9 +292,12 @@ class PaymentsPlugin(private val activity: Activity) : Plugin(activity) {
 
     // The product type is unknown up front, so both catalogs are queried and
     // merged. A type that does not match comes back as an unfetched product,
-    // not an error.
-    private fun queryDetails(ids: List<String>, cb: (List<ProductDetails>) -> Unit) {
+    // not an error. The first billing error is reported alongside the results
+    // so an empty list caused by a connection problem is distinguishable from
+    // a genuinely unknown product id.
+    private fun queryDetails(ids: List<String>, cb: (List<ProductDetails>, String?) -> Unit) {
         val collected = mutableListOf<ProductDetails>()
+        var firstError: String? = null
         var remaining = 2
         for (type in listOf(BillingClient.ProductType.INAPP, BillingClient.ProductType.SUBS)) {
             val products = ids.map {
@@ -262,11 +307,14 @@ class PaymentsPlugin(private val activity: Activity) : Plugin(activity) {
                     .build()
             }
             val params = QueryProductDetailsParams.newBuilder().setProductList(products).build()
-            billingClient.queryProductDetailsAsync(params) { _, queryResult ->
+            billingClient.queryProductDetailsAsync(params) { result, queryResult ->
                 synchronized(collected) {
+                    if (result.responseCode != BillingClient.BillingResponseCode.OK && firstError == null) {
+                        firstError = result.debugMessage.ifEmpty { "billing error ${result.responseCode}" }
+                    }
                     collected.addAll(queryResult.productDetailsList)
                     remaining--
-                    if (remaining == 0) cb(collected.toList())
+                    if (remaining == 0) cb(collected.toList(), firstError)
                 }
             }
         }
@@ -315,7 +363,15 @@ class PaymentsPlugin(private val activity: Activity) : Plugin(activity) {
 
         if (pendingConsumable) {
             val params = ConsumeParams.newBuilder().setPurchaseToken(purchase.purchaseToken).build()
-            billingClient.consumeAsync(params) { _, _ -> respond() }
+            billingClient.consumeAsync(params) { result, _ ->
+                // A failed consume leaves the purchase unacknowledged; the boot
+                // reconcile retries it (the consume intent is persisted). The
+                // purchase itself succeeded either way, so still respond.
+                if (result.responseCode == BillingClient.BillingResponseCode.OK) {
+                    forgetConsumable(purchase.products.firstOrNull())
+                }
+                respond()
+            }
         } else if (purchase.isAcknowledged) {
             respond()
         } else {
@@ -324,6 +380,71 @@ class PaymentsPlugin(private val activity: Activity) : Plugin(activity) {
                 .build()
             billingClient.acknowledgePurchase(params) { _ -> respond() }
         }
+    }
+
+    /**
+     * Settle purchases that completed outside a purchase() call: a pending
+     * payment (slow card, cash voucher, parental approval) that cleared while
+     * the app was closed, or a crash between the purchase and its
+     * acknowledgement. Play auto-refunds any purchase not acknowledged within
+     * three days, so this runs on every boot. Consumables (recognized by the
+     * persisted intent from purchase()) are consumed; everything else is
+     * acknowledged. Each settled outcome is queued and re-delivered through
+     * drainPending as a late `nb:purchase-result`.
+     */
+    private fun reconcileOwned() {
+        queryOwned { purchases ->
+            for (p in purchases) {
+                if (p.purchaseState != Purchase.PurchaseState.PURCHASED || p.isAcknowledged) continue
+                val productId = p.products.firstOrNull() ?: continue
+
+                if (consumableIds().contains(productId)) {
+                    val params = ConsumeParams.newBuilder().setPurchaseToken(p.purchaseToken).build()
+                    billingClient.consumeAsync(params) { result, _ ->
+                        if (result.responseCode == BillingClient.BillingResponseCode.OK) {
+                            forgetConsumable(productId)
+                            queueLateResult(p)
+                        }
+                    }
+                } else {
+                    val params = AcknowledgePurchaseParams.newBuilder()
+                        .setPurchaseToken(p.purchaseToken)
+                        .build()
+                    billingClient.acknowledgePurchase(params) { result ->
+                        if (result.responseCode == BillingClient.BillingResponseCode.OK) {
+                            queueLateResult(p)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun queueLateResult(p: Purchase) {
+        val entry = JSONObject()
+        entry.put("success", true)
+        entry.put("status", "purchased")
+        entry.put("productId", p.products.firstOrNull())
+        entry.put("receipt", p.originalJson)
+        entry.put("token", p.purchaseToken)
+        entry.put("signature", p.signature)
+        synchronized(this) {
+            val arr = JSONArray(prefs.getString(KEY_PENDING_RESULTS, "[]"))
+            arr.put(entry)
+            prefs.edit().putString(KEY_PENDING_RESULTS, arr.toString()).apply()
+        }
+    }
+
+    private fun consumableIds(): Set<String> =
+        prefs.getStringSet(KEY_CONSUMABLE_IDS, emptySet()) ?: emptySet()
+
+    private fun rememberConsumable(productId: String) {
+        prefs.edit().putStringSet(KEY_CONSUMABLE_IDS, consumableIds() + productId).apply()
+    }
+
+    private fun forgetConsumable(productId: String?) {
+        if (productId == null) return
+        prefs.edit().putStringSet(KEY_CONSUMABLE_IDS, consumableIds() - productId).apply()
     }
 
     private fun productToJson(d: ProductDetails): JSObject {
