@@ -95,34 +95,44 @@ export function inject(html) {
         }
     });
 
-    function __nbRegisterDirectives() {
-        if (!window.Livewire) return;
+    // Finds "wire:nb-*" attributes by prefix so modifiers (wire:nb-navigate.fade) still match.
+    function __nbFindAttr(el, name) {
+        for (var i = 0; i < el.attributes.length; i++) {
+            var a = el.attributes[i];
+            if (a.name === name || a.name.indexOf(name + '.') === 0) return a;
+        }
+        return null;
+    }
 
-        Livewire.directive('nb-bridge', function(ctx) {
-            var action = ctx.directive.expression;
-            var handler = function() {
-                var p = ctx.el.getAttribute('wire:nb-payload');
-                var payload = p ? JSON.parse(p) : {};
-                window.parent.postMessage({ type: 'nativeblade-native', action: action, payload: payload }, '*');
-            };
-            ctx.el.addEventListener('click', handler);
-            ctx.cleanup(function() { ctx.el.removeEventListener('click', handler); });
-        });
-
-        Livewire.directive('nb-navigate', function(ctx) {
-            var path = ctx.directive.expression;
-            var mods = ctx.directive.modifiers;
-            var replace = mods.includes('replace');
-            var transition = mods.find(function (m) { return m === 'none' || m === 'slide' || m === 'fade'; });
-            var handler = function(e) {
+    // Click handling is delegated to the document instead of bound per element:
+    // Livewire directives only initialize when an element enters the DOM, so an
+    // attribute added later by a morph (e.g. conditional wire:nb-navigate) would
+    // never get a listener. Delegation resolves the attribute at click time.
+    document.addEventListener('click', function(e) {
+        var el = e.target;
+        while (el && el.attributes) {
+            var nav = __nbFindAttr(el, 'wire:nb-navigate');
+            if (nav) {
                 e.preventDefault();
-                var msg = { type: 'nativeblade-navigate', path: path, replace: replace };
+                var mods = nav.name.split('.').slice(1);
+                var msg = { type: 'nativeblade-navigate', path: nav.value, replace: mods.indexOf('replace') !== -1 };
+                var transition = mods.filter(function (m) { return m === 'none' || m === 'slide' || m === 'fade'; })[0];
                 if (transition) msg.transition = transition;
                 window.parent.postMessage(msg, '*');
-            };
-            ctx.el.addEventListener('click', handler);
-            ctx.cleanup(function() { ctx.el.removeEventListener('click', handler); });
-        });
+                return;
+            }
+            var bridge = __nbFindAttr(el, 'wire:nb-bridge');
+            if (bridge) {
+                var p = el.getAttribute('wire:nb-payload');
+                window.parent.postMessage({ type: 'nativeblade-native', action: bridge.value, payload: p ? JSON.parse(p) : {} }, '*');
+                return;
+            }
+            el = el.parentElement;
+        }
+    });
+
+    function __nbRegisterDirectives() {
+        if (!window.Livewire) return;
 
         Livewire.directive('nb-asset', function(ctx) {
             ctx.el.setAttribute('wire:ignore.self', '');
