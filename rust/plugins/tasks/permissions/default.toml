@@ -1,0 +1,15 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = """
+Default permission set for the NativeBlade tasks plugin.
+Allows reading parked task results, draining handler queues, registering
+the task manifest and enqueueing runtime payloads.
+"""
+
+permissions = [
+  "allow-get-task",
+  "allow-drain-results",
+  "allow-register-tasks",
+  "allow-enqueue-task",
+]

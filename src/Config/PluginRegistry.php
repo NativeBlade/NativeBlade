@@ -107,6 +107,13 @@ class PluginRegistry
                 'mobile_capabilities' => ['nativeblade-network:default'],
             ],
 
+            Plugin::TASK_MANAGER => [
+                'feature' => 'task_manager',
+                'feature_crate' => 'tauri-plugin-nativeblade-tasks',
+                'rust_init' => 'tauri_plugin_nativeblade_tasks::init()',
+                'capabilities' => ['nativeblade-tasks:default'],
+            ],
+
             Plugin::GEOLOCATION => [
                 'feature' => 'geolocation',
                 'feature_crate' => 'tauri-plugin-geolocation',

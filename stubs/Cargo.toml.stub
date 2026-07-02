@@ -37,6 +37,7 @@ tauri-plugin-opener = "2"
 # Run `php artisan nativeblade:config` to regenerate the [features]
 # section below to match your declared plugins.
 tauri-plugin-shell = { version = "2", optional = true }
+tauri-plugin-nativeblade-tasks = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/tasks", optional = true }
 tauri-plugin-clipboard-manager = { version = "2", optional = true }
 tauri-plugin-geolocation = { version = "2", optional = true }
 tauri-plugin-haptics = { version = "2", optional = true }

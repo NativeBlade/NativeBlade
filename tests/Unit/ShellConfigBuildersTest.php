@@ -280,6 +280,73 @@ final class ShellConfigBuildersTest extends TestCase
     }
 
     #[Test]
+    public function background_task_builder_collects_fields(): void
+    {
+        $task = \NativeBlade\Config\BackgroundTask::queue('photo-sync', 'https://api.x/sync')
+            ->every(hours: 1)
+            ->bearerFromSecure('api_token')
+            ->requiresNetwork();
+
+        self::assertSame([
+            'name' => 'photo-sync',
+            'kind' => 'queue',
+            'url' => 'https://api.x/sync',
+            'everyMinutes' => 60,
+            'bearerFromSecure' => 'api_token',
+            'requiresNetwork' => true,
+        ], $task->toArray());
+    }
+
+    #[Test]
+    public function background_task_rejects_invalid_names_and_short_intervals(): void
+    {
+        try {
+            \NativeBlade\Config\BackgroundTask::fetch('Bad Name', 'https://x');
+            self::fail('expected invalid name to throw');
+        } catch (\InvalidArgumentException) {
+        }
+
+        $this->expectException(\InvalidArgumentException::class);
+        \NativeBlade\Config\BackgroundTask::fetch('ok', 'https://x')->every(minutes: 5);
+    }
+
+    #[Test]
+    public function background_tasks_config_rejects_duplicate_names(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->config->backgroundTasks([
+            \NativeBlade\Config\BackgroundTask::fetch('sync', 'https://a'),
+            \NativeBlade\Config\BackgroundTask::post('sync', 'https://b'),
+        ]);
+    }
+
+    #[Test]
+    public function background_tasks_config_stores_task_arrays(): void
+    {
+        $this->config->backgroundTasks([
+            \NativeBlade\Config\BackgroundTask::fetch('prices', 'https://api.x/prices')->latestOnly(),
+        ]);
+
+        $tasks = ShellConfig::getAppConfigs()['backgroundTasks'];
+        self::assertCount(1, $tasks);
+        self::assertSame('prices', $tasks[0]['name']);
+        self::assertSame('fetch', $tasks[0]['kind']);
+        self::assertTrue($tasks[0]['latestOnly']);
+    }
+
+    #[Test]
+    public function task_dispatcher_accumulates_entries_in_order(): void
+    {
+        $t = new \NativeBlade\Plugins\Task();
+        $t->dispatch('photo-sync', ['a' => 1])->dispatch('audit', ['b' => 2]);
+
+        self::assertSame([
+            ['name' => 'photo-sync', 'payload' => ['a' => 1]],
+            ['name' => 'audit', 'payload' => ['b' => 2]],
+        ], $t->toArray());
+    }
+
+    #[Test]
     public function purchase_builder_collects_fields(): void
     {
         $purchase = (new \NativeBlade\Plugins\Purchase())

@@ -550,6 +550,7 @@ PHP;
             'app/Enums'            => 'PHP enums for closed sets (status, type, role). No string literals in business code.',
             'app/Native/Push'      => 'Push notification handlers. Each is a class with handle(PushPayload $payload).',
             'app/Native/DeepLinks' => 'Deep link route handlers.',
+            'app/Native/Tasks'     => 'Background task result handlers (see TASKS.md). Each is a class with handle(TaskResult $result). Pull with NativeBlade::getTask() is the primary path; handlers are for results that must be processed on arrival.',
             'app/Native/State'     => 'Typed wrappers over NativeBlade::setState/getState. Mandatory: never use string-literal state keys.',
             'app/Livewire/Forms'   => 'Livewire Form Objects (extends Livewire\\Form) for validation.',
             'app/Http/Clients'     => 'HTTP clients for EXTERNAL APIs (Stripe, Sentry, etc.). Not for the app\'s own backend.',

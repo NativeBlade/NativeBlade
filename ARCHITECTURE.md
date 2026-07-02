@@ -310,6 +310,50 @@ public function handle(PushPayload $payload): ?NativeResponse
 }
 ```
 
+## The `app/Native/*` handler convention
+
+Push handlers are one instance of a house pattern: **anything the native side
+delivers to PHP outside a user interaction arrives in a dedicated class under
+`app/Native/`, resolved through the container, with a single `handle()`
+method** — never a closure in `AppServiceProvider`, never logic inline in a
+Livewire component that happens to be open.
+
+| Folder | Receives | Signature |
+|---|---|---|
+| `app/Native/Push/` | push notifications | `handle(PushPayload $p): ?NativeResponse` |
+| `app/Native/DeepLinks/` | deep / universal links | `handle(string $url): ?NativeResponse` |
+| `app/Native/Tasks/` | background task results ([TASKS.md](TASKS.md)) | `handle(TaskResult $r): void` |
+| `app/Native/State/` | (not events — typed `setState`/`getState` wrappers) | — |
+
+The reasoning is the same in every row: these payloads arrive with no screen
+context (the app may have just cold-started from a push tap, or be draining
+results fetched hours ago with the app closed), so the receiver must be
+screen-independent, testable in isolation, and container-resolved so it can
+take services in the constructor.
+
+For background tasks specifically, the handler is the **push-style option** —
+the primary consumption is pull (`NativeBlade::getTask($name)` from whatever
+screen needs the data). Reach for a `app/Native/Tasks/` handler only when a
+result must be *processed* on arrival (write state, update the local DB)
+rather than *displayed*:
+
+```php
+// app/Native/Tasks/PricesFetched.php
+namespace App\Native\Tasks;
+
+use NativeBlade\Facades\NativeBlade;
+use NativeBlade\Tasks\TaskResult;
+
+class PricesFetched
+{
+    public function handle(TaskResult $result): void
+    {
+        // Runs on app open, once per queued result, oldest first.
+        NativeBlade::setState('prices', $result->json());
+    }
+}
+```
+
 ## Concurrent HTTP: `NativeBlade::pool()`
 
 For pages that need to fetch from multiple HTTP endpoints, sequential calls are wasteful. `NativeBlade::pool()` wraps Laravel's `Http::pool()` builder to run requests concurrently inside the WASM HTTP bridge.

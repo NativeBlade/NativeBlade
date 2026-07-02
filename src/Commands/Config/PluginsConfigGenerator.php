@@ -206,33 +206,56 @@ class PluginsConfigGenerator
         $base = $m[1];
 
         $missing = [];
+        $missingUniversal = [];
         foreach ($descriptors as $d) {
             $crate = $d['feature_crate'] ?? null;
             if ($crate === null || !str_starts_with($crate, $prefix)) continue;
             if (str_contains($content, "{$crate} = ")) continue;
             $subdir = substr($crate, strlen($prefix));
-            $missing[] = sprintf(
+            $line = sprintf(
                 '%s = { path = "%s/plugins/%s", optional = true }',
                 $crate,
                 $base,
                 $subdir
             );
-        }
-        if (empty($missing)) return $content;
-
-        $lines = explode("\n", $content);
-        $lastIdx = -1;
-        foreach ($lines as $i => $line) {
-            if (preg_match('/^' . preg_quote($prefix, '/') . '[\w-]+\s*=/', $line)) {
-                $lastIdx = $i;
+            // Crates that also compile on desktop must land in [dependencies],
+            // not the android/ios target section — otherwise the desktop build
+            // fails to resolve the feature's dep.
+            if ($d['mobile_only'] ?? false) {
+                $missing[] = $line;
+            } else {
+                $missingUniversal[] = $line;
             }
         }
-        if ($lastIdx === -1) return $content;
+        if (empty($missing) && empty($missingUniversal)) return $content;
 
-        array_splice($lines, $lastIdx + 1, 0, $missing);
-        $this->cmd->line("  <fg=green>✓</> Cargo.toml deps: added " . count($missing) . " nativeblade plugin crate(s)");
+        foreach ($missingUniversal as $line) {
+            $next = $this->insertAfterSection($content, '[dependencies]', $line);
+            if ($next !== $content) {
+                $content = $next;
+            } else {
+                // No [dependencies] header found — fall back to the mobile block.
+                $missing[] = $line;
+            }
+        }
 
-        return implode("\n", $lines);
+        if (!empty($missing)) {
+            $lines = explode("\n", $content);
+            $lastIdx = -1;
+            foreach ($lines as $i => $line) {
+                if (preg_match('/^' . preg_quote($prefix, '/') . '[\w-]+\s*=/', $line)) {
+                    $lastIdx = $i;
+                }
+            }
+            if ($lastIdx === -1) return $content;
+            array_splice($lines, $lastIdx + 1, 0, $missing);
+            $content = implode("\n", $lines);
+        }
+
+        $added = count($missing) + count($missingUniversal);
+        $this->cmd->line("  <fg=green>✓</> Cargo.toml deps: added {$added} nativeblade plugin crate(s)");
+
+        return $content;
     }
 
     /**

@@ -236,6 +236,41 @@ class NativeBladeServiceProvider extends ServiceProvider
             return response()->json(['ok' => true]);
         })->withoutMiddleware($skipCsrf);
 
+        // Background task results drained at boot. Routed to the handler class
+        // declared on the task in NativeBladeConfig::backgroundTasks().
+        \Illuminate\Support\Facades\Route::post('/_nativeblade/task-result', function () use ($readJsonBody) {
+            $body = $readJsonBody();
+            $name = (string) ($body['name'] ?? '');
+
+            $tasks = ShellConfig::getAppConfigs()['backgroundTasks'] ?? [];
+            $handler = null;
+            foreach ($tasks as $task) {
+                if (($task['name'] ?? null) === $name) {
+                    $handler = $task['handler'] ?? null;
+                    break;
+                }
+            }
+
+            if ($name === '' || $handler === null || !class_exists($handler) || !method_exists($handler, 'handle')) {
+                return response()->json(['ok' => false, 'error' => 'no handler for task'], 422);
+            }
+
+            // One bad handler must not poison the whole drain: the JS side
+            // posts each result separately and moves on.
+            try {
+                app($handler)->handle(new \NativeBlade\Tasks\TaskResult(
+                    $name,
+                    (int) ($body['ranAt'] ?? 0),
+                    $body['payload'] ?? null,
+                ));
+            } catch (\Throwable $e) {
+                report($e);
+                return response()->json(['ok' => false, 'error' => 'handler failed: ' . $e->getMessage()], 500);
+            }
+
+            return response()->json(['ok' => true]);
+        })->withoutMiddleware($skipCsrf);
+
         \Illuminate\Support\Facades\Route::post('/_nativeblade/deep-link', function () use ($readJsonBody) {
             $url = (string) ($readJsonBody()['url'] ?? '');
             if ($url === '') {

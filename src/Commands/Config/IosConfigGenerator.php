@@ -185,6 +185,53 @@ class IosConfigGenerator
             $entries[] = "    <{$value}/>";
         }
 
+        // Background tasks: BGTaskScheduler refuses to register identifiers not
+        // listed in the plist, so without these entries the iOS adapter throws
+        // at launch. Identifiers follow the fixed `app.nativeblade.task.<name>`
+        // scheme the Swift adapter uses. Both keys are additive (like
+        // SKAdNetworkItems): anything the dev declares via infoPlist() —
+        // extra background modes such as `location`, or their own BGTask
+        // identifiers — is merged in, deduped, and skipped in the custom loop
+        // below so the plist never carries duplicate keys.
+        $tasks = \NativeBlade\ShellConfig::getAppConfigs()['backgroundTasks'] ?? [];
+        $bgModes = [];
+        $bgIds = [];
+        if (!empty($tasks)) {
+            $bgModes[] = 'fetch';
+            foreach ($tasks as $task) {
+                $name = (string) ($task['name'] ?? '');
+                if ($name !== '') {
+                    $bgIds[] = "app.nativeblade.task.{$name}";
+                }
+            }
+        }
+        foreach ((array) ($config['infoPlist']['UIBackgroundModes'] ?? []) as $mode) {
+            if (is_string($mode) && $mode !== '') $bgModes[] = $mode;
+        }
+        foreach ((array) ($config['infoPlist']['BGTaskSchedulerPermittedIdentifiers'] ?? []) as $id) {
+            if (is_string($id) && $id !== '') $bgIds[] = $id;
+        }
+        $bgModes = array_values(array_unique($bgModes));
+        $bgIds = array_values(array_unique($bgIds));
+        if (!empty($bgModes)) {
+            $entries[] = "    <key>UIBackgroundModes</key>";
+            $entries[] = "    <array>";
+            foreach ($bgModes as $mode) {
+                $escaped = htmlspecialchars($mode, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                $entries[] = "        <string>{$escaped}</string>";
+            }
+            $entries[] = "    </array>";
+        }
+        if (!empty($bgIds)) {
+            $entries[] = "    <key>BGTaskSchedulerPermittedIdentifiers</key>";
+            $entries[] = "    <array>";
+            foreach ($bgIds as $id) {
+                $escaped = htmlspecialchars($id, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                $entries[] = "        <string>{$escaped}</string>";
+            }
+            $entries[] = "    </array>";
+        }
+
         $admob = \NativeBlade\ShellConfig::getAppConfigs()['admob'] ?? null;
         if ($admob !== null && !empty($admob['iosAppId'])) {
             $appId = htmlspecialchars((string) $admob['iosAppId'], ENT_XML1 | ENT_QUOTES, 'UTF-8');
@@ -230,8 +277,8 @@ class IosConfigGenerator
 
         $customApplied = 0;
         foreach ($config['infoPlist'] ?? [] as $key => $value) {
-            if ($key === 'SKAdNetworkItems') {
-                continue; // merged above into the NativeBlade-managed entry
+            if (in_array($key, ['SKAdNetworkItems', 'UIBackgroundModes', 'BGTaskSchedulerPermittedIdentifiers'], true)) {
+                continue; // merged above into the NativeBlade-managed entries
             }
             if (in_array($key, self::RESERVED_KEYS, true)) {
                 $this->cmd->line("  <fg=yellow>→</> iOS Info.plist: ignoring '{$key}' (managed by NativeBlade — use the dedicated config method)");

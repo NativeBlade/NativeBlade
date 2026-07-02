@@ -40,6 +40,9 @@ enum Plugin: string
     /** Connectivity status and live change events (ConnectivityManager on Android, NWPathMonitor on iOS; browser fallback on desktop/web). Powers `NativeBlade::networkStatus()` and the `nb:network-changed` event. NativeBlade native plugin. */
     case NETWORK = 'network';
 
+    /** Background task courier (Rust): periodic `fetch` parks API responses for the app, `post` fires payloads with an outbox — configured via `NativeBladeConfig::backgroundTasks()`, consumed via `NativeBlade::getTask()`. NativeBlade native plugin. */
+    case TASK_MANAGER = 'task_manager';
+
     /** Device GPS / network-based location. Powers `NativeBlade::geolocation()`. */
     case GEOLOCATION = 'geolocation';
 
