@@ -145,8 +145,9 @@ pub fn enqueue_task<R: Runtime>(
     };
     obj.insert("queuedAt".into(), serde_json::json!(now_secs()));
     // The dispatch id rides inside the payload: it makes the entry targetable
-    // by clear_queue and doubles as an idempotency key on the server.
-    if let Some(id) = id {
+    // by clear_queue, doubles as an idempotency key on the server, and turns
+    // the dispatch into an UPSERT — see below.
+    if let Some(id) = &id {
         obj.insert("id".into(), serde_json::json!(id));
     }
     let bytes = serde_json::to_vec(&serde_json::Value::Object(obj)).map_err(|e| e.to_string())?;
@@ -159,8 +160,17 @@ pub fn enqueue_task<R: Runtime>(
     }
 
     let base = data_dir(&app)?;
-    store::outbox_push(&store::task_dir(&base, &name), &bytes, now_secs())
-        .map_err(|e| e.to_string())
+    let dir = store::task_dir(&base, &name);
+
+    // Same id = upsert: pending entries with this id are stale state (the
+    // user changed the same thing again before it was delivered) — drop them
+    // so only the newest version ships. Accumulating would send obsolete
+    // snapshots; ignoring would ship the oldest one.
+    if let Some(id) = &id {
+        store::clear_outbox(&dir, Some(id));
+    }
+
+    store::outbox_push(&dir, &bytes, now_secs()).map_err(|e| e.to_string())
 }
 
 /// Peek at a queue's pending entries (oldest first) without consuming them.

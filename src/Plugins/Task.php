@@ -22,10 +22,13 @@ class Task
      * Call as many times as needed — order is preserved — and mix queues
      * freely. Each entry is acked individually on `nb:task-queued`.
      *
-     * The optional `$id` makes the entry targetable later
-     * (`clearTaskOnQueue($name, $id)`) and rides inside the sent payload as
-     * `id`, doubling as an idempotency key on the server. Several entries
-     * may share an id (e.g. all pings of one work order).
+     * The optional `$id` turns the dispatch into an UPSERT: a pending entry
+     * with the same id is replaced (the user changed the same thing again
+     * before delivery — only the newest state ships, at the end of the
+     * queue). It also makes the entry targetable by
+     * `clearTaskOnQueue($name, $id)` and rides inside the sent payload as
+     * `id`, doubling as an idempotency key on the server. To group related
+     * entries WITHOUT replacing, put a field in the payload instead.
      *
      * @param  array<string, mixed>  $payload
      */

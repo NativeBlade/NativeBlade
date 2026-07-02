@@ -183,10 +183,12 @@ public function onQueue($name, $entries, $count, $error = null)
 }
 ```
 
-And to discard what was dispatched but not yet delivered (a "cancel pending
-sync" action — results and meta are untouched). Dispatch with an id to make
-entries targetable; the id rides inside the sent payload too, doubling as an
-idempotency key on the server:
+**Dispatching with an id is an upsert**: a pending entry with the same id is
+replaced — the user edited the same photo three times offline? One entry
+ships, with the final state, instead of three stale snapshots. The id also
+rides inside the sent payload (an idempotency key for your server) and makes
+entries targetable for discarding (a "cancel pending sync" action — results
+and meta are untouched):
 
 ```php
 NativeBlade::task(fn (Task $t) =>

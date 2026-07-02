@@ -221,6 +221,25 @@ mod tests {
     }
 
     #[test]
+    fn upsert_by_id_is_clear_then_push() {
+        // The enqueue command composes these two calls; pinned here so the
+        // replace-same-id semantics never regress at the store level.
+        let tmp = tempdir().unwrap();
+        outbox_push(tmp.path(), br#"{"id":"photo-1","v":1}"#, 1).unwrap();
+        outbox_push(tmp.path(), br#"{"id":"other","v":1}"#, 2).unwrap();
+
+        clear_outbox(tmp.path(), Some("photo-1"));
+        outbox_push(tmp.path(), br#"{"id":"photo-1","v":2}"#, 3).unwrap();
+
+        let entries = outbox_entries(tmp.path());
+        assert_eq!(entries.len(), 2);
+        // The replaced entry moved to the END of the queue (newest state
+        // ships last), and only v2 survived.
+        let last = fs::read(entries.last().unwrap()).unwrap();
+        assert!(String::from_utf8_lossy(&last).contains("\"v\":2"));
+    }
+
+    #[test]
     fn clear_outbox_by_id_removes_only_matching_entries() {
         let tmp = tempdir().unwrap();
         outbox_push(tmp.path(), br#"{"id":"photo-1","x":1}"#, 1).unwrap();
