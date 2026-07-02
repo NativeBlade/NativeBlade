@@ -182,7 +182,7 @@ plugin when the app is open (a file-upload courier is a planned extension).
 | `->handler($class)` | Deliver queued results to this class on app open |
 | `->requiresNetwork()` / `->requiresUnmetered()` / `->requiresCharging()` | OS-level constraints — the device is not even woken without them |
 | `->runWhileOpen(bool)` | Also run on a timer while the app is open (default true) |
-| `->catchUpOnOpen(bool)` | Run at open when a scheduled run was missed (default true) |
+| `->catchUpOnOpen(bool)` | Run at open when a scheduled run was missed — or whenever the outbox has pending entries, regardless of the clock (default true) |
 
 ## Storage
 

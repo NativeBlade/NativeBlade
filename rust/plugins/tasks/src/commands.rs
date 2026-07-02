@@ -189,10 +189,16 @@ fn start_open_executors<R: Runtime>(app: &AppHandle<R>, tasks: &[TaskDef], base:
         tauri::async_runtime::spawn(async move {
             let secs = def.every_minutes.max(15) * 60;
 
-            let overdue = crate::store::read_meta(&crate::store::task_dir(&base, &def.name))
+            let dir = crate::store::task_dir(&base, &def.name);
+            let overdue = crate::store::read_meta(&dir)
                 .map(|m| now_secs().saturating_sub(m.ran_at) >= secs)
                 .unwrap_or(true); // never ran = overdue
-            if def.catch_up_on_open && overdue {
+            // A non-empty outbox counts as overdue regardless of the clock:
+            // payloads dispatched offline must flush at the first open, not
+            // wait out the interval because the last (failed) attempt was
+            // recent.
+            let pending_outbox = !crate::store::outbox_entries(&dir).is_empty();
+            if def.catch_up_on_open && (overdue || pending_outbox) {
                 run_open(&app, &def, &base).await;
             }
 
