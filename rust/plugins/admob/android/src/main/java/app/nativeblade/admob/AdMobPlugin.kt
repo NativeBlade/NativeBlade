@@ -78,6 +78,9 @@ class AdMobPlugin(private val activity: Activity) : Plugin(activity) {
     private var bannerBuiltWidth = 0
     private var bannerLayoutListener: View.OnLayoutChangeListener? = null
 
+    // Callers waiting on the in-flight consent flow. UI thread only.
+    private val consentWaiters = mutableListOf<Invoke>()
+
     private val debuggable: Boolean
         get() = (activity.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
@@ -91,40 +94,55 @@ class AdMobPlugin(private val activity: Activity) : Plugin(activity) {
     fun requestConsent(invoke: Invoke) {
         val args = invoke.parseArgs(ConsentArgs::class.java)
 
-        if (args.testDeviceIds.isNotEmpty()) {
-            hasTestDevices = true
-            MobileAds.setRequestConfiguration(
-                RequestConfiguration.Builder().setTestDeviceIds(args.testDeviceIds).build()
+        activity.runOnUiThread {
+            // The UMP form is modal and global: a second flow started while
+            // one is up queues a second form the user must dismiss again.
+            // Coalesce concurrent calls into the in-flight flow instead.
+            consentWaiters.add(invoke)
+            if (consentWaiters.size > 1) return@runOnUiThread
+
+            if (args.testDeviceIds.isNotEmpty()) {
+                hasTestDevices = true
+                MobileAds.setRequestConfiguration(
+                    RequestConfiguration.Builder().setTestDeviceIds(args.testDeviceIds).build()
+                )
+            }
+
+            val params = if (debuggable && args.testDeviceIds.isNotEmpty()) {
+                val debugSettings = com.google.android.ump.ConsentDebugSettings.Builder(activity)
+                    .setDebugGeography(com.google.android.ump.ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA)
+                for (id in args.testDeviceIds) debugSettings.addTestDeviceHashedId(id)
+                ConsentRequestParameters.Builder().setConsentDebugSettings(debugSettings.build()).build()
+            } else {
+                ConsentRequestParameters.Builder().build()
+            }
+
+            val consentInformation = UserMessagingPlatform.getConsentInformation(activity)
+            consentInformation.requestConsentInfoUpdate(
+                activity,
+                params,
+                {
+                    UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) {
+                        finishConsent(consentInformation.canRequestAds(), null)
+                    }
+                },
+                { error ->
+                    finishConsent(consentInformation.canRequestAds(), error.message)
+                }
             )
         }
+    }
 
-        val params = if (debuggable && args.testDeviceIds.isNotEmpty()) {
-            val debugSettings = com.google.android.ump.ConsentDebugSettings.Builder(activity)
-                .setDebugGeography(com.google.android.ump.ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA)
-            for (id in args.testDeviceIds) debugSettings.addTestDeviceHashedId(id)
-            ConsentRequestParameters.Builder().setConsentDebugSettings(debugSettings.build()).build()
-        } else {
-            ConsentRequestParameters.Builder().build()
+    /** UI thread only. Resolves every caller waiting on the shared consent flow. */
+    private fun finishConsent(canRequestAds: Boolean, error: String?) {
+        val waiters = consentWaiters.toList()
+        consentWaiters.clear()
+        for (invoke in waiters) {
+            val result = JSObject()
+            result.put("canRequestAds", canRequestAds)
+            if (error != null) result.put("error", error)
+            invoke.resolve(result)
         }
-
-        val consentInformation = UserMessagingPlatform.getConsentInformation(activity)
-        consentInformation.requestConsentInfoUpdate(
-            activity,
-            params,
-            {
-                UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) {
-                    val result = JSObject()
-                    result.put("canRequestAds", consentInformation.canRequestAds())
-                    invoke.resolve(result)
-                }
-            },
-            { error ->
-                val result = JSObject()
-                result.put("canRequestAds", consentInformation.canRequestAds())
-                result.put("error", error.message)
-                invoke.resolve(result)
-            }
-        )
     }
 
     @Command

@@ -188,6 +188,7 @@ Action conventions (same for tray menus and menu bars):
 | `orientation(string)` | `portrait`, `landscape`, or `auto` |
 | `statusBar(style)` | Status bar icon style (`'dark'` or `'light'`). Navigation bar matches automatically. Edge-to-edge is enforced, so the background under both system bars comes from your WebView content (paint via CSS with `env(safe-area-inset-top)`), not from a theme color. |
 | `fullscreen(bool)` | Hide status bar and navigation bar |
+| `allowBackup(bool)` | `android:allowBackup` in the manifest. Android defaults to true, which restores app data on reinstall (including e.g. the UMP ad-consent state) — set `false` for a clean slate on every reinstall |
 | `splashBackground(string)` | Native splash screen color |
 | `permissions(array)` | Permission declarations with descriptions |
 | `manifestMetaData(array)` | Custom `<meta-data>` entries in `<application>` (escape hatch, see below) |

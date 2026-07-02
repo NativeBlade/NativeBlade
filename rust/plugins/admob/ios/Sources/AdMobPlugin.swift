@@ -51,6 +51,8 @@ class AdMobPlugin: Plugin {
     private var bannerUnit: String?
     private var bannerBuiltWidth: CGFloat = 0
     private var orientationObserver: NSObjectProtocol?
+    // Callers waiting on the in-flight consent flow. Main thread only.
+    private var consentWaiters: [Invoke] = []
     #endif
     private weak var webviewRef: WKWebView?
 
@@ -65,33 +67,39 @@ class AdMobPlugin: Plugin {
     @objc public func requestConsent(_ invoke: Invoke) {
         #if canImport(GoogleMobileAds)
         let testIds = (try? invoke.parseArgs(NBConsentArgs.self))?.testDeviceIds ?? []
-        if !testIds.isEmpty {
-            Self.hasTestDevices = true
-            MobileAds.shared.requestConfiguration.testDeviceIdentifiers = testIds
-        }
 
-        ATTrackingManager.requestTrackingAuthorization { _ in
-            DispatchQueue.main.async {
-                let params = RequestParameters()
-                // Force the EEA consent form in debug for registered test
-                // devices, mirroring the Android side.
-                if Self.isDebug && !testIds.isEmpty {
-                    let debugSettings = DebugSettings()
-                    debugSettings.geography = .EEA
-                    debugSettings.testDeviceIdentifiers = testIds
-                    params.debugSettings = debugSettings
-                }
-                ConsentInformation.shared.requestConsentInfoUpdate(with: params) { error in
-                    let finish: () -> Void = {
-                        invoke.resolve([
-                            "canRequestAds": ConsentInformation.shared.canRequestAds,
-                            "error": error?.localizedDescription as Any,
-                        ])
+        DispatchQueue.main.async {
+            // The ATT prompt and UMP form are modal and global: a second flow
+            // started while one is up queues another form the user must
+            // dismiss again. Coalesce concurrent calls into the in-flight flow.
+            self.consentWaiters.append(invoke)
+            if self.consentWaiters.count > 1 { return }
+
+            if !testIds.isEmpty {
+                Self.hasTestDevices = true
+                MobileAds.shared.requestConfiguration.testDeviceIdentifiers = testIds
+            }
+
+            ATTrackingManager.requestTrackingAuthorization { _ in
+                DispatchQueue.main.async {
+                    let params = RequestParameters()
+                    // Force the EEA consent form in debug for registered test
+                    // devices, mirroring the Android side.
+                    if Self.isDebug && !testIds.isEmpty {
+                        let debugSettings = DebugSettings()
+                        debugSettings.geography = .EEA
+                        debugSettings.testDeviceIdentifiers = testIds
+                        params.debugSettings = debugSettings
                     }
-                    if let root = Self.rootViewController() {
-                        ConsentForm.loadAndPresentIfRequired(from: root) { _ in finish() }
-                    } else {
-                        finish()
+                    ConsentInformation.shared.requestConsentInfoUpdate(with: params) { error in
+                        let finish: () -> Void = {
+                            self.finishConsent(ConsentInformation.shared.canRequestAds, error?.localizedDescription)
+                        }
+                        if let root = Self.rootViewController() {
+                            ConsentForm.loadAndPresentIfRequired(from: root) { _ in finish() }
+                        } else {
+                            finish()
+                        }
                     }
                 }
             }
@@ -100,6 +108,20 @@ class AdMobPlugin: Plugin {
         invoke.resolve(["canRequestAds": false])
         #endif
     }
+
+    #if canImport(GoogleMobileAds)
+    /// Main thread only. Resolves every caller waiting on the shared consent flow.
+    private func finishConsent(_ canRequestAds: Bool, _ error: String?) {
+        let waiters = consentWaiters
+        consentWaiters.removeAll()
+        for invoke in waiters {
+            invoke.resolve([
+                "canRequestAds": canRequestAds,
+                "error": error as Any,
+            ])
+        }
+    }
+    #endif
 
     @objc public func showRewarded(_ invoke: Invoke) {
         #if canImport(GoogleMobileAds)

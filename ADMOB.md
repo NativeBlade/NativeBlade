@@ -14,6 +14,8 @@ Clicking your own **live** ads gets the AdMob account banned, so you never test 
 
 **1. Test ads, zero setup (default).** In a debug build the plugin automatically serves Google's reserved **test ad units** instead of whatever unit you pass. Rewards, dismissals and capping all fire, so the full flow is testable with no AdMob account at all. Your real unit only goes live in a release build.
 
+> **Caveat — GDPR regions:** the zero-setup path relies on Google's *sample app id* (`ca-app-pub-3940256099942544~...`). Google's ad server rejects requests from that app id in apps other than its own samples — observed as `failed` with `HTTP response code: 403` — notably when the device is in a GDPR region, even with consent granted and even for test units. If you hit that, create a (free) AdMob app, put its real app id in `NativeBladeConfig::admob(...)` and rerun `nativeblade:config` — in debug the plugin still substitutes Google's test units, so there is no ban risk.
+
 **2. Your real ad units, on a registered test device.** To verify your own unit ids, register your device as a test device — then your real units serve **test ads** on that device (safe, no revenue, no ban). Pass the device's hashed id to `requestAdConsent`:
 
 ```php
@@ -73,7 +75,7 @@ return NativeBlade::requestAdConsent()
     ->toResponse();
 ```
 
-> **`failed` with `HTTP response code: 403`?** The ad server refused the request because the stored consent does not allow ads — typically GDPR applies and the user declined (or an interrupted consent form left a denied state). This also blocks Google's **test** units. To retest, clear the app's data (`adb shell pm clear <package>` / reinstall) so the form shows again, and accept it.
+> **`failed` with `HTTP response code: 403`?** The ad server refused the request. Two known causes, both of which also block Google's **test** units: **(a)** the stored consent does not allow ads — GDPR applies and the user declined, or an interrupted consent form left a denied state; clear the app's data (`adb shell pm clear <package>`) so the form shows again, and accept it. Note that uninstall+reinstall is **not** enough: Android's auto backup restores the app's data (consent state included) unless the app sets `allowBackup(false)` in the Android config. **(b)** the app is still on Google's *sample app id* and the device is in a GDPR region — see the caveat under [Testing](#testing-important); configure a real AdMob app id.
 
 ## Rewarded ads
 
