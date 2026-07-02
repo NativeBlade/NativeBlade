@@ -69,16 +69,19 @@ class AdMobPlugin: Plugin {
         let testIds = (try? invoke.parseArgs(NBConsentArgs.self))?.testDeviceIds ?? []
 
         DispatchQueue.main.async {
+            // Test device registration is a global SDK side effect that every
+            // caller's later ad loads depend on, so apply it even for calls
+            // that coalesce below.
+            if !testIds.isEmpty {
+                Self.hasTestDevices = true
+                MobileAds.shared.requestConfiguration.testDeviceIdentifiers = testIds
+            }
+
             // The ATT prompt and UMP form are modal and global: a second flow
             // started while one is up queues another form the user must
             // dismiss again. Coalesce concurrent calls into the in-flight flow.
             self.consentWaiters.append(invoke)
             if self.consentWaiters.count > 1 { return }
-
-            if !testIds.isEmpty {
-                Self.hasTestDevices = true
-                MobileAds.shared.requestConfiguration.testDeviceIdentifiers = testIds
-            }
 
             ATTrackingManager.requestTrackingAuthorization { _ in
                 DispatchQueue.main.async {
@@ -307,7 +310,7 @@ class AdMobPlugin: Plugin {
 
     /// Rebuild the banner when the usable width changes (rotation) — an
     /// adaptive banner is sized for the width it was loaded with. Registered
-    /// once; a no-op while no banner shows.
+    /// while a banner is showing; removeBanner() unregisters it.
     private func watchLayoutChanges() {
         if orientationObserver != nil { return }
         UIDevice.current.beginGeneratingDeviceOrientationNotifications()
@@ -345,6 +348,15 @@ class AdMobPlugin: Plugin {
     private func removeBanner() {
         bannerUnit = nil
         detachBanner()
+
+        // Stop watching for rotation: device-orientation notifications keep
+        // the accelerometer reporting active, which costs battery for nothing
+        // once no banner is showing.
+        if let observer = orientationObserver {
+            NotificationCenter.default.removeObserver(observer)
+            orientationObserver = nil
+            UIDevice.current.endGeneratingDeviceOrientationNotifications()
+        }
     }
     #endif
 

@@ -95,18 +95,21 @@ class AdMobPlugin(private val activity: Activity) : Plugin(activity) {
         val args = invoke.parseArgs(ConsentArgs::class.java)
 
         activity.runOnUiThread {
-            // The UMP form is modal and global: a second flow started while
-            // one is up queues a second form the user must dismiss again.
-            // Coalesce concurrent calls into the in-flight flow instead.
-            consentWaiters.add(invoke)
-            if (consentWaiters.size > 1) return@runOnUiThread
-
+            // Test device registration is a global SDK side effect that every
+            // caller's later ad loads depend on, so apply it even for calls
+            // that coalesce below.
             if (args.testDeviceIds.isNotEmpty()) {
                 hasTestDevices = true
                 MobileAds.setRequestConfiguration(
                     RequestConfiguration.Builder().setTestDeviceIds(args.testDeviceIds).build()
                 )
             }
+
+            // The UMP form is modal and global: a second flow started while
+            // one is up queues a second form the user must dismiss again.
+            // Coalesce concurrent calls into the in-flight flow instead.
+            consentWaiters.add(invoke)
+            if (consentWaiters.size > 1) return@runOnUiThread
 
             val params = if (debuggable && args.testDeviceIds.isNotEmpty()) {
                 val debugSettings = com.google.android.ump.ConsentDebugSettings.Builder(activity)
@@ -325,7 +328,8 @@ class AdMobPlugin(private val activity: Activity) : Plugin(activity) {
      * Rebuild the banner when the usable width changes (rotation, resize) —
      * an adaptive banner is sized for the width it was loaded with. The
      * activity is not recreated on rotation (Tauri uses configChanges), so
-     * this is the only signal. Registered once; a no-op while no banner shows.
+     * this is the only signal. Registered while a banner is showing;
+     * removeBanner() unregisters it.
      */
     private fun watchLayoutChanges() {
         if (bannerLayoutListener != null) return
@@ -370,6 +374,12 @@ class AdMobPlugin(private val activity: Activity) : Plugin(activity) {
     private fun removeBanner() {
         bannerUnit = null
         detachBanner()
+
+        bannerLayoutListener?.let { listener ->
+            activity.findViewById<ViewGroup>(android.R.id.content)
+                ?.removeOnLayoutChangeListener(listener)
+        }
+        bannerLayoutListener = null
     }
 
     private fun bottomInsetPx(): Int {
