@@ -3,11 +3,13 @@
 [default]
 description = """
 Default permission set for the NativeBlade admob plugin.
-Allows requesting ad consent and showing rewarded and interstitial ads.
+Allows requesting ad consent and showing rewarded, interstitial and banner ads.
 """
 
 permissions = [
   "allow-request-consent",
   "allow-show-rewarded",
   "allow-show-interstitial",
+  "allow-show-banner",
+  "allow-hide-banner",
 ]

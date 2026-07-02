@@ -16,6 +16,7 @@ class AndroidConfigGenerator
         $this->generateAppName();
         $this->generateTheme($config);
         $this->generateOrientation($config);
+        $this->generateAllowBackup($config);
         $this->generateEdgeToEdge();
         $this->generateVersion($config);
         $this->generateSdk($config);
@@ -29,6 +30,46 @@ class AndroidConfigGenerator
         $this->generateAdId();
         $this->generateFirebase($config);
         $this->ensureKotlinVersion();
+    }
+
+    /**
+     * `android:allowBackup` on the application element. Android defaults to
+     * true, which restores app data (SharedPreferences and all — including
+     * the UMP ad-consent state) on reinstall, surprising anyone who expects
+     * uninstall to give a clean slate. Only written when the dev configured
+     * `allowBackup(...)` explicitly; without it the manifest is untouched.
+     */
+    private function generateAllowBackup(array $config): void
+    {
+        if (!array_key_exists('allowBackup', $config)) return;
+
+        $manifestPath = base_path('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
+        if (!file_exists($manifestPath)) return;
+
+        $manifest = file_get_contents($manifestPath);
+        $original = $manifest;
+        $value = $config['allowBackup'] ? 'true' : 'false';
+
+        if (str_contains($manifest, 'android:allowBackup')) {
+            $manifest = preg_replace(
+                '/android:allowBackup="[^"]*"/',
+                'android:allowBackup="' . $value . '"',
+                $manifest,
+                1
+            );
+        } else {
+            $manifest = preg_replace(
+                '/<application\b/',
+                '<application android:allowBackup="' . $value . '"',
+                $manifest,
+                1
+            );
+        }
+
+        if ($manifest !== $original) {
+            file_put_contents($manifestPath, $manifest);
+            $this->cmd->line("  <fg=green>✓</> AndroidManifest.xml: allowBackup={$value}");
+        }
     }
 
     private const ADMOB_START = '<!-- nativeblade:admob:start -->';

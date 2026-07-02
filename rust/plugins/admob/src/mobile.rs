@@ -5,7 +5,7 @@ use tauri::{
 };
 
 use crate::error::Result;
-use crate::models::{ConsentArgs, InterstitialArgs, RewardedArgs};
+use crate::models::{BannerArgs, ConsentArgs, InterstitialArgs, RewardedArgs};
 
 #[cfg(target_os = "android")]
 const PLUGIN_IDENTIFIER: &str = "app.nativeblade.admob";
@@ -31,6 +31,18 @@ impl<R: Runtime> NativeBladeAdmob<R> {
     pub fn show_interstitial(&self, args: InterstitialArgs) -> Result<serde_json::Value> {
         self.0
             .run_mobile_plugin::<serde_json::Value>("showInterstitial", args)
+            .map_err(Into::into)
+    }
+
+    pub fn show_banner(&self, args: BannerArgs) -> Result<serde_json::Value> {
+        self.0
+            .run_mobile_plugin::<serde_json::Value>("showBanner", args)
+            .map_err(Into::into)
+    }
+
+    pub fn hide_banner(&self) -> Result<()> {
+        self.0
+            .run_mobile_plugin::<()>("hideBanner", serde_json::json!({}))
             .map_err(Into::into)
     }
 }

@@ -1,7 +1,8 @@
 //! AdMob plugin for NativeBlade.
 //!
-//! Rewarded and interstitial ads through the Google Mobile Ads SDK, plus the
-//! consent layer ads require (UMP on both platforms, ATT on iOS). Mobile only;
+//! Rewarded, interstitial and anchored banner ads through the Google Mobile
+//! Ads SDK, plus the consent layer ads require (UMP on both platforms, ATT on
+//! iOS). Mobile only;
 //! on desktop every call is unsupported (the JS bridge reports a failure event
 //! so handler code runs unchanged). The AdMob app id is wired by
 //! `NativeBladeConfig::admob(...)`.
@@ -12,7 +13,7 @@ use tauri::{
 };
 
 pub use error::{Error, Result};
-pub use models::{ConsentArgs, InterstitialArgs, RewardedArgs};
+pub use models::{BannerArgs, ConsentArgs, InterstitialArgs, RewardedArgs};
 
 mod error;
 mod models;

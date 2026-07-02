@@ -131,6 +131,8 @@ export const actions = {
     request_ad_consent: admobMod.request_ad_consent,
     rewarded_ad: admobMod.rewarded_ad,
     interstitial_ad: admobMod.interstitial_ad,
+    banner_ad: admobMod.banner_ad,
+    hide_banner_ad: admobMod.hide_banner_ad,
 
     // payments (in-app purchases)
     query_products: paymentsMod.query_products,

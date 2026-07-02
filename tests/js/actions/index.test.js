@@ -58,6 +58,8 @@ const EXPECTED_ACTIONS = [
     'request_ad_consent',
     'rewarded_ad',
     'interstitial_ad',
+    'banner_ad',
+    'hide_banner_ad',
     'query_products',
     'purchase',
     'restore_purchases',

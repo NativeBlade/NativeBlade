@@ -20,7 +20,12 @@ class ConfigCommand extends Command
         app()->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
         $configs = ShellConfig::getAppConfigs();
-        $plugins = PluginRegistry::resolve(ShellConfig::getDeclaredPlugins());
+        $declared = ShellConfig::getDeclaredPlugins();
+        $plugins = PluginRegistry::resolve($declared);
+
+        if ($declared === null) {
+            $this->line('  <fg=yellow>→</> No NativeBladeConfig::plugins([...]) declared — enabling every plugin (prototyping default). Declare the set you use before shipping.');
+        }
 
         (new PluginsConfigGenerator($this))->generate(
             $plugins,

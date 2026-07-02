@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-show-banner"
+description = "Enables the show_banner command without any pre-configured scope."
+commands.allow = ["show_banner"]
+
+[[permission]]
+identifier = "deny-show-banner"
+description = "Denies the show_banner command without any pre-configured scope."
+commands.deny = ["show_banner"]

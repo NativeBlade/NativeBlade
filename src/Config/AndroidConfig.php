@@ -86,6 +86,18 @@ class AndroidConfig
         return $this;
     }
 
+    /**
+     * `android:allowBackup` in the manifest. Android defaults to true, which
+     * restores app data from backup on reinstall (SharedPreferences and files
+     * — including e.g. the UMP ad-consent state), so uninstalling does NOT
+     * give a clean slate. Set false to start fresh on every reinstall.
+     */
+    public function allowBackup(bool $enabled = true): static
+    {
+        $this->config['allowBackup'] = $enabled;
+        return $this;
+    }
+
     /** Minimum supported Android SDK level. Default 28 (Android 9). */
     public function minSdk(int $version): static
     {
