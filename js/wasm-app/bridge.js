@@ -110,7 +110,7 @@ async function resolveFileDest(pathApi, relativePath, purpose) {
 
 // --- dispatcher ---
 
-function buildCtx(appFrame) {
+function buildCtx(appFrame, replyWindow = null) {
     return {
         // all the Tauri APIs, spread so handlers can destructure what they need
         ...apis,
@@ -118,20 +118,25 @@ function buildCtx(appFrame) {
         isTauri,
         isMobile,
         isAndroid,
-        // frame + postMessage helper
+        // frame + postMessage helper. Events reply to the window that
+        // dispatched the action when known: during a navigation transition
+        // the incoming page (still in the buffer, pre-swap) fires wire:init
+        // actions, and posting to the "current" frame would deliver the
+        // response to the OUTGOING page instead.
         appFrame,
-        post: (type, data = {}) => appFrame?.contentWindow?.postMessage({ type, ...data }, '*'),
+        post: (type, data = {}) =>
+            (replyWindow ?? appFrame?.contentWindow)?.postMessage({ type, ...data }, '*'),
         // shared modules + helpers
         camera: cameraModule,
         resolveFileDest,
     };
 }
 
-export function handleNativeAction(action, payload, appFrame) {
+export function handleNativeAction(action, payload, appFrame, replyWindow = null) {
     const handler = actions[action];
     if (handler) {
         try {
-            const result = handler(payload, buildCtx(appFrame));
+            const result = handler(payload, buildCtx(appFrame, replyWindow));
             if (result && typeof result.catch === 'function') {
                 result.catch(e => console.error(`[NB] action '${action}' failed`, e));
             }

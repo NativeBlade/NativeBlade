@@ -114,7 +114,11 @@ export function init(frame, splashEl) {
                 await navigate(event.data.path, opts);
             }
         } else if (type === 'nativeblade-native') {
-            handleNativeAction(event.data.action, event.data.payload, appFrame);
+            // Reply to the frame that dispatched the action — during a slide
+            // transition the incoming page fires wire:init actions from the
+            // buffer before the swap, and its events must not land on the
+            // outgoing page.
+            handleNativeAction(event.data.action, event.data.payload, appFrame, event.source);
         }
     });
 }
