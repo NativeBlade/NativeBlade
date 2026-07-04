@@ -88,11 +88,8 @@ need. Reach out to scope it.
 
 ## How to sponsor
 
-- **Polar:** [polar.sh/nativeblade](https://polar.sh/nativeblade) — recurring and
-  one-time, handles invoicing and VAT
-
-Questions about sponsorship or sponsored features: reach out on
-[Discord](https://discord.gg/Vzpach5J2h) or by email at `jeffleyd@gmail.com`.
+To sponsor, or for questions about sponsorship or sponsored features, reach out
+on [Discord](https://discord.gg/Vzpach5J2h) or by email at `jeffleyd@gmail.com`.
 
 > Tiers and prices above are the current plan and may be adjusted as the project
 > grows. Sponsorship funds the project; it is not a contract for support.

@@ -22,7 +22,7 @@ A paid subscription that gives your team:
 - A **private support channel** (Discord, Slack, or email, your choice)
 - A **written response time** during business hours
 - Help from the maintainers of NativeBlade, not a queue of volunteers
-- A **license key** that validates your team's access, issued through Polar
+- A **license key** that validates your team's access
 
 Business Support is separate from sponsorship. Sponsoring the project funds its
 development and gets recognition. Business Support is a commercial agreement with
@@ -86,15 +86,13 @@ when it makes sense, quote it as separate work.
 
 ## How it works
 
-1. Choose a plan and subscribe on
-   [polar.sh/nativeblade](https://polar.sh/nativeblade).
+1. Choose a plan and email `jeffleyd@gmail.com` to subscribe.
 2. You receive a license key and an invitation to your private channel.
 3. Send us the names and contact handles of your team members.
 4. You start getting answers within the response time of your plan.
 
-Billing is monthly through Polar, which acts as merchant of record and handles
-invoicing and VAT. You can cancel at any time; access continues until the end of
-the paid period.
+Billing is monthly. You can cancel at any time; access continues until the end
+of the paid period.
 
 ---
 
