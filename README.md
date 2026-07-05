@@ -27,10 +27,8 @@
   <a href="CACHE.md">Cache</a> &bull;
   <a href="MULTI-LANGUAGE.md">Languages</a> &bull;
   <a href="FILESYSTEM.md">Filesystem</a> &bull;
-  <a href="BUILD.md">Build</a> &bull;
   <a href="SCHEDULER.md">Scheduler</a> &bull;
   <a href="UPDATES.md">Auto-Update</a> &bull;
-  <a href="PUBLISH.md">Publish</a> &bull;
   <a href="MCP.md">MCP (AI agents)</a>
 </p>
 
@@ -44,10 +42,13 @@
 
 NativeBlade lets Laravel developers build **desktop** and **mobile** apps using only **PHP and Blade**. Your entire Laravel + Livewire application runs inside a PHP WebAssembly runtime, wrapped in a [Tauri 2](https://v2.tauri.app) shell. No JavaScript frameworks. No API layers. Just the Laravel you already know.
 
+> [!TIP]
+> **Building your app?** Use **[nativeblade.dev](https://nativeblade.dev)** — build your NativeBlade app in the cloud **for free**, no Android Studio or Xcode setup required. Push your project and download the binaries ready for the stores.
+
 ## Features
 
 - **Pure Laravel** — Routes, Livewire components, Blade templates, Eloquent (SQLite)
-- **Tiny Bundle** — A full Laravel + Livewire app compresses to **~6 MB gzipped** (see [BUILD.md](BUILD.md#bundle-size--the-absurd-part))
+- **Tiny Bundle** — A full Laravel + Livewire app compresses to **~6 MB gzipped**
 - **Native Shell** — Top bar, bottom navigation, drawer, modal, tray — all outside the WebView
 - **Native APIs** — Dialogs, notifications, camera, geolocation, haptics, biometric, NFC, barcode
 - **Desktop** — Windows, macOS, Linux with native menus and system tray
@@ -133,7 +134,7 @@ php artisan nativeblade:dev --platform=android --build
 php artisan nativeblade:dev --platform=ios --build
 ```
 
-Builds the frontend once, points Tauri at `dist-wasm/`, and launches the app. Ideal for validating the real production payload or iterating on Rust/native shell without HMR in the way. See [BUILD.md](BUILD.md#production-preview---build).
+Builds the frontend once, points Tauri at `dist-wasm/`, and launches the app. Ideal for validating the real production payload or iterating on Rust/native shell without HMR in the way.
 
 ## UI Components
 
@@ -353,9 +354,7 @@ NativeBlade is a **client-side runtime**, so anything inherently server-side (se
 | [LIFECYCLE.md](LIFECYCLE.md) | Boot sequence, onBoot hook, clock sync, migrations |
 | [SCHEDULER.md](SCHEDULER.md) | Task scheduling with Rust native timers |
 | [FILESYSTEM.md](FILESYSTEM.md) | Native filesystem, Storage driver, camera integration |
-| [BUILD.md](BUILD.md) | Build command, output, CLI commands, icon generation |
 | [UPDATES.md](UPDATES.md) | Auto-update for desktop and mobile |
-| [PUBLISH.md](PUBLISH.md) | Publishing to stores |
 | [MCP.md](MCP.md) | Built-in MCP server so Claude Code / Cursor / Windsurf can introspect your live project (declared plugins, facade methods, framework docs) |
 
 ## How NativeBlade Differs
