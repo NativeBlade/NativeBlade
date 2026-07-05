@@ -18,6 +18,7 @@ class UpdateCommand extends Command
 
         $this->syncPackageJson();
         $this->syncViteConfig();
+        $this->syncCargoConfig();
 
         $this->line('');
         $this->line('  Regenerating config...');
@@ -67,6 +68,44 @@ class UpdateCommand extends Command
         $this->line(file_exists($targetPath . '.bak')
             ? "  <fg=green>✓</> vite.wasm.config.js synced (previous saved to vite.wasm.config.js.bak)"
             : "  <fg=green>✓</> vite.wasm.config.js created");
+    }
+
+    /**
+     * Ensure the Android Rust targets link with 16 KB ELF page alignment,
+     * which Google Play requires for apps targeting Android 15+. Projects
+     * generated before this flag existed have only the linker lines, and the
+     * alignment then silently depends on the installed NDK (r28+ aligns by
+     * default, older ones don't). The rustflags line is injected under each
+     * Android target's linker so the machine-specific NDK paths are preserved.
+     */
+    private function syncCargoConfig(): void
+    {
+        $targetPath = base_path('src-tauri/.cargo/config.toml');
+
+        if (!file_exists($targetPath)) {
+            return; // No Android platform added yet.
+        }
+
+        $config = file_get_contents($targetPath);
+
+        if (str_contains($config, 'max-page-size=16384')) {
+            $this->line("  <fg=green>✓</> src-tauri/.cargo/config.toml already current");
+            return;
+        }
+
+        $patched = preg_replace(
+            '/^(\[target\.(?:aarch64-linux-android|armv7-linux-androideabi|i686-linux-android|x86_64-linux-android)\]\R+linker = "[^"]+")/m',
+            "$1\nrustflags = [\"-C\", \"link-arg=-Wl,-z,max-page-size=16384\"]",
+            $config
+        );
+
+        if ($patched === null || $patched === $config) {
+            $this->line("  <fg=yellow>→</> src-tauri/.cargo/config.toml has an unexpected layout, add the 16 KB page-size rustflags manually (see stubs/.cargo/config.toml.stub)");
+            return;
+        }
+
+        file_put_contents($targetPath, $patched);
+        $this->line("  <fg=green>✓</> src-tauri/.cargo/config.toml synced (16 KB page-size alignment for Android)");
     }
 
     /**
