@@ -48,8 +48,8 @@ class Server
      */
     public function __construct(?array $tools = null, $stdin = null, $stdout = null)
     {
-        $this->stdin = $stdin ?? STDIN;
-        $this->stdout = $stdout ?? STDOUT;
+        $this->stdin = $stdin ?? (defined('STDIN') ? STDIN : fopen('php://stdin', 'r'));
+        $this->stdout = $stdout ?? (defined('STDOUT') ? STDOUT : fopen('php://stdout', 'w'));
 
         $defaults = $tools ?? [
             new ListFacadeMethods(),
