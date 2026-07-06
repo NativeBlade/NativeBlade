@@ -45,12 +45,15 @@ php artisan nativeblade:icon resources/icon.png --bg=#0a0a0a
 ## Develop
 
 ### `nativeblade:dev {--platform=} {--host=} {--port=} {--build}`
-Start the dev server with hot reload. `--platform` is `desktop` (default), `android`, `ios`, or `portal`. `--host` overrides the auto-detected LAN IP for mobile; `--port` is the Vite port (default `1420`); `--build` runs against built assets instead of the Vite server (no HMR).
+Start the dev server with hot reload. `--platform` is `desktop` (default), `android`, `ios`, `portal`, or `browser`. `--host` overrides the auto-detected LAN IP for mobile; `--port` is the Vite port (default `1420`); `--build` runs against built assets instead of the Vite server (no HMR).
+
+`browser` skips Tauri and Rust entirely — it builds the WASM bundle and opens the app in your default browser. Native plugin actions are silent no-ops outside Tauri, so use it to iterate on UI/Livewire behavior, not native features.
 
 ```bash
 php artisan nativeblade:dev                      # desktop, HMR
 php artisan nativeblade:dev --platform=android   # install + run on device, HMR
 php artisan nativeblade:dev --platform=portal    # serve for the Portal app (QR + URL)
+php artisan nativeblade:dev --platform=browser   # open in the browser, no Rust/Tauri
 ```
 
 ### `nativeblade:serve {--host=} {--port=}`

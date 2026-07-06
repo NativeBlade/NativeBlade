@@ -11,7 +11,7 @@ use Symfony\Component\Process\Process;
 class DevCommand extends Command
 {
     protected $signature = 'nativeblade:dev
-        {--platform=desktop : Platform to run (desktop, android, ios, portal)}
+        {--platform=desktop : Platform to run (desktop, android, ios, portal, browser)}
         {--host= : IP address for mobile dev (auto-detected if empty)}
         {--port=1420 : Vite dev server port}
         {--build : Use built assets instead of Vite dev server (no HMR)}';
@@ -27,9 +27,13 @@ class DevCommand extends Command
         $host = $this->option('host') ?: $this->detectIP();
         $build = (bool) $this->option('build');
 
-        $this->call('nativeblade:config');
+        // Browser mode never touches Tauri/Rust: no config regeneration (it
+        // rewrites Cargo/tauri files) and no @tauri-apps/cli requirement.
+        if ($platform !== 'browser') {
+            $this->call('nativeblade:config');
+        }
 
-        if (!$this->ensureNpmDeps()) {
+        if (!$this->ensureNpmDeps(requireTauri: $platform !== 'browser')) {
             return self::FAILURE;
         }
 
@@ -67,6 +71,7 @@ class DevCommand extends Command
                 'android' => $build ? $this->runBuiltAndroid() : $this->runAndroid($host, $port),
                 'ios' => $build ? $this->runBuiltIos() : $this->runIos($host, $port),
                 'portal' => $this->runPortal($host, $port),
+                'browser' => $this->runBrowser($port, $build),
                 default => $this->error("Unknown platform: {$platform}"),
             };
         } finally {
@@ -92,10 +97,15 @@ class DevCommand extends Command
      * Auto-run `npm install` when the Tauri CLI is missing. It is a no-op
      * when deps are already in sync, so the cost of always checking is tiny.
      */
-    private function ensureNpmDeps(): bool
+    private function ensureNpmDeps(bool $requireTauri = true): bool
     {
-        $tauriCliPath = base_path('node_modules/@tauri-apps/cli/package.json');
-        if (file_exists($tauriCliPath)) {
+        // Browser mode only shells out to vite, so that's the binary to probe.
+        $marker = $requireTauri
+            ? base_path('node_modules/@tauri-apps/cli/package.json')
+            : base_path('node_modules/vite/package.json');
+        $missingLabel = $requireTauri ? 'Tauri CLI' : 'Vite';
+
+        if (file_exists($marker)) {
             return true;
         }
 
@@ -104,7 +114,7 @@ class DevCommand extends Command
             return false;
         }
 
-        $this->warn('Tauri CLI not found in node_modules. Running `npm install`...');
+        $this->warn("{$missingLabel} not found in node_modules. Running `npm install`...");
         $cmd = 'cd ' . escapeshellarg(base_path()) . ' && npm install 2>&1';
         passthru($cmd, $code);
 
@@ -113,8 +123,8 @@ class DevCommand extends Command
             return false;
         }
 
-        if (!file_exists($tauriCliPath)) {
-            $this->error('@tauri-apps/cli still missing after `npm install`. Check package.json and your registry access.');
+        if (!file_exists($marker)) {
+            $this->error("{$missingLabel} still missing after `npm install`. Check package.json and your registry access.");
             return false;
         }
 
@@ -456,6 +466,32 @@ class DevCommand extends Command
         );
     }
 
+    /**
+     * Browser mode: no Tauri shell, no Rust build — just the WASM bundle on
+     * the Vite server, opened in the default browser. Native plugin actions
+     * are silent no-ops outside Tauri (bridge.js isTauri guard), so this is
+     * for iterating on UI/Livewire/WASM behavior, not native features.
+     */
+    private function runBrowser(string $port, bool $build): void
+    {
+        $url = "http://localhost:{$port}";
+
+        $this->newLine();
+        $this->line('  <fg=magenta;options=bold>NativeBlade Browser</>');
+        $this->line("  URL: <info>{$url}</info>");
+        $this->newLine();
+        $this->line('  <fg=yellow>Native plugins are no-ops in a plain browser — UI/Livewire/WASM only.</>');
+        $this->newLine();
+
+        if ($build) {
+            // handle() already ran `vite build`; preview serves dist-wasm as-is.
+            $this->exec("npx vite preview --config vite.wasm.config.js --port {$port} --open");
+            return;
+        }
+
+        $this->exec("npx vite --config vite.wasm.config.js --port {$port} --open");
+    }
+
     private function printQR(string $content): void
     {
         try {
@@ -518,7 +554,7 @@ class DevCommand extends Command
             $this->line("  Host:      <info>{$host}</info>");
             $this->line("  Port:      <info>{$port}</info>");
 
-            if ($platform !== 'desktop') {
+            if (!in_array($platform, ['desktop', 'browser'], true)) {
                 $this->line("  Dev URL:   <info>http://{$host}:{$port}</info>");
                 $this->line('  <fg=yellow>Device must be on the same WiFi network</>');
             }
