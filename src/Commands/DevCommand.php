@@ -483,13 +483,19 @@ class DevCommand extends Command
         $this->line('  <fg=yellow>Native plugins are no-ops in a plain browser — UI/Livewire/WASM only.</>');
         $this->newLine();
 
+        // --open needs a local browser: skip it on headless/cloud environments
+        // (Replit sets REPL_ID; bare Linux servers have no DISPLAY).
+        $headless = getenv('REPL_ID') !== false
+            || (PHP_OS_FAMILY === 'Linux' && getenv('DISPLAY') === false && getenv('WAYLAND_DISPLAY') === false);
+        $open = $headless ? '' : ' --open';
+
         if ($build) {
             // handle() already ran `vite build`; preview serves dist-wasm as-is.
-            $this->exec("npx vite preview --config vite.wasm.config.js --port {$port} --open");
+            $this->exec("npx vite preview --config vite.wasm.config.js --port {$port}{$open}");
             return;
         }
 
-        $this->exec("npx vite --config vite.wasm.config.js --port {$port} --open");
+        $this->exec("npx vite --config vite.wasm.config.js --port {$port}{$open}");
     }
 
     private function printQR(string $content): void

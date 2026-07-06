@@ -7,7 +7,10 @@ use NativeBlade\NativeBladeServiceProvider;
 
 class InstallCommand extends Command
 {
-    protected $signature = 'nativeblade:install';
+    protected $signature = 'nativeblade:install
+        {--name= : App name (skips the interactive prompt)}
+        {--id= : Bundle identifier like com.example.app (skips the interactive prompt)}
+        {--template= : Starter template, "demo" or "blank" (skips the interactive prompt)}';
     protected $description = 'Install NativeBlade into your Laravel project';
 
     private string $appName;
@@ -20,9 +23,18 @@ class InstallCommand extends Command
         $this->info('  ⚡ NativeBlade Installer');
         $this->info('');
 
-        $this->appName = $this->ask('App name', config('app.name', 'MyApp'));
-        $this->identifier = $this->ask('Identifier (com.example.app)', $this->guessIdentifier());
-        $this->template = $this->choice(
+        // Every prompt has a flag counterpart so the install can run fully
+        // non-interactive (CI, cloud shells, template assembly):
+        //   nativeblade:install --name=MyApp --id=com.example.myapp --template=blank
+        $template = $this->option('template');
+        if ($template !== null && !in_array($template, ['demo', 'blank'], true)) {
+            $this->error("Invalid template \"{$template}\". Use demo or blank.");
+            return self::FAILURE;
+        }
+
+        $this->appName = $this->option('name') ?: $this->ask('App name', config('app.name', 'MyApp'));
+        $this->identifier = $this->option('id') ?: $this->ask('Identifier (com.example.app)', $this->guessIdentifier());
+        $this->template = $template ?: $this->choice(
             'Which starter template?',
             ['demo', 'blank'],
             'demo'
