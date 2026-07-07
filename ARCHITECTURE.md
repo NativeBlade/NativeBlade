@@ -87,6 +87,39 @@ class Login extends Component
 
 The first version is testable, swappable, readable. The second is a tangled blob.
 
+## One component per screen — decompose by responsibility
+
+A screen is a component. A feature is a component. Do NOT build one giant component that holds every screen and swaps them with a `$screen`/`$tab`/`@if` ladder — that's a monolith with a fake router inside it, and it re-renders and re-hydrates the whole app on every tap.
+
+- **Each route/screen is its own Livewire component** in `app/Livewire/{Domain}/`, wired in `routes/web.php`. Moving between screens is `->navigate('/path')`, never toggling a property.
+- **Break a busy screen into children by responsibility:**
+  - Has its own state + actions (an editable row, a cart line, a comment box) → a nested Livewire component.
+  - Purely presentational (a badge, an avatar, a stat card) → a Blade component (`<x-…>`) or partial, no class.
+- **One component = one job.** If a component has fields and methods for three unrelated things (the profile form AND the feed AND the cart), split it into three.
+
+```php
+// ❌ Bad: one component is the entire app
+class Home extends Component {
+    public string $screen = 'feed';                 // fake router
+    public array $feed = []; public array $profile = []; public array $cart = [];
+    public function show($s) { $this->screen = $s; }
+    public function addToCart(...) {...} public function saveProfile(...) {...}  // everything
+    // render() → one blade full of @if($screen === 'feed') … @elseif($screen === 'cart') …
+}
+```
+```php
+// ✅ Good: a component per screen, real routes
+// routes/web.php
+Route::get('/', Feed::class);
+Route::get('/cart', Cart::class);
+Route::get('/profile', Profile::class);
+
+// app/Livewire/Shop/Cart.php — only the cart's state + actions
+class Cart extends Component { /* … */ }
+```
+
+Rule of thumb: if you're writing `@if($screen === …)` or `match($tab)` in a Blade view to pick which whole screen to show, stop — those are separate components behind separate routes. Native tab bars are configured with `NativeBladeConfig::bottomNav([...])` pointing at those routes, not a property toggle.
+
 ## Folder structure
 
 ```
@@ -687,6 +720,18 @@ Put third-party libraries and your own front-end scripts in `public/`, and load 
 
 Why: inlining libraries and ad-hoc scripts bloats every render, defeats browser caching, can't be reused across screens, and turns the view into an unreadable wall. One tag per asset keeps the shell clean and the files cacheable.
 
+### Tailwind compiles at build time — rebuild after changing classes
+
+The layout loads CSS with `@vite(['resources/css/app.css'])`, which resolves to the compiled `public/build/` bundle. Tailwind scans your Blade/PHP and generates utilities **only when `npm run build` runs**. The `nativeblade:dev` watcher re-bundles PHP/Blade but does NOT recompile Tailwind, and it explicitly ignores `public/build/`.
+
+So whenever you add or remove Tailwind utility classes, or edit `resources/css/app.css`:
+
+1. Stop `nativeblade:dev`.
+2. `npm run build`
+3. Start `nativeblade:dev` again (it re-bundles the fresh CSS at boot).
+
+Skip this and the new classes have no compiled CSS — they render as silent no-ops (an element that just doesn't get styled). This is the #1 "why isn't my style applying?" trap.
+
 ### Animations: CSS transitions, never JavaScript
 
 Animate every show/hide — modals, sheets, toasts, drawers, any enter/leave — with CSS transitions driven by a single class, never by JavaScript.
@@ -764,6 +809,8 @@ These are bugs in disguise. The MCP architecture tool will flag any of these.
 9. **A JS library (or a wall of front-end code) pasted inline in a Blade view.** Vendor it to `public/js/` and load it with `<script src="/js/…">` in `app.blade.php`.
 
 10. **Animating a show/hide from JavaScript, or `@if`/`wire:if`-mounting an overlay to animate it.** Keep it mounted, toggle one class, animate in CSS.
+
+11. **One mega-component holding every screen behind a `$screen`/`$tab` toggle.** Each screen is its own component behind its own route; decompose busy screens into child components by responsibility.
 
 ## Worked example: a complete feature
 
