@@ -666,6 +666,50 @@ If you need the splash to track the user's pick instead of the OS, write `public
 - `app()->setLocale($x)` called directly from a component. Always via `LocaleState::set()` so the value persists.
 - String-literal locale codes outside `LocaleState`. Keep the supported list in one place.
 
+## Frontend assets & animations
+
+The Blade layout at `resources/views/components/layouts/app.blade.php` is the app's HTML shell — the single place to load client-side assets.
+
+### External JS/CSS: vendor the file, reference it by path
+
+Put third-party libraries and your own front-end scripts in `public/`, and load them with a plain tag in `app.blade.php`:
+
+```blade
+{{-- resources/views/components/layouts/app.blade.php --}}
+<script src="/js/tsparticles.bundle.min.js"></script>
+<script src="/js/pet-renderer.js"></script>
+```
+
+- Vendor libraries live in `public/js/` (or `public/css/`) as their own file — download the minified build, commit it, reference it. NEVER paste a library's source inline in a Blade view.
+- Your own front-end code (canvas renderers, chart glue, particle setups) is its own file in `public/js/`, not a `<script>` blob dropped in the middle of a component.
+- Files under `public/` are served from the root: `public/js/pet-renderer.js` → `/js/pet-renderer.js`.
+- Load order matters — put the library tag before the script that uses it.
+
+Why: inlining libraries and ad-hoc scripts bloats every render, defeats browser caching, can't be reused across screens, and turns the view into an unreadable wall. One tag per asset keeps the shell clean and the files cacheable.
+
+### Animations: CSS transitions, never JavaScript
+
+Animate every show/hide — modals, sheets, toasts, drawers, any enter/leave — with CSS transitions driven by a single class, never by JavaScript.
+
+The flicker-proof pattern:
+- Keep the element **always mounted** in the DOM (do NOT `@if`/`wire:if` it in and out) and hidden by default.
+- Livewire toggles one class (e.g. `is-open`) on a boolean property; nothing else changes.
+- CSS transitions `opacity` + a `transform` (slide/scale) between the closed and `.is-open` states, plus a backdrop fade.
+
+```blade
+<div class="nb-modal @class(['is-open' => $showModal])">
+    <div class="panel">…</div>
+</div>
+```
+```css
+.nb-modal { opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+.nb-modal > .panel { transform: translateY(16px); transition: transform .25s ease; }
+.nb-modal.is-open { opacity: 1; pointer-events: auto; }
+.nb-modal.is-open > .panel { transform: none; }
+```
+
+Why: Livewire flips that class exactly once, so the browser runs a single, uninterruptible CSS transition. Mounting/unmounting the node or driving the animation from JS makes it flicker (a visible flash) on open/close and never feels native.
+
 ## Debugging
 
 PHP-WASM breaks the usual Laravel debugging tools:
@@ -716,6 +760,10 @@ These are bugs in disguise. The MCP architecture tool will flag any of these.
 7. **Component calling `Http::get(...)` directly.** Wrap the external API in `app/Http/Clients/`.
 
 8. **Magic string or magic number in business code.** Closed sets become enums in `app/Enums/`. Tunables (timeouts, retries, limits, TTLs) become private class constants. Only one-off tags (`->id('login')`) stay inline.
+
+9. **A JS library (or a wall of front-end code) pasted inline in a Blade view.** Vendor it to `public/js/` and load it with `<script src="/js/…">` in `app.blade.php`.
+
+10. **Animating a show/hide from JavaScript, or `@if`/`wire:if`-mounting an overlay to animate it.** Keep it mounted, toggle one class, animate in CSS.
 
 ## Worked example: a complete feature
 
