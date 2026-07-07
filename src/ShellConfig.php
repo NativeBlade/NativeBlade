@@ -311,7 +311,8 @@ class ShellConfig
      */
     public function bundlePush(string $url, bool $autoApply = true, string $channel = 'stable'): static
     {
-        if (in_array('nativeblade:dev', $_SERVER['argv'] ?? [], true)) {
+        $argv = $_SERVER['argv'] ?? [];
+        if (is_array($argv) && in_array('nativeblade:dev', $argv, true)) {
             return $this;
         }
 
