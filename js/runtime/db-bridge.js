@@ -13,6 +13,13 @@ export async function hasPendingRequest(php, output) {
 }
 
 export async function fulfill(php) {
+    // Browser preview has no Tauri host: the native DB driver isn't available,
+    // so skip the bridge instead of importing Tauri's invoke (which would read
+    // window.__TAURI_INTERNALS__.invoke and throw on undefined).
+    if (!_invokeOverride && (typeof window === 'undefined' || !window.__TAURI_INTERNALS__)) {
+        cleanup(php);
+        return false;
+    }
     if (retryCount >= MAX_RETRIES) {
         console.warn('[NativeBlade] db bridge: MAX_RETRIES reached, giving up to avoid infinite loop');
         cleanup(php);
