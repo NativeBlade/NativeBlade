@@ -3,24 +3,34 @@ import assert from 'node:assert/strict';
 import { clipboard_read, clipboard_write } from '../../../js/wasm-app/actions/clipboard.js';
 import { makeCtx, Recorder, spy, flush } from '../helpers/ctx.js';
 
+// Native path needs isTauri: true. Outside Tauri the handlers fall back to the
+// Web Clipboard API (absent in Node) → write is a no-op, read posts an empty
+// string so the app still gets a reply.
 describe('actions/clipboard', () => {
     describe('clipboard_write', () => {
         it('forwards the text to writeText', () => {
             const wt = spy();
-            clipboard_write({ text: 'hello' }, makeCtx({ clipboardApi: { writeText: wt } }));
+            clipboard_write({ text: 'hello' }, makeCtx({ isTauri: true, clipboardApi: { writeText: wt } }));
 
             assert.deepEqual(wt.calls[0], ['hello']);
         });
 
         it('defaults missing text to an empty string', () => {
             const wt = spy();
-            clipboard_write({}, makeCtx({ clipboardApi: { writeText: wt } }));
+            clipboard_write({}, makeCtx({ isTauri: true, clipboardApi: { writeText: wt } }));
 
             assert.deepEqual(wt.calls[0], ['']);
         });
 
+        it('does not call the native API outside Tauri', () => {
+            const wt = spy();
+            clipboard_write({ text: 'x' }, makeCtx({ isTauri: false, clipboardApi: { writeText: wt } }));
+
+            assert.equal(wt.called, false);
+        });
+
         it('is a no-op when clipboardApi is unavailable', () => {
-            assert.doesNotThrow(() => clipboard_write({ text: 'x' }, makeCtx({ clipboardApi: null })));
+            assert.doesNotThrow(() => clipboard_write({ text: 'x' }, makeCtx({ isTauri: true, clipboardApi: null })));
         });
     });
 
@@ -30,6 +40,7 @@ describe('actions/clipboard', () => {
 
         it('reads text and posts it with id=null when no id is given', async () => {
             const ctx = makeCtx({
+                isTauri: true,
                 clipboardApi: { readText: () => Promise.resolve('pasted') },
                 post: rec.fn(),
             });
@@ -44,6 +55,7 @@ describe('actions/clipboard', () => {
 
         it('forwards the id when provided', async () => {
             const ctx = makeCtx({
+                isTauri: true,
                 clipboardApi: { readText: () => Promise.resolve('x') },
                 post: rec.fn(),
             });
@@ -54,8 +66,15 @@ describe('actions/clipboard', () => {
             assert.equal(rec.calls[0].data.id, 'target');
         });
 
-        it('is a no-op when clipboardApi is unavailable', () => {
-            assert.doesNotThrow(() => clipboard_read({}, makeCtx({ clipboardApi: null })));
+        it('still replies (empty) outside Tauri without a Web Clipboard API', async () => {
+            const ctx = makeCtx({ isTauri: false, clipboardApi: null, post: rec.fn() });
+
+            clipboard_read({ id: 'x' }, ctx);
+            await flush();
+
+            assert.deepEqual(rec.calls, [
+                { type: 'nativeblade-clipboard', data: { text: '', id: 'x' } },
+            ]);
         });
     });
 });

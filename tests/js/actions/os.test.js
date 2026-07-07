@@ -7,20 +7,14 @@ describe('actions/os', () => {
     let rec;
     beforeEach(() => { rec = new Recorder(); });
 
-    it('is a no-op when osApi is unavailable', async () => {
-        os_info({}, makeCtx({ osApi: null, post: rec.fn() }));
-        await flush();
-        assert.equal(rec.calls.length, 0);
-    });
-
-    it('posts the aggregated platform info', async () => {
+    it('posts the aggregated platform info inside Tauri', async () => {
         const osApi = {
             platform: () => Promise.resolve('linux'),
             version: () => Promise.resolve('6.1'),
             arch: () => Promise.resolve('x86_64'),
             locale: () => Promise.resolve('en-US'),
         };
-        const ctx = makeCtx({ osApi, post: rec.fn() });
+        const ctx = makeCtx({ isTauri: true, osApi, post: rec.fn() });
 
         os_info({}, ctx);
         await flush();
@@ -32,5 +26,19 @@ describe('actions/os', () => {
                 data: { info: { platform: 'linux', version: '6.1', arch: 'x86_64', locale: 'en-US' } },
             },
         ]);
+    });
+
+    it('replies with browser info when osApi is unavailable', async () => {
+        os_info({}, makeCtx({ isTauri: false, osApi: null, post: rec.fn() }));
+        await flush();
+
+        assert.equal(rec.calls.length, 1);
+        assert.equal(rec.calls[0].type, 'nativeblade-os-info');
+        // Empty version/arch, and a platform string (navigator.platform or 'browser').
+        const { info } = rec.calls[0].data;
+        assert.equal(typeof info.platform, 'string');
+        assert.ok(info.platform.length > 0);
+        assert.equal(info.version, '');
+        assert.equal(info.arch, '');
     });
 });

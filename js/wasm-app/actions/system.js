@@ -1,9 +1,10 @@
 // System actions — exit, log
 
 export function exit() {
-    try {
-        import('@tauri-apps/plugin-process').then(m => m.exit(0));
-    } catch {}
+    // The outer promise must be caught too: in a browser preview m.exit(0)
+    // rejects (no Tauri host) and would surface as an uncaught rejection.
+    // Quitting has no browser equivalent, so a rejection is a fine no-op.
+    return import('@tauri-apps/plugin-process').then(m => m.exit(0)).catch(() => {});
 }
 
 async function getMainWindow() {

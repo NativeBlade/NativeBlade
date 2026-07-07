@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { log } from '../../../js/wasm-app/actions/system.js';
+import { log, exit } from '../../../js/wasm-app/actions/system.js';
 
 describe('actions/system', () => {
     let calls;
@@ -66,6 +66,14 @@ describe('actions/system', () => {
         it('defaults message to empty string when missing', () => {
             log({ level: 'info' });
             assert.equal(calls[0].args[2], '');
+        });
+    });
+
+    describe('exit', () => {
+        // Outside Tauri the plugin import resolves but exit(0) rejects; the
+        // handler must swallow it (no unhandled rejection) rather than throw.
+        it('rejects quietly outside Tauri instead of throwing', async () => {
+            await assert.doesNotReject(() => Promise.resolve(exit()));
         });
     });
 });
