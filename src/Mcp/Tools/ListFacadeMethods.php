@@ -26,9 +26,10 @@ class ListFacadeMethods implements Tool
 
     public function inputSchema(): array
     {
+        // No arguments: bare object schema — never embed an empty stdClass
+        // (PHP cache serialization can corrupt it into __PHP_Incomplete_Class).
         return [
             'type' => 'object',
-            'properties' => new \stdClass(),
         ];
     }
 

@@ -52,7 +52,7 @@ class BuildCommand extends Command
         $this->line('');
         $this->line('  Bundling Laravel app...');
         $bundleScript = NativeBladeServiceProvider::packagePath('js/scripts/bundle-laravel.js');
-        if (!$this->runProcess("node {$bundleScript} " . base_path())) {
+        if (!$this->runProcess('node ' . escapeshellarg($bundleScript) . ' ' . escapeshellarg(base_path()))) {
             $this->error('  Laravel bundle failed.');
             return self::FAILURE;
         }

@@ -50,7 +50,7 @@ class DevCommand extends Command
 
         $this->info('Building Laravel bundle...');
         $bundleScript = NativeBladeServiceProvider::packagePath('js/scripts/bundle-laravel.js');
-        $this->exec("node {$bundleScript} " . base_path());
+        $this->exec('node ' . escapeshellarg($bundleScript) . ' ' . escapeshellarg(base_path()));
 
         if ($build) {
             $this->info('Building frontend bundle...');
@@ -62,7 +62,7 @@ class DevCommand extends Command
         $watcher = null;
         if (!$build) {
             $watchScript = NativeBladeServiceProvider::packagePath('js/scripts/watch-bundle.js');
-            $watcher = $this->background("node {$watchScript} " . base_path());
+            $watcher = $this->background('node ' . escapeshellarg($watchScript) . ' ' . escapeshellarg(base_path()));
         }
 
         try {

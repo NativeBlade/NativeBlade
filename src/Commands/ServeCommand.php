@@ -37,7 +37,7 @@ class ServeCommand extends Command
 
         $this->line('  Building Laravel bundle...');
         $bundleScript = NativeBladeServiceProvider::packagePath('js/scripts/bundle-laravel.js');
-        $this->exec("node {$bundleScript} " . base_path());
+        $this->exec('node ' . escapeshellarg($bundleScript) . ' ' . escapeshellarg(base_path()));
 
         $watchScript = NativeBladeServiceProvider::packagePath('js/scripts/watch-bundle.js');
         $watcher = $this->background("node {$watchScript} " . base_path());

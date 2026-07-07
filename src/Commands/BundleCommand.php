@@ -33,7 +33,7 @@ class BundleCommand extends Command
         }
 
         $bundleScript = NativeBladeServiceProvider::packagePath('js/scripts/bundle-laravel.js');
-        $this->runShell("node {$bundleScript} " . base_path());
+        $this->runShell('node ' . escapeshellarg($bundleScript) . ' ' . escapeshellarg(base_path()));
 
         $bundleGz = base_path('public/laravel-bundle.json.gz');
         if (!file_exists($bundleGz)) {
