@@ -51,9 +51,15 @@ export async function init(appFrame) {
     appFrameRef = appFrame;
     cameraModule.init(appFrame);
 
+    // The ONLY reliable signal for "running inside Tauri" is the host-injected
+    // global. Being able to import a @tauri-apps package is NOT a signal: the
+    // bundler ships those modules into the browser preview too, where their
+    // invoke() has no host and throws. (This is what made every native action
+    // fire an invoke in the browser preview.)
+    isTauri = typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__;
+
     try {
         apis.dialogApi = await import('@tauri-apps/plugin-dialog');
-        isTauri = true;
     } catch {}
 
     try {
