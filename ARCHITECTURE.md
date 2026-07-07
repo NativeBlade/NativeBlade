@@ -720,6 +720,22 @@ Put third-party libraries and your own front-end scripts in `public/`, and load 
 
 Why: inlining libraries and ad-hoc scripts bloats every render, defeats browser caching, can't be reused across screens, and turns the view into an unreadable wall. One tag per asset keeps the shell clean and the files cacheable.
 
+### The loading splash is `resources/js/index.html`
+
+The screen shown while php-wasm boots is `resources/js/index.html` — the very first thing the user sees. Customize it (logo, colors, name) to match the app; don't ship it looking generic.
+
+Two categories of markup:
+
+- **Required — do NOT remove or rename** (`app.js` reads these by id):
+  - `#splash` — the overlay, hidden once the app has booted.
+  - `#app` — the iframe the Laravel app renders into.
+  - the two `<script>` tags at the bottom.
+- **Optional — safe to remove, replace, or restyle:**
+  - `<div class="spinner"></div>` — a purely-CSS boot spinner, nothing in JS touches it.
+  - `<div class="status" id="status"></div>` — the boot progress line. `app.js` reads it as `getElementById('status') || { textContent:'', style:{} }`, so removing it is null-safe and never breaks boot.
+
+So a minimal splash is just your branding inside `#splash` plus the `#app` iframe and the scripts — drop the spinner and status line if you want a cleaner look.
+
 ### Tailwind compiles at build time — rebuild after changing classes
 
 The layout loads CSS with `@vite(['resources/css/app.css'])`, which resolves to the compiled `public/build/` bundle. Tailwind scans your Blade/PHP and generates utilities **only when `npm run build` runs**. The `nativeblade:dev` watcher re-bundles PHP/Blade but does NOT recompile Tailwind, and it explicitly ignores `public/build/`.
