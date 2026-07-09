@@ -730,11 +730,11 @@ Two categories of markup:
   - `#splash` — the overlay, hidden once the app has booted.
   - `#app` — the iframe the Laravel app renders into.
   - the two `<script>` tags at the bottom.
-- **Optional — safe to remove, replace, or restyle:**
+- **Remove these — a spinner + status line reads like a loading web page, not a native app:**
   - `<div class="spinner"></div>` — a purely-CSS boot spinner, nothing in JS touches it.
   - `<div class="status" id="status"></div>` — the boot progress line. `app.js` reads it as `getElementById('status') || { textContent:'', style:{} }`, so removing it is null-safe and never breaks boot.
 
-So a minimal splash is just your branding inside `#splash` plus the `#app` iframe and the scripts — drop the spinner and status line if you want a cleaner look.
+Delete both by default: a native-feeling splash shows only your branding while it boots, then hands off to the app. A minimal splash is just your branding inside `#splash` plus the `#app` iframe and the scripts.
 
 ### Tailwind compiles at build time — rebuild after changing classes
 
