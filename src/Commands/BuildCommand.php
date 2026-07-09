@@ -10,7 +10,7 @@ use NativeBlade\ShellConfig;
 class BuildCommand extends Command
 {
     protected $signature = 'nativeblade:build
-        {platform : android, ios, or desktop}
+        {platform : android, ios, windows, macos, or linux}
         {--targets= : Comma-separated Android architectures (aarch64,armv7,x86_64,i686). Default: all}
         {--host= : Build an installable preview/dev-client that loads live from this Vite dev host with HMR, instead of bundling static assets. Debug-only.}
         {--port=1420 : Vite dev server port used by --host preview builds}';
@@ -20,8 +20,17 @@ class BuildCommand extends Command
     {
         $platform = $this->argument('platform');
 
-        if (!in_array($platform, ['android', 'ios', 'desktop'])) {
-            $this->error("  Invalid platform: {$platform}. Use: android, ios, or desktop");
+        // OS-specific desktop targets — Tauri can't cross-compile, so each must run
+        // on its own OS. `desktop` stays as an alias that builds for the host OS.
+        $desktopOs = ['windows' => 'Windows', 'macos' => 'Darwin', 'linux' => 'Linux'];
+
+        if (!in_array($platform, ['android', 'ios', 'desktop', 'windows', 'macos', 'linux'])) {
+            $this->error("  Invalid platform: {$platform}. Use: android, ios, windows, macos, or linux");
+            return self::FAILURE;
+        }
+
+        if (isset($desktopOs[$platform]) && PHP_OS_FAMILY !== $desktopOs[$platform]) {
+            $this->error("  {$platform} builds must run on {$desktopOs[$platform]} — this host is " . PHP_OS_FAMILY . ". Desktop apps can't be cross-compiled.");
             return self::FAILURE;
         }
 
@@ -72,7 +81,7 @@ class BuildCommand extends Command
         $success = match ($platform) {
             'android' => $this->buildAndroid($version),
             'ios' => $this->buildIos($version),
-            'desktop' => $this->buildDesktop($version),
+            default => $this->buildDesktop($version, $platform), // desktop, windows, macos, linux
         };
 
         if (!$success) {
@@ -104,6 +113,9 @@ class BuildCommand extends Command
 
         $url = str_contains($host, '://') ? rtrim($host, '/') : "http://{$host}:{$port}";
 
+        // Preview is a debug build for the host OS — every desktop target is equivalent here.
+        $key = in_array($platform, ['desktop', 'windows', 'macos', 'linux'], true) ? 'desktop' : $platform;
+
         $this->info('');
         $this->info("  Preview build ({$platform}) → {$url}");
         $this->line('  <fg=yellow>→</> Loads live from your Vite dev server with HMR. Debug artifact, not for stores.');
@@ -123,7 +135,7 @@ class BuildCommand extends Command
             }
         }
 
-        $base = match ($platform) {
+        $base = match ($key) {
             'android' => 'tauri android build --debug ' . trim($androidTargets) . ' --config ' . $override,
             'ios' => 'tauri ios build --debug --config ' . $override,
             'desktop' => 'tauri build --debug --config ' . $override,
@@ -146,12 +158,12 @@ class BuildCommand extends Command
         $buildDir = base_path("build/{$platform}");
         if (!is_dir($buildDir)) mkdir($buildDir, 0755, true);
 
-        $searchDir = match ($platform) {
+        $searchDir = match ($key) {
             'android' => 'src-tauri/gen/android',
             'ios' => 'src-tauri/gen/apple',
             'desktop' => 'src-tauri/target/debug/bundle',
         };
-        $exts = match ($platform) {
+        $exts = match ($key) {
             'android' => ['apk', 'aab'],
             'ios' => ['ipa'],
             'desktop' => ['msi', 'exe', 'dmg', 'app', 'AppImage', 'deb', 'rpm'],
@@ -223,12 +235,21 @@ class BuildCommand extends Command
         return true;
     }
 
-    private function buildDesktop(array $version): bool
+    private function buildDesktop(array $version, string $platform = 'desktop'): bool
     {
-        $buildDir = base_path('build/desktop');
+        $buildDir = base_path("build/{$platform}");
         if (!is_dir($buildDir)) mkdir($buildDir, 0755, true);
 
-        if (!$this->runProcess($this->npxCommand('tauri build ' . $this->cargoFeaturesArg()))) {
+        // Ask Tauri only for the installers that make sense on this OS (overrides the
+        // config's bundle targets). `desktop` leaves it to whatever the host produces.
+        $bundles = match ($platform) {
+            'windows' => '--bundles nsis,msi',
+            'macos' => '--bundles app,dmg',
+            'linux' => '--bundles deb,rpm,appimage',
+            default => '',
+        };
+
+        if (!$this->runProcess($this->npxCommand(trim('tauri build ' . $bundles . ' ' . $this->cargoFeaturesArg())))) {
             return false;
         }
 
@@ -295,8 +316,11 @@ class BuildCommand extends Command
 
     private function getVersion(string $platform): ?array
     {
+        // Every desktop target shares the same versioning.
+        $key = in_array($platform, ['desktop', 'windows', 'macos', 'linux']) ? 'desktop' : $platform;
+
         try {
-            return ShellConfig::getVersion($platform === 'desktop' ? 'desktop' : $platform);
+            return ShellConfig::getVersion($key);
         } catch (\RuntimeException $e) {
             $this->error("  {$e->getMessage()}");
             return null;
