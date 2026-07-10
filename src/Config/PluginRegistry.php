@@ -239,31 +239,14 @@ class PluginRegistry
                 'rust_init' => 'tauri_plugin_shell::init()',
                 // The permissions enable the command TYPES; Tauri still requires a
                 // command scope naming which programs `Command.create(name)` may
-                // launch, or it errors "Scoped command <name> not found". The
-                // scope aggregates per-plugin, so listing it on allow-execute
-                // covers spawn too. Every program the JS action can start is
-                // allowed with `args: true` because the real command line rides
-                // as an arg to the platform shell (`cmd /C …` / `sh -c …`); the
-                // rest are the terminals used by openTerminal.
+                // launch, or it errors "Scoped command <name> not found". Tauri
+                // validates each IPC against ITS OWN permission's scope, so the
+                // allowlist goes on BOTH allow-execute (captured) and allow-spawn
+                // (streamed — what the Studio uses). See shellScope().
                 'capabilities' => [
                     'shell:allow-open',
-                    [
-                        'identifier' => 'shell:allow-execute',
-                        'allow' => [
-                            ['name' => 'cmd', 'cmd' => 'cmd', 'args' => true],
-                            ['name' => 'sh', 'cmd' => 'sh', 'args' => true],
-                            ['name' => 'bash', 'cmd' => 'bash', 'args' => true],
-                            ['name' => 'cmd.exe', 'cmd' => 'cmd.exe', 'args' => true],
-                            ['name' => 'wt.exe', 'cmd' => 'wt.exe', 'args' => true],
-                            ['name' => 'powershell.exe', 'cmd' => 'powershell.exe', 'args' => true],
-                            ['name' => 'osascript', 'cmd' => 'osascript', 'args' => true],
-                            ['name' => 'gnome-terminal', 'cmd' => 'gnome-terminal', 'args' => true],
-                            ['name' => 'konsole', 'cmd' => 'konsole', 'args' => true],
-                            ['name' => 'xfce4-terminal', 'cmd' => 'xfce4-terminal', 'args' => true],
-                            ['name' => 'xterm', 'cmd' => 'xterm', 'args' => true],
-                        ],
-                    ],
-                    'shell:allow-spawn',
+                    ['identifier' => 'shell:allow-execute', 'allow' => self::shellScope()],
+                    ['identifier' => 'shell:allow-spawn', 'allow' => self::shellScope()],
                     'shell:allow-stdin-write',
                     'shell:allow-kill',
                 ],
@@ -309,6 +292,32 @@ class PluginRegistry
                 'npm' => ['@tauri-apps/plugin-process' => '^2'],
             ],
         };
+    }
+
+    /**
+     * Shell command scope — the programs `Command.create(name)` may launch.
+     * Attached to both allow-execute and allow-spawn because Tauri validates
+     * each IPC against its own permission's scope. `args: true` allows any
+     * arguments since the whole command line rides as an arg to cmd/sh; the
+     * remaining entries are the terminals used by openTerminal.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private static function shellScope(): array
+    {
+        return [
+            ['name' => 'cmd', 'cmd' => 'cmd', 'args' => true],
+            ['name' => 'sh', 'cmd' => 'sh', 'args' => true],
+            ['name' => 'bash', 'cmd' => 'bash', 'args' => true],
+            ['name' => 'cmd.exe', 'cmd' => 'cmd.exe', 'args' => true],
+            ['name' => 'wt.exe', 'cmd' => 'wt.exe', 'args' => true],
+            ['name' => 'powershell.exe', 'cmd' => 'powershell.exe', 'args' => true],
+            ['name' => 'osascript', 'cmd' => 'osascript', 'args' => true],
+            ['name' => 'gnome-terminal', 'cmd' => 'gnome-terminal', 'args' => true],
+            ['name' => 'konsole', 'cmd' => 'konsole', 'args' => true],
+            ['name' => 'xfce4-terminal', 'cmd' => 'xfce4-terminal', 'args' => true],
+            ['name' => 'xterm', 'cmd' => 'xterm', 'args' => true],
+        ];
     }
 
     /** @return Plugin[] */
