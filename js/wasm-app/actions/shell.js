@@ -9,6 +9,23 @@
 // both as the Livewire events `nb:shell-data` / `nb:shell-exit`.
 const running = new Map(); // id -> Tauri shell Child
 
+// A cwd of `__nb:<purpose>:<relative>` (PHP's native_path()) is resolved
+// host-side to the real OS path via the Tauri path API — PHP-WASM can't know
+// host paths, so it hands over the same token the native fs plugin uses.
+// Anything else passes through unchanged.
+async function resolveCwd(cwd, ctx) {
+    if (typeof cwd !== 'string' || !cwd.startsWith('__nb:')) return cwd;
+    const rest = cwd.slice(5);
+    const i = rest.indexOf(':');
+    if (i < 0) return cwd;
+    try {
+        const pathApi = await import('@tauri-apps/api/path');
+        return await ctx.resolveFileDest(pathApi, rest.slice(i + 1), rest.slice(0, i));
+    } catch {
+        return cwd;
+    }
+}
+
 export async function shell(payload, ctx) {
     const id = payload.id || null;
     const post = (stdout, stderr, exitCode) => {
@@ -39,7 +56,7 @@ export async function shell(payload, ctx) {
         const program = isWin ? 'cmd' : 'sh';
         const args = isWin ? ['/C', payload.command] : ['-c', payload.command];
         const options = {};
-        if (payload.cwd) options.cwd = payload.cwd;
+        if (payload.cwd) options.cwd = await resolveCwd(payload.cwd, ctx);
         if (payload.env && typeof payload.env === 'object') options.env = payload.env;
 
         // Streaming spawn — long-lived process, output streamed line by line.
