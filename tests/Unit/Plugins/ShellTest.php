@@ -91,4 +91,27 @@ final class ShellTest extends TestCase
 
         self::assertArrayNotHasKey('env', $payload);
     }
+
+    #[Test]
+    public function spawn_is_chainable_and_off_by_default(): void
+    {
+        $shell = new Shell();
+
+        self::assertArrayNotHasKey('spawn', $shell->toArray());
+        self::assertSame($shell, $shell->spawn());
+    }
+
+    #[Test]
+    public function spawn_emits_the_streaming_flag_with_the_command(): void
+    {
+        $payload = (new Shell())
+            ->id('cli')
+            ->run('claude -p --output-format stream-json')
+            ->spawn()
+            ->toArray();
+
+        self::assertTrue($payload['spawn']);
+        self::assertSame('cli', $payload['id']);
+        self::assertSame('claude -p --output-format stream-json', $payload['command']);
+    }
 }

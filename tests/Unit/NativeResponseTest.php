@@ -196,6 +196,42 @@ final class NativeResponseTest extends TestCase
         );
     }
 
+    // -- Shell streaming ----------------------------------------------
+
+    #[Test]
+    public function shell_write_queues_the_id_data_and_newline(): void
+    {
+        $r = (new NativeResponse())->shellWrite('cli', '{"role":"user"}');
+        self::assertSame(
+            [['action' => 'shell_write', 'data' => ['id' => 'cli', 'data' => '{"role":"user"}', 'newline' => true]]],
+            $r->toArray()
+        );
+    }
+
+    #[Test]
+    public function shell_write_can_suppress_the_newline(): void
+    {
+        $r = (new NativeResponse())->shellWrite('cli', 'raw', false);
+        self::assertSame(
+            [['action' => 'shell_write', 'data' => ['id' => 'cli', 'data' => 'raw', 'newline' => false]]],
+            $r->toArray()
+        );
+    }
+
+    #[Test]
+    public function shell_kill_queues_the_id(): void
+    {
+        $r = (new NativeResponse())->shellKill('cli');
+        self::assertSame([['action' => 'shell_kill', 'data' => ['id' => 'cli']]], $r->toArray());
+    }
+
+    #[Test]
+    public function shell_kill_all_queues_an_empty_action(): void
+    {
+        $r = (new NativeResponse())->shellKillAll();
+        self::assertSame([['action' => 'shell_kill_all', 'data' => []]], $r->toArray());
+    }
+
     #[Test]
     public function analytics_builds_the_ops_and_queues_an_analytics_action(): void
     {

@@ -1,6 +1,6 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { shell } from '../../../js/wasm-app/actions/shell.js';
+import { shell, shell_write, shell_kill } from '../../../js/wasm-app/actions/shell.js';
 import { makeCtx, Recorder, spy, flush } from '../helpers/ctx.js';
 
 function makeShellApi({ stdout = '', stderr = '', code = 0, execute = null, spawn = null } = {}) {
@@ -218,5 +218,111 @@ describe('actions/shell', () => {
 
         assert.equal(attempts, 3);
         assert.ok(shellApi.Command.create.callCount >= 3);
+    });
+});
+
+// A shell API whose Command streams: stdout/stderr expose `.on('data', …)`
+// and the command exposes `.on('close'|'error', …)`. `.spawn()` resolves to a
+// Child with spy'd `write`/`kill`. The `_emit*` helpers drive the listeners.
+function makeStreamingShellApi(childOverrides = {}) {
+    const stdout = [], stderr = [], closeCbs = [], errorCbs = [];
+    const child = {
+        pid: 4242,
+        write: spy(() => Promise.resolve()),
+        kill: spy(() => Promise.resolve()),
+        ...childOverrides,
+    };
+    const command = {
+        stdout: { on: (ev, cb) => { if (ev === 'data') stdout.push(cb); } },
+        stderr: { on: (ev, cb) => { if (ev === 'data') stderr.push(cb); } },
+        on: (ev, cb) => { if (ev === 'close') closeCbs.push(cb); else if (ev === 'error') errorCbs.push(cb); },
+        spawn: spy(() => Promise.resolve(child)),
+    };
+    return {
+        Command: { create: spy(() => command) },
+        _child: child,
+        _emitStdout: (line) => stdout.forEach((cb) => cb(line)),
+        _emitStderr: (line) => stderr.forEach((cb) => cb(line)),
+        _emitClose: (code) => closeCbs.forEach((cb) => cb({ code })),
+        _emitError: (err) => errorCbs.forEach((cb) => cb(err)),
+    };
+}
+
+describe('actions/shell streaming spawn', () => {
+    let rec;
+    beforeEach(() => { rec = new Recorder(); });
+
+    function ctxFor(shellApi, platform = 'linux') {
+        return makeCtx({ isMobile: false, shellApi, osApi: makeOsApi(platform), post: rec.fn() });
+    }
+
+    it('spawns via the platform shell (sh -c) rather than execute', async () => {
+        const shellApi = makeStreamingShellApi();
+        await shell({ command: 'php artisan nativeblade:dev', spawn: true, id: 'p_dev' }, ctxFor(shellApi));
+
+        const call = shellApi.Command.create.calls[0];
+        assert.equal(call[0], 'sh');
+        assert.deepEqual(call[1], ['-c', 'php artisan nativeblade:dev']);
+        assert.equal(shellApi.Command.create.calls[0] !== undefined, true);
+    });
+
+    it('streams stdout lines as nativeblade-shell-data events', async () => {
+        const shellApi = makeStreamingShellApi();
+        await shell({ command: 'claude', spawn: true, id: 'p_out' }, ctxFor(shellApi));
+
+        shellApi._emitStdout('{"type":"assistant"}');
+        const data = rec.calls.find((c) => c.type === 'nativeblade-shell-data');
+        assert.deepEqual(data.data, { chunk: '{"type":"assistant"}', stream: 'stdout', id: 'p_out' });
+    });
+
+    it('tags stderr lines with stream:stderr', async () => {
+        const shellApi = makeStreamingShellApi();
+        await shell({ command: 'x', spawn: true, id: 'p_err' }, ctxFor(shellApi));
+
+        shellApi._emitStderr('warning: slow');
+        const data = rec.calls.find((c) => c.type === 'nativeblade-shell-data');
+        assert.deepEqual(data.data, { chunk: 'warning: slow', stream: 'stderr', id: 'p_err' });
+    });
+
+    it('posts nativeblade-shell-exit with the exit code on close', async () => {
+        const shellApi = makeStreamingShellApi();
+        await shell({ command: 'x', spawn: true, id: 'p_exit' }, ctxFor(shellApi));
+
+        shellApi._emitClose(0);
+        const exit = rec.calls.find((c) => c.type === 'nativeblade-shell-exit');
+        assert.deepEqual(exit.data, { exitCode: 0, id: 'p_exit' });
+    });
+
+    it('shell_write feeds stdin with a trailing newline', async () => {
+        const shellApi = makeStreamingShellApi();
+        const ctx = ctxFor(shellApi);
+        await shell({ command: 'x', spawn: true, id: 'p_in' }, ctx);
+
+        await shell_write({ id: 'p_in', data: 'hello' }, ctx);
+        assert.deepEqual(shellApi._child.write.calls[0], ['hello\n']);
+    });
+
+    it('shell_write omits the newline when newline is false', async () => {
+        const shellApi = makeStreamingShellApi();
+        const ctx = ctxFor(shellApi);
+        await shell({ command: 'x', spawn: true, id: 'p_raw' }, ctx);
+
+        await shell_write({ id: 'p_raw', data: 'raw', newline: false }, ctx);
+        assert.deepEqual(shellApi._child.write.calls[0], ['raw']);
+    });
+
+    it('shell_kill terminates the tracked child', async () => {
+        const shellApi = makeStreamingShellApi();
+        const ctx = ctxFor(shellApi);
+        await shell({ command: 'x', spawn: true, id: 'p_kill' }, ctx);
+
+        await shell_kill({ id: 'p_kill' }, ctx);
+        assert.equal(shellApi._child.kill.called, true);
+    });
+
+    it('shell_write on an unknown id is a silent no-op', async () => {
+        const ctx = ctxFor(makeStreamingShellApi());
+        await shell_write({ id: 'ghost', data: 'x' }, ctx);
+        assert.equal(rec.calls.length, 0);
     });
 });

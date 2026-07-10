@@ -9,8 +9,8 @@ namespace NativeBlade\Plugins;
  * result is emitted with `exitCode = -1` and a "not supported" stderr
  * so listener code can still handle it uniformly.
  *
- * Results arrive via the `nb:shell-result` Livewire event with four
- * arguments: `$stdout`, `$stderr`, `$exitCode` and `$id`.
+ * Captured results arrive via the `nb:shell-result` Livewire event with
+ * four arguments: `$stdout`, `$stderr`, `$exitCode` and `$id`.
  *
  * Example:
  * ```php
@@ -18,6 +18,12 @@ namespace NativeBlade\Plugins;
  *     $s->id('docker_check')->run('docker ps');
  * });
  * ```
+ *
+ * When `spawn()` is called the command runs as a long-lived, streamed
+ * process instead: output arrives line by line on `nb:shell-data`
+ * (`$chunk`, `$stream`, `$id`), completion on `nb:shell-exit`
+ * (`$exitCode`, `$id`), and the process can be fed stdin
+ * (`NativeBlade::shellWrite`) and terminated (`NativeBlade::shellKill`).
  *
  * When `openTerminal()` is called, the command is spawned in the OS
  * terminal (Windows Terminal / cmd / PowerShell on Windows, Terminal.app
@@ -35,6 +41,7 @@ class Shell
     private array $env = [];
     private ?int $timeout = null;
     private bool $openTerminal = false;
+    private bool $spawn = false;
     private ?string $terminalType = null;
 
     /**
@@ -121,6 +128,26 @@ class Shell
     }
 
     /**
+     * Spawn the command as a long-lived, streamed process instead of running
+     * it to completion.
+     *
+     * In this mode the call returns immediately and output is delivered
+     * incrementally on the `nb:shell-data` event (`$chunk`, `$stream`
+     * (`'stdout'`/`'stderr'`), `$id`) as each line arrives, followed by a
+     * single `nb:shell-exit` event (`$exitCode`, `$id`) when the process
+     * ends. Feed the process stdin with `NativeBlade::shellWrite($id, ...)`
+     * and stop it with `NativeBlade::shellKill($id)`.
+     *
+     * Always set an `->id()` when spawning — it is the handle used to write,
+     * kill, and correlate the streamed events.
+     */
+    public function spawn(): static
+    {
+        $this->spawn = true;
+        return $this;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(): array
@@ -130,6 +157,7 @@ class Shell
             'openTerminal' => $this->openTerminal,
         ];
 
+        if ($this->spawn)                 $payload['spawn'] = true;
         if ($this->id !== null)           $payload['id'] = $this->id;
         if ($this->cwd !== null)          $payload['cwd'] = $this->cwd;
         if (!empty($this->env))           $payload['env'] = $this->env;

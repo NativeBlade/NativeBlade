@@ -98,6 +98,9 @@ export const actions = {
 
     // shell (desktop only)
     shell: shellMod.shell,
+    shell_write: shellMod.shell_write,
+    shell_kill: shellMod.shell_kill,
+    shell_kill_all: shellMod.shell_kill_all,
 
     // system
     exit: system.exit,

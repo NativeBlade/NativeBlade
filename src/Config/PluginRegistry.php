@@ -237,7 +237,19 @@ class PluginRegistry
                 'feature' => 'shell',
                 'feature_crate' => 'tauri-plugin-shell',
                 'rust_init' => 'tauri_plugin_shell::init()',
-                'capabilities' => ['shell:allow-open'],
+                // These permissions enable their commands with no pre-configured
+                // scope (unrestricted), which is what the studio needs since the
+                // real command line rides as an arg to the platform shell
+                // (`cmd /C …` / `sh -c …`). `execute` = captured runs; `spawn` +
+                // `stdin-write` + `kill` = the streamed long-lived processes;
+                // `open` = openUrl/openFile.
+                'capabilities' => [
+                    'shell:allow-open',
+                    'shell:allow-execute',
+                    'shell:allow-spawn',
+                    'shell:allow-stdin-write',
+                    'shell:allow-kill',
+                ],
                 'npm' => ['@tauri-apps/plugin-shell' => '^2'],
             ],
 

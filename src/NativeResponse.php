@@ -910,6 +910,11 @@ class NativeResponse
      * delivered via the `nb:shell-result` Livewire event with `$stdout`,
      * `$stderr`, `$exitCode` and `$id` arguments.
      *
+     * When the builder calls `->spawn()`, the command runs as a long-lived
+     * streamed process: output is delivered incrementally on `nb:shell-data`
+     * and completion on `nb:shell-exit`, and the process accepts stdin via
+     * `shellWrite()` and termination via `shellKill()`.
+     *
      * When the builder calls `->openTerminal()`, the command is spawned
      * inside a visible OS terminal window instead — that path is
      * fire-and-forget and no result event is emitted.
@@ -925,6 +930,41 @@ class NativeResponse
         $shell = new Shell();
         $callback($shell);
         return $this->push('shell', $shell->toArray());
+    }
+
+    /**
+     * Write to the stdin of a process started with `shell(fn ($s) => $s->id($id)->spawn())`.
+     *
+     * A trailing newline is appended unless `$newline` is false — line-delimited
+     * CLIs (e.g. `claude --output-format stream-json`) consume one line per
+     * message. No-op on the JS side if no process with `$id` is running.
+     */
+    public function shellWrite(string $id, string $data, bool $newline = true): static
+    {
+        return $this->push('shell_write', [
+            'id' => $id,
+            'data' => $data,
+            'newline' => $newline,
+        ]);
+    }
+
+    /**
+     * Terminate a spawned process (and its child tree) by its id. Idempotent —
+     * an unknown or already-finished id is a no-op. The `nb:shell-exit` event
+     * still fires from the process's own close.
+     */
+    public function shellKill(string $id): static
+    {
+        return $this->push('shell_kill', ['id' => $id]);
+    }
+
+    /**
+     * Terminate every process spawned via `shell()->spawn()`. Intended for app
+     * teardown so no child is left orphaned when the window closes.
+     */
+    public function shellKillAll(): static
+    {
+        return $this->push('shell_kill_all', []);
     }
 
     // ------------------------------------------------------------------

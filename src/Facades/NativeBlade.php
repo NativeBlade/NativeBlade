@@ -107,6 +107,9 @@ use Illuminate\Support\Facades\Facade;
  *
  * Shell.
  *
+ * @method static \NativeBlade\NativeResponse shellWrite(string $id, string $data, bool $newline = true)
+ * @method static \NativeBlade\NativeResponse shellKill(string $id)
+ * @method static \NativeBlade\NativeResponse shellKillAll()
  * @method static \NativeBlade\NativeResponse shell(\Closure $callback)
  *
  * Window / process control (desktop only).
