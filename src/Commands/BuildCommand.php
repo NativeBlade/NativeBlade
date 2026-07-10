@@ -245,7 +245,7 @@ class BuildCommand extends Command
         $bundles = match ($platform) {
             'windows' => '--bundles nsis,msi',
             'macos' => '--bundles app,dmg',
-            'linux' => '--bundles deb,rpm,appimage',
+            'linux' => '--bundles deb,rpm',   // AppImage skipped: needs xdg-utils + downloads linuxdeploy every build
             default => '',
         };
 
@@ -254,7 +254,7 @@ class BuildCommand extends Command
         }
 
         $this->searchAndCopyArtifacts('src-tauri/target/release/bundle', $buildDir, $version['version'], [
-            'msi', 'exe', 'dmg', 'app', 'AppImage', 'deb', 'rpm',
+            'msi', 'exe', 'dmg', 'app', 'deb', 'rpm',
         ]);
 
         return true;
