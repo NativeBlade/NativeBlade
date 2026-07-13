@@ -65,6 +65,9 @@ class ConfigCommand extends Command
         if (!empty($configs['backgroundTasks'])) {
             $runtime['backgroundTasks'] = $configs['backgroundTasks'];
         }
+        if (!empty($configs['realtime'])) {
+            $runtime['realtime'] = $configs['realtime'];
+        }
 
         $path = base_path('public/nativeblade-config.json');
         if (empty($runtime)) {
