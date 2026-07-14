@@ -364,6 +364,25 @@ results fetched hours ago with the app closed), so the receiver must be
 screen-independent, testable in isolation, and container-resolved so it can
 take services in the constructor.
 
+**Realtime / sockets are deliberately *not* part of this convention — the
+`app/Native/Socket/` folder holds no handler classes.** Unlike push, deep links,
+or task results, a realtime message is always **screen-attached**: it is
+delivered to a live Livewire component as a `#[On('nb:realtime:...')]` event, the
+same pipe sensors and shell streaming use. You subscribe from the component that
+needs the data and handle events in that component — there is no no-screen
+payload to route, so none of the reasoning above applies and no dedicated handler
+class is warranted. The installer still scaffolds `app/Native/Socket/` as a
+**signpost** (its `.gitkeep` redirects you here) precisely so the empty folder
+isn't mistaken for a place to drop socket handlers.
+
+What the socket *does* require is a **server**: it is always a client (Reverb /
+Pusher / raw WS on the other side), and its implementation must follow
+[SOCKET.md](SOCKET.md) **rigidly and against the specific server you target**.
+The driver selection, connection config, channel and `realtimeAuth()` shape, and
+event routing described there are the contract — diverging from it silently
+breaks reconnect, presence auth, or stream coalescing. When wiring realtime into
+an app, treat SOCKET.md as the source of truth, not this section.
+
 For background tasks specifically, the handler is the **push-style option** —
 the primary consumption is pull (`NativeBlade::getTask($name)` from whatever
 screen needs the data). Reach for a `app/Native/Tasks/` handler only when a

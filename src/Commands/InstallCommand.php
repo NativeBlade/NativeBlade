@@ -564,6 +564,7 @@ PHP;
             'app/Native/DeepLinks' => 'Deep link route handlers.',
             'app/Native/Tasks'     => 'Background task result handlers (see TASKS.md). Each is a class with handle(TaskResult $result). Pull with NativeBlade::getTask() is the primary path; handlers are for results that must be processed on arrival.',
             'app/Native/State'     => 'Typed wrappers over NativeBlade::setState/getState. Mandatory: never use string-literal state keys.',
+            'app/Native/Socket'    => 'Realtime/WebSocket is screen-attached: do NOT add handler classes here. Subscribe from the Livewire component that needs the data and handle nb:realtime:* events with #[On]. This folder is a signpost only. Implement against your server (Reverb/Pusher/WS) strictly per SOCKET.md.',
             'app/Livewire/Forms'   => 'Livewire Form Objects (extends Livewire\\Form) for validation.',
             'app/Http/Clients'     => 'HTTP clients for EXTERNAL APIs (Stripe, Sentry, etc.). Not for the app\'s own backend.',
         ];
