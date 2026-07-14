@@ -739,6 +739,30 @@ Put third-party libraries and your own front-end scripts in `public/`, and load 
 
 Why: inlining libraries and ad-hoc scripts bloats every render, defeats browser caching, can't be reused across screens, and turns the view into an unreadable wall. One tag per asset keeps the shell clean and the files cacheable.
 
+### Your own JS in `public/js/` must stay modular — split by responsibility
+
+`public/js/` is served statically (no bundler runs over it), so it's tempting to
+let one file grow into a monolith. Don't. The same decomposition discipline that
+applies to PHP applies here: **one responsibility per file, grouped in folders,
+kept small.**
+
+- Split a feature's script into separate files by concern — data/model, logic,
+  and rendering are not the same file. A pet minigame is
+  `public/js/pet/model.js`, `public/js/pet/renderer.js`, `public/js/pet/input.js`,
+  not one 800-line `pet.js`.
+- Group a feature's files in its own folder under `public/js/` (`public/js/pet/`,
+  `public/js/charts/`), so the tree shows the structure at a glance.
+- Wire them together with ES modules: load the entry with
+  `<script type="module" src="/js/pet/main.js">` and `import` the pieces from
+  relative paths. Modern webviews run native modules; no build step needed.
+- When a file crosses a few hundred lines, or mixes two concerns (e.g. state
+  mutation *and* canvas drawing), that's the signal to break it up.
+
+Why: a single giant script is unreadable, untestable, impossible to reuse across
+screens, and re-downloaded whole on any edit. Small, single-purpose modules read
+like the rest of the codebase and cache independently. This mirrors the framework
+runtime itself — `js/wasm-app/` is dozens of small files, not one blob.
+
 ### The loading splash is `resources/js/index.html`
 
 The screen shown while php-wasm boots is `resources/js/index.html` — the very first thing the user sees. Customize it (logo, colors, name) to match the app; don't ship it looking generic.
@@ -846,6 +870,8 @@ These are bugs in disguise. The MCP architecture tool will flag any of these.
 10. **Animating a show/hide from JavaScript, or `@if`/`wire:if`-mounting an overlay to animate it.** Keep it mounted, toggle one class, animate in CSS.
 
 11. **One mega-component holding every screen behind a `$screen`/`$tab` toggle.** Each screen is its own component behind its own route; decompose busy screens into child components by responsibility.
+
+12. **A monolithic script in `public/js/`.** Custom front-end code is split by responsibility (model / logic / rendering) into small files grouped in a feature folder and wired with ES modules — never one giant file that mixes concerns.
 
 ## Worked example: a complete feature
 
