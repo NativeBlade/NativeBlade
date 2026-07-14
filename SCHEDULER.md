@@ -1,6 +1,6 @@
 # Scheduler
 
-Recurring tasks using Laravel's native Schedule API, powered by Rust native timers.
+Recurring tasks using Laravel's Schedule API, coordinated by native Rust timers.
 
 ## Setup
 
@@ -37,6 +37,8 @@ Schedule::call(function () {
 ## Overdue Tasks
 
 If the app was closed when a task was due, it executes immediately on the next app open. The `lastRun` timestamp is persisted in SQLite state, so Rust can calculate if a task was missed.
+
+Multiple missed occurrences are coalesced into a single execution when the application opens again — an `everyMinute()` task does not fire hundreds of times after the machine was off overnight; it runs once to catch up.
 
 ## Supported Laravel Schedule Methods
 
@@ -84,15 +86,17 @@ before a task runs). See [Timezones](#timezones) for the one current gap.
 
 The native scheduler evaluates cron expressions in **UTC**. `->timezone(...)` is
 not yet honored — a task set to `->dailyAt('09:00')->timezone('America/Sao_Paulo')`
-fires at 09:00 UTC, not 09:00 São Paulo time. If you need a specific wall-clock
-time, offset the expression to UTC yourself for now. Timezone-aware scheduling is
-on the roadmap.
+fires at 09:00 UTC, not 09:00 São Paulo time. Until timezone support is available,
+prefer UTC-based schedules. Manual offsets can be used, but be aware they may drift
+in regions that observe daylight-saving time (Madrid, New York, and others change
+their UTC offset during the year), so a fixed offset may need different expressions
+across seasons. Timezone-aware scheduling is on the roadmap.
 
 ## Platform Behavior
 
 | Platform | Behavior |
 |----------|----------|
-| Desktop | Rust timers run natively, even with window minimized |
+| Desktop | Runs while the application process is active, including when the window is minimized |
 | Android | Timers run in foreground |
 | iOS | Timers run in foreground |
 
