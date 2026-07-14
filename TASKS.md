@@ -4,6 +4,11 @@ Periodic work that runs **even with the app closed** — the TaskManager. On
 Android it rides WorkManager; on iOS, BGTaskScheduler. Requires
 `Plugin::TASK_MANAGER`.
 
+> Looking for Laravel `Schedule::call(...)` callbacks that run **when the app is
+> open**? That is the [Scheduler](SCHEDULER.md). Background Tasks are its
+> app-closed counterpart: they *acquire* data in the background; the scheduler (or
+> any app-open code) *acts* on it.
+
 The design is the **courier model**: no PHP, no JS and no WebView ever run in
 the background. The work itself is native Rust, in three kinds — named by
 **where the payload comes from**, not the HTTP verb:

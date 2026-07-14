@@ -2,6 +2,26 @@
 
 Recurring tasks using Laravel's Schedule API, coordinated by native Rust timers.
 
+> **Scheduler vs. Background Tasks — pick the right tool.**
+>
+> The scheduler runs your **Laravel callbacks** (`Schedule::call(...)`), so it needs
+> the app process alive. Tasks fire on their interval while the app is open, and any
+> that came due while it was closed are coalesced into a single catch-up run **when
+> the app opens** (see [Overdue Tasks](#overdue-tasks)). The scheduler does **not**
+> execute PHP with the app closed — nothing here runs in the background.
+>
+> If you need work to happen **while the app is closed** — refresh a subscription
+> status, pull remote config, ping a server on a schedule — that is the job of
+> **[Background Tasks](TASKS.md)** (`NativeBladeConfig::backgroundTasks()`), the
+> *courier model*: declarative, native Rust, with no PHP/JS/WebView ever running in
+> the background. The courier fetches and parks data so it's ready the instant the
+> app opens; your PHP logic then acts on that data at open time. It is declarative by
+> design — there is no place to put a closure, which is what keeps the background path
+> free of webview/wasm-boot edge cases.
+>
+> Rule of thumb: **logic that reacts to data → scheduler callback (runs at app-open);
+> acquiring the data itself with the app closed → background task (courier).**
+
 ## Setup
 
 Define schedules in `routes/console.php` (standard Laravel):
