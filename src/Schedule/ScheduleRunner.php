@@ -60,11 +60,30 @@ class ScheduleRunner
 
         foreach ($events as $event) {
             $eventName = $event->description ?? $event->getSummaryForDisplay();
-            if ($eventName === $name) {
-                $event->run(app());
-                app('nativeblade')->setState("schedule.last_run.{$name}", now()->timestamp);
-                return true;
+            if ($eventName !== $name) {
+                continue;
             }
+
+            // Advance last_run the moment the occurrence is considered, before any
+            // filter decision. extractSchedules() feeds this timestamp back to the
+            // native scheduler as `lastRun`, so a task whose when()/skip() rejects
+            // the run still moves past this tick instead of re-firing on every open.
+            app('nativeblade')->setState("schedule.last_run.{$name}", now()->timestamp);
+
+            // run() does NOT evaluate when()/skip()/between()/environments() — those
+            // constraints live in the filters/rejects arrays and only filtersPass()
+            // checks them. Honor them so conditional schedules behave like Laravel's.
+            if (! $event->filtersPass(app())) {
+                return false;
+            }
+
+            $event->run(app());
+
+            // Only a real execution updates last_success, keeping it distinct from
+            // last_run (which advances on every considered tick, filtered or not).
+            app('nativeblade')->setState("schedule.last_success.{$name}", now()->timestamp);
+
+            return true;
         }
 
         return false;

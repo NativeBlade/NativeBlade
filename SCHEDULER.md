@@ -38,7 +38,11 @@ Schedule::call(function () {
 
 If the app was closed when a task was due, it executes immediately on the next app open. The `lastRun` timestamp is persisted in SQLite state, so Rust can calculate if a task was missed.
 
-## All Laravel Schedule Methods Work
+## Supported Laravel Schedule Methods
+
+NativeBlade supports Laravel's scheduling frequencies, callbacks, and constraints
+(`when()`, `skip()`, `between()`, `weekdays()`, and friends are all evaluated
+before a task runs). See [Timezones](#timezones) for the one current gap.
 
 ### Frequency
 
@@ -75,6 +79,14 @@ If the app was closed when a task was due, it executes immediately on the next a
 ->onSuccess(fn () => ...)     ->onFailure(fn () => ...)
 ->name('task-name')
 ```
+
+## Timezones
+
+The native scheduler evaluates cron expressions in **UTC**. `->timezone(...)` is
+not yet honored — a task set to `->dailyAt('09:00')->timezone('America/Sao_Paulo')`
+fires at 09:00 UTC, not 09:00 São Paulo time. If you need a specific wall-clock
+time, offset the expression to UTC yourself for now. Timezone-aware scheduling is
+on the roadmap.
 
 ## Platform Behavior
 
