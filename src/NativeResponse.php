@@ -968,6 +968,95 @@ class NativeResponse
     }
 
     // ------------------------------------------------------------------
+    // Realtime (WebSocket / Reverb / Pusher)
+    // ------------------------------------------------------------------
+
+    /**
+     * Subscribe the current component to realtime channels via a fluent
+     * `Realtime` builder. Connections are declared once in
+     * `NativeBladeConfig::realtimeConfig()`; a single connection multiplexes many
+     * channels, so several open chats are just several `subscribe()` calls.
+     *
+     * Incoming messages arrive on the `nb:realtime` Livewire event
+     * (`$connection`, `$channel`, `$event`, `$payload`) and, for convenience, on
+     * the specific `nb:realtime:{channel}:{event}` event. Presence members arrive
+     * on `nb:realtime-presence`; accumulating `stream()` deltas on
+     * `nb:realtime-stream`. Connection lifecycle (for gap-fill after a drop) is
+     * reported on `nb:realtime-connected` / `nb:realtime-reconnected` /
+     * `nb:realtime-disconnected`.
+     *
+     * @param  Closure(\NativeBlade\Plugins\Realtime): void  $callback
+     */
+    public function realtime(Closure $callback): static
+    {
+        $realtime = new \NativeBlade\Plugins\Realtime();
+        $callback($realtime);
+        return $this->push('realtime', ['ops' => $realtime->toArray()]);
+    }
+
+    /**
+     * Publish a message on a channel. The `ws` driver sends it as a real frame
+     * over the socket. On Reverb/Pusher there is no server-side send over the
+     * socket, so this maps to a client event (whisper)
+     * and works only on private/presence channels — for a persisted send, POST to
+     * your backend, which then `broadcast()`s. `$connection` defaults to the one
+     * marked default in the config.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public function realtimeSend(string $channel, string $event, array $payload = [], ?string $connection = null): static
+    {
+        return $this->push('realtime_send', array_filter(
+            compact('channel', 'event', 'payload', 'connection'),
+            fn ($v) => $v !== null
+        ));
+    }
+
+    /**
+     * Send an ephemeral client event (typing indicators, cursors, presence pings)
+     * on a private/presence channel — not persisted, rate-limited, delivered only
+     * to other connected clients. Reverb/Pusher only.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public function realtimeWhisper(string $channel, string $event, array $payload = [], ?string $connection = null): static
+    {
+        return $this->push('realtime_whisper', array_filter(
+            compact('channel', 'event', 'payload', 'connection'),
+            fn ($v) => $v !== null
+        ));
+    }
+
+    /**
+     * Leave a channel outside the subscribe builder (e.g. on component
+     * `unmount()`). The JS layer ref-counts, so the channel is only truly closed
+     * when its last subscriber leaves.
+     */
+    public function realtimeLeave(string $channel, ?string $connection = null): static
+    {
+        return $this->push('realtime_leave', array_filter(
+            compact('channel', 'connection'),
+            fn ($v) => $v !== null
+        ));
+    }
+
+    /**
+     * Set the bearer token used to authorize private/presence channel
+     * subscriptions (Echo POSTs it to the connection's `authEndpoint`). Call it
+     * after login, before subscribing to a private/presence channel; pass `null`
+     * on logout to clear it. Public channels don't need this. Already-open
+     * connections are updated in place.
+     */
+    public function realtimeAuth(?string $token, ?string $connection = null): static
+    {
+        $data = ['token' => $token];
+        if ($connection !== null) {
+            $data['connection'] = $connection;
+        }
+        return $this->push('realtime_auth', $data);
+    }
+
+    // ------------------------------------------------------------------
     // Process
     // ------------------------------------------------------------------
 

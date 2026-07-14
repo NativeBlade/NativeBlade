@@ -419,6 +419,38 @@ class ShellConfig
         return $this;
     }
 
+    /**
+     * Declare the app's realtime connections (WebSocket / Reverb / Pusher). Set
+     * once in your AppServiceProvider. The config ships to the JS bridge at boot,
+     * which stands up the matching driver per connection (`laravel-echo`+
+     * `pusher-js`, or the browser `WebSocket` for raw `ws`). One connection
+     * multiplexes many channels; add a second named one only for a different
+     * server or protocol.
+     *
+     * Named `realtimeConfig` — not `realtime` — on purpose: the runtime action
+     * `NativeBlade::realtime(fn ($r) => ...)` owns that name, and a same-named
+     * config method here would shadow it (the facade resolves both to this class).
+     *
+     * ```php
+     * NativeBladeConfig::realtimeConfig(function (RealtimeConfig $c) {
+     *     $c->connection('app', 'reverb', [
+     *         'key' => 'app-key', 'host' => 'rt.myapp.com', 'port' => 443, 'scheme' => 'https',
+     *         'authEndpoint' => 'https://api.myapp.com/broadcasting/auth',
+     *     ]);
+     *     $c->connection('ai', 'ws', ['url' => 'wss://ai.myapp.com/stream']);
+     * });
+     * ```
+     *
+     * @param  Closure(\NativeBlade\Config\RealtimeConfig): void  $callback
+     */
+    public function realtimeConfig(Closure $callback): static
+    {
+        $config = new \NativeBlade\Config\RealtimeConfig();
+        $callback($config);
+        static::$appConfigs['realtime'] = $config->toArray();
+        return $this;
+    }
+
     // ------------------------------------------------------------------
     // Boot & transitions
     // ------------------------------------------------------------------

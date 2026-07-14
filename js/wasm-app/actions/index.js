@@ -33,6 +33,7 @@ import * as paymentsMod from './payments.js';
 import * as networkMod from './network.js';
 import * as tasksMod from './tasks.js';
 import * as sensorsMod from './sensors.js';
+import * as realtimeMod from './realtime.js';
 
 export const actions = {
     // dialog
@@ -157,4 +158,11 @@ export const actions = {
 
     // sensors
     sensors: sensorsMod.sensors,
+
+    // realtime (pub/sub + streaming over reverb/pusher/ws)
+    realtime: realtimeMod.realtime,
+    realtime_send: realtimeMod.realtime_send,
+    realtime_whisper: realtimeMod.realtime_whisper,
+    realtime_leave: realtimeMod.realtime_leave,
+    realtime_auth: realtimeMod.realtime_auth,
 };

@@ -7,6 +7,7 @@ namespace NativeBlade\Tests\Unit;
 use NativeBlade\Config\AndroidConfig;
 use NativeBlade\Config\DesktopConfig;
 use NativeBlade\Config\IosConfig;
+use NativeBlade\Config\RealtimeConfig;
 use NativeBlade\Plugins\DeepLinkRegistry;
 use NativeBlade\ShellConfig;
 use PHPUnit\Framework\Attributes\Test;
@@ -89,6 +90,28 @@ final class ShellConfigBuildersTest extends TestCase
     public function get_app_configs_defaults_to_empty(): void
     {
         self::assertSame([], ShellConfig::getAppConfigs());
+    }
+
+    #[Test]
+    public function realtime_config_registers_connections_under_the_realtime_key(): void
+    {
+        $this->config->realtimeConfig(function (RealtimeConfig $c) {
+            $c->connection('app', 'reverb', ['key' => 'k', 'host' => 'h']);
+            $c->connection('ai', 'ws', ['url' => 'wss://x']);
+        });
+
+        $configs = ShellConfig::getAppConfigs();
+
+        self::assertArrayHasKey('realtime', $configs);
+        self::assertSame('app', $configs['realtime']['default']); // first registered wins
+        self::assertSame(
+            ['driver' => 'reverb', 'key' => 'k', 'host' => 'h'],
+            $configs['realtime']['connections']['app']
+        );
+        self::assertSame(
+            ['driver' => 'ws', 'url' => 'wss://x'],
+            $configs['realtime']['connections']['ai']
+        );
     }
 
     #[Test]

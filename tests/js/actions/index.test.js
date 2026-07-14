@@ -73,6 +73,11 @@ const EXPECTED_ACTIONS = [
     'get_task_queue',
     'clear_task_queue',
     'sensors',
+    'realtime',
+    'realtime_send',
+    'realtime_whisper',
+    'realtime_leave',
+    'realtime_auth',
 ];
 
 describe('actions/index', () => {

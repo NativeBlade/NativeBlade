@@ -61,8 +61,18 @@ class WasmHttpHandler
         if (file_exists($cachePath)) {
             $data = json_decode(file_get_contents($cachePath), true);
 
+            // A failed fetch (offline, connection refused, DNS) comes back with
+            // status 0, which PSR-7 (guzzlehttp/psr7 >= 2.8) rejects as invalid.
+            // Coerce anything outside 100-599 to 503 so callers get a normal
+            // "failed" response (->failed()/->serverError()) instead of an
+            // InvalidArgumentException blowing up the request.
+            $status = (int) ($data['status'] ?? 200);
+            if ($status < 100 || $status > 599) {
+                $status = 503;
+            }
+
             $response = new Response(
-                $data['status'] ?? 200,
+                $status,
                 $data['headers'] ?? [],
                 $data['body'] ?? '',
             );
