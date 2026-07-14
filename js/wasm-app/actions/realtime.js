@@ -1,8 +1,7 @@
 // Realtime action — driver-based pub/sub + streaming over one connection per
-// named endpoint. Implemented drivers: `reverb`/`pusher` (via `laravel-echo` +
-// `pusher-js`) and raw `ws` (any external/custom WebSocket + AI streaming). The
-// `socketio` / `mqtt` drivers slot in behind the same connection interface
-// (ensureConnection + the per-driver branches in the op handlers).
+// named endpoint. Drivers: `reverb`/`pusher` (via `laravel-echo` + `pusher-js`)
+// and raw `ws` (any external/custom WebSocket + AI streaming). Each driver has
+// its own branch in ensureConnection + the op handlers.
 //
 // Config comes from public/nativeblade-config.json (`.realtime`), written by
 // `nativeblade:config` from NativeBladeConfig::realtimeConfig(). ONE connection
@@ -21,8 +20,6 @@
 //
 // Private/presence auth: the app sets the bearer via NativeBlade::realtimeAuth()
 // (→ realtime_auth), read by authToken() and applied to open connections.
-// `socketio` / `mqtt` are intentionally deferred (raw `ws` covers custom feeds;
-// add them only when a Socket.IO/IoT backend actually needs it).
 
 import { postToApp } from '../bridge.js';
 
@@ -233,9 +230,9 @@ export async function realtime_whisper(payload) {
     }
 }
 
-// Publish. On the ws/socketio/mqtt drivers this is a real send over the socket.
-// On Reverb/Pusher a socket-level send is only a whisper (private/presence,
-// ephemeral) — for a persisted send, POST to your backend, which broadcasts.
+// Publish. On the `ws` driver this is a real send over the socket. On Reverb/
+// Pusher a socket-level send is only a whisper (private/presence, ephemeral) —
+// for a persisted send, POST to your backend, which broadcasts.
 export async function realtime_send(payload) {
     try {
         const conn = await ensureConnection(payload.connection);

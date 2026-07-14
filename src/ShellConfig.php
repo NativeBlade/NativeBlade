@@ -420,12 +420,12 @@ class ShellConfig
     }
 
     /**
-     * Declare the app's realtime connections (WebSocket / Reverb / Pusher /
-     * Socket.IO / MQTT). Set once in your AppServiceProvider. The config ships to
-     * the JS bridge at boot, which stands up the matching driver per connection
-     * (`laravel-echo`+`pusher-js`, `socket.io-client`, `mqtt.js`, or the browser
-     * `WebSocket`). One connection multiplexes many channels; add a second named
-     * one only for a different server or protocol.
+     * Declare the app's realtime connections (WebSocket / Reverb / Pusher). Set
+     * once in your AppServiceProvider. The config ships to the JS bridge at boot,
+     * which stands up the matching driver per connection (`laravel-echo`+
+     * `pusher-js`, or the browser `WebSocket` for raw `ws`). One connection
+     * multiplexes many channels; add a second named one only for a different
+     * server or protocol.
      *
      * Named `realtimeConfig` — not `realtime` — on purpose: the runtime action
      * `NativeBlade::realtime(fn ($r) => ...)` owns that name, and a same-named

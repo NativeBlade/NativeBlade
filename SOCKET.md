@@ -1,4 +1,4 @@
-# Realtime (WebSocket / Reverb / Pusher / Socket.IO / MQTT)
+# Realtime (WebSocket / Reverb / Pusher)
 
 Driver-based realtime for NativeBlade apps: subscribe to channels and receive
 pushed messages live, run presence (who is online), send ephemeral client events,
@@ -19,9 +19,6 @@ multiplexes many channels; you pick the driver in config and plug in.
   custom WebSocket, bidirectional `send`, AI/token streaming with coalescing,
   auto-reconnect with backoff). Every message is delivered on both the generic
   `nb:realtime` and the pre-routed `nb:realtime:{channel}:{event}` — pick a style.
-- **Not built yet (deferred):** the `socketio` / `mqtt` drivers. Raw `ws` covers
-  custom feeds, so add these only when a Socket.IO or IoT/MQTT backend needs it
-  (they speak their own protocol on top of WebSocket, which raw `ws` does not).
 
 ## 1. Configure connections
 
@@ -51,9 +48,7 @@ NativeBladeConfig::realtimeConfig(function (RealtimeConfig $c) {
 |------------|------------------------------------------------------------------|
 | `reverb`   | `key, host, port, scheme, forceTLS, authEndpoint`                |
 | `pusher`   | `key, cluster, host?, port?, authEndpoint`                       |
-| `ws`       | `url` (`wss://…`)                                                 |
-| `socketio` | `url, path, auth`                                                |
-| `mqtt`     | `host, port, username, password, clientId`                       |
+| `ws`       | `url` (`wss://…`), for any raw/custom WebSocket                   |
 
 Nothing secret belongs here: the Pusher/Reverb `key` is a public client key, and
 private/presence auth happens at runtime against `authEndpoint` with the user's
@@ -152,11 +147,11 @@ How you send depends on the driver.
   NativeBlade::realtimeWhisper('chat.'.$this->roomId, 'typing', ['user' => auth()->id()])->toResponse();
   ```
 
-- **Native publish** — on the `ws` / `socketio` / `mqtt` drivers, `realtimeSend()`
-  is a real publish/emit to the broker (bidirectional over the socket):
+- **Native send** — on the `ws` driver, `realtimeSend()` is a real frame sent
+  over the socket (bidirectional):
 
   ```php
-  NativeBlade::realtimeSend('telemetry/room', 'move', ['x' => 3], 'mqtt')->toResponse();
+  NativeBlade::realtimeSend('feed', 'move', ['x' => 3], 'ws')->toResponse();
   ```
 
 ## 4. Raw WebSocket feeds (`ws` driver)

@@ -968,7 +968,7 @@ class NativeResponse
     }
 
     // ------------------------------------------------------------------
-    // Realtime (WebSocket / Reverb / Pusher / Socket.IO / MQTT)
+    // Realtime (WebSocket / Reverb / Pusher)
     // ------------------------------------------------------------------
 
     /**
@@ -995,9 +995,9 @@ class NativeResponse
     }
 
     /**
-     * Publish a message on a channel. Native pub/sub drivers (`ws`, `socketio`,
-     * `mqtt`) send it to the broker/server. On Reverb/Pusher there is no
-     * server-side send over the socket, so this maps to a client event (whisper)
+     * Publish a message on a channel. The `ws` driver sends it as a real frame
+     * over the socket. On Reverb/Pusher there is no server-side send over the
+     * socket, so this maps to a client event (whisper)
      * and works only on private/presence channels — for a persisted send, POST to
      * your backend, which then `broadcast()`s. `$connection` defaults to the one
      * marked default in the config.
