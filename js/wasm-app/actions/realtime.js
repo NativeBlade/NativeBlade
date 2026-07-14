@@ -201,7 +201,7 @@ function openStream(conn, op) {
         }
     });
 
-    conn.channels.set(op.channel, { count: 1, chan, type: 'stream' });
+    conn.channels.set(op.channel, { count: 1, chan, type: 'stream', streamId });
 }
 
 function leaveChannel(conn, channel) {
@@ -210,8 +210,15 @@ function leaveChannel(conn, channel) {
     if (!entry) return;
     if (--entry.count > 0) return; // another component still holds it
     conn.channels.delete(channel);
-    const stream = conn.streams.get(channel) || conn.streams.get(entry?.id);
-    if (stream?.timer) clearTimeout(stream.timer);
+    // Tear down the stream buffer/timer keyed by its own streamId (which may
+    // differ from the channel name), so a leaving component can't leak a timer
+    // or keep emitting deltas.
+    if (entry.type === 'stream') {
+        const streamId = entry.streamId || channel;
+        const stream = conn.streams.get(streamId);
+        if (stream?.timer) clearTimeout(stream.timer);
+        conn.streams.delete(streamId);
+    }
     try { conn.echo.leave(channel); } catch {}
 }
 
@@ -332,7 +339,14 @@ function wsSubscribe(conn, op) {
 
 function wsStream(conn, op) {
     const streamId = op.id || op.channel;
-    if (!conn.wsStreams.has(streamId)) conn.wsStreams.set(streamId, { buf: '', timer: null });
+    if (conn.wsStreams.has(streamId)) return;
+    // routeWsFrame() delivers every frame to the single active stream, so a raw
+    // ws connection carries ONE stream at a time — open a second one on its own
+    // named connection instead of silently losing its deltas.
+    if (conn.wsStreams.size) {
+        throw new Error('[NB] realtime ws: only one active stream per connection');
+    }
+    conn.wsStreams.set(streamId, { buf: '', timer: null });
 }
 
 function routeWsFrame(conn, raw) {

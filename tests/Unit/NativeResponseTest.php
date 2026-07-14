@@ -13,6 +13,7 @@ use NativeBlade\Plugins\FilePicker;
 use NativeBlade\Plugins\Geolocation;
 use NativeBlade\Plugins\Nfc;
 use NativeBlade\Plugins\Notification;
+use NativeBlade\Plugins\Realtime;
 use NativeBlade\Plugins\Scan;
 use NativeBlade\Plugins\Shell;
 use NativeBlade\Plugins\Upload;
@@ -851,5 +852,91 @@ final class NativeResponseTest extends TestCase
         self::assertArrayHasKey('action', $actions[0]);
         self::assertArrayHasKey('data', $actions[0]);
         self::assertIsArray($actions[0]['data']);
+    }
+
+    #[Test]
+    public function realtime_methods_return_the_same_instance_for_chaining(): void
+    {
+        $r = new NativeResponse();
+
+        self::assertSame($r, $r->realtime(fn (Realtime $rt) => $rt->subscribe('c')));
+        self::assertSame($r, $r->realtimeSend('c', 'e'));
+        self::assertSame($r, $r->realtimeWhisper('c', 'e'));
+        self::assertSame($r, $r->realtimeLeave('c'));
+        self::assertSame($r, $r->realtimeAuth('t'));
+    }
+
+    #[Test]
+    public function realtime_queues_the_builder_ops(): void
+    {
+        $r = (new NativeResponse())->realtime(
+            fn (Realtime $rt) => $rt->subscribe('chat')->presence('room')
+        );
+
+        self::assertSame([[
+            'action' => 'realtime',
+            'data' => ['ops' => [
+                ['op' => 'subscribe', 'channel' => 'chat', 'type' => 'public'],
+                ['op' => 'subscribe', 'channel' => 'room', 'type' => 'presence'],
+            ]],
+        ]], $r->toArray());
+    }
+
+    #[Test]
+    public function realtime_send_queues_channel_event_and_payload(): void
+    {
+        $r = (new NativeResponse())->realtimeSend('chat', 'Ping', ['x' => 1]);
+
+        self::assertSame([[
+            'action' => 'realtime_send',
+            'data' => ['channel' => 'chat', 'event' => 'Ping', 'payload' => ['x' => 1]],
+        ]], $r->toArray());
+    }
+
+    #[Test]
+    public function realtime_send_includes_the_connection_when_given(): void
+    {
+        $r = (new NativeResponse())->realtimeSend('feed', 'move', ['x' => 3], 'ws');
+
+        self::assertSame([[
+            'action' => 'realtime_send',
+            'data' => ['channel' => 'feed', 'event' => 'move', 'payload' => ['x' => 3], 'connection' => 'ws'],
+        ]], $r->toArray());
+    }
+
+    #[Test]
+    public function realtime_whisper_queues_a_realtime_whisper_action(): void
+    {
+        $r = (new NativeResponse())->realtimeWhisper('chat', 'typing', ['user' => 7]);
+
+        self::assertSame([[
+            'action' => 'realtime_whisper',
+            'data' => ['channel' => 'chat', 'event' => 'typing', 'payload' => ['user' => 7]],
+        ]], $r->toArray());
+    }
+
+    #[Test]
+    public function realtime_leave_queues_the_channel(): void
+    {
+        $r = (new NativeResponse())->realtimeLeave('chat');
+
+        self::assertSame([['action' => 'realtime_leave', 'data' => ['channel' => 'chat']]], $r->toArray());
+    }
+
+    #[Test]
+    public function realtime_auth_queues_the_token_and_optional_connection(): void
+    {
+        $set = (new NativeResponse())->realtimeAuth('bearer-x');
+        self::assertSame(
+            [['action' => 'realtime_auth', 'data' => ['token' => 'bearer-x']]],
+            $set->toArray()
+        );
+
+        // null token (logout) is still sent, plus an explicit connection.
+        $cleared = (new NativeResponse())->realtimeAuth(null, 'app');
+        self::assertSame(
+            [['action' => 'realtime_auth', 'data' => ['token' => null, 'connection' => 'app']]],
+            $cleared->toArray()
+        );
     }
 }
