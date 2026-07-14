@@ -90,6 +90,19 @@ export function inject(html) {
         var event = t.replace('nativeblade-', 'nb:');
         var payload = Object.assign({}, e.data);
         delete payload.type;
+
+        // JS-only delivery: a realtime connection declared deliver:'js' tags its
+        // events so they bypass Livewire/PHP entirely and surface as a DOM
+        // CustomEvent for public/js to consume. This is the path high-frequency
+        // feeds (game state, cursors) MUST take — one PHP request per frame would
+        // exhaust the runtime. (No backticks/dollar-braces here: this block is
+        // authored inside a template literal via buildMessageListener.)
+        if (payload.__nbDeliver === 'js') {
+            delete payload.__nbDeliver;
+            window.dispatchEvent(new CustomEvent(event, { detail: payload }));
+            return;
+        }
+
         if (window.Livewire) {
             window.Livewire.dispatch(event, payload);
         }

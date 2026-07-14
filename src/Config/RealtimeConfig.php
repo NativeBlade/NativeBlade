@@ -19,6 +19,17 @@ namespace NativeBlade\Config;
  *  - ws              : url ('wss://…'), plus an optional envelope map for how
  *                      raw frames encode {channel, event, data}.
  *
+ * Delivery — how incoming events reach your app:
+ *  - (default)       : every event is dispatched as a Livewire `#[On('nb:realtime')]`
+ *                      event. Right for human-paced messages (chat, presence,
+ *                      notifications).
+ *  - 'deliver' => 'js' : events bypass Livewire/PHP and surface as a DOM
+ *                      CustomEvent for public/js to consume
+ *                      (`window.addEventListener('nb:realtime', e => e.detail)`).
+ *                      REQUIRED for high-frequency feeds (game state, cursors,
+ *                      telemetry): on the default path each frame is a full
+ *                      php-wasm request, and tens per second exhaust the runtime.
+ *
  * Nothing secret belongs here: the Pusher/Reverb "key" is a public client key,
  * and private/presence auth happens at runtime by calling `authEndpoint` with
  * the user's bearer token, never a baked-in secret.

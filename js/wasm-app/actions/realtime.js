@@ -9,8 +9,12 @@
 // open once and close only when the last component leaves.
 //
 // Socket events are asynchronous (not tied to the dispatching action), so they
-// reach the CURRENT app frame via postToApp and are re-dispatched as Livewire
-// events by the interceptor:
+// reach the CURRENT app frame via postToApp and are re-dispatched by the
+// interceptor. A connection declared `deliver: 'js'` (RealtimeConfig) bypasses
+// Livewire/PHP: its events surface as DOM CustomEvents for public/js to consume
+// (window.addEventListener('nb:realtime', e => e.detail)) — the path
+// high-frequency feeds MUST take. Default connections re-dispatch as Livewire
+// events:
 //   nb:realtime            ($connection, $channel, $event, $payload)  — discrete messages
 //   nb:realtime-presence   ($connection, $channel, $event, $members|$user)
 //   nb:realtime-stream     ($connection, $streamId, $delta)           — coalesced deltas
@@ -47,13 +51,29 @@ function authToken() {
     return (typeof window !== 'undefined' && window.__NB_REALTIME_TOKEN__) || null;
 }
 
-// Deliver a message to Livewire: the generic `nb:realtime` plus a pre-routed
+// Emit one realtime event to the active app frame. Default connections ride the
+// interceptor → Livewire `#[On]` pipe. A connection declared `deliver: 'js'` is
+// tagged with `__nbDeliver`, which tells the interceptor to re-emit it as a DOM
+// CustomEvent instead — consumed directly in public/js, NEVER touching PHP.
+// High-frequency feeds (game state, cursors, telemetry) MUST use deliver:'js':
+// on the default path every single frame becomes a full php-wasm request, which
+// at tens of frames a second exhausts the runtime's file descriptors.
+function emitConn(conn, type, data) {
+    if (conn?.settings?.deliver === 'js') {
+        postToApp(type, { ...data, __nbDeliver: 'js' });
+    } else {
+        postToApp(type, data);
+    }
+}
+
+// Deliver a message: the generic `nb:realtime` plus a pre-routed
 // `nb:realtime:{channel}:{event}` (the interceptor maps `nativeblade-*` → `nb:*`
 // by a plain prefix replace, so dynamic names pass through). Pick either style
 // in your component — the other is simply not listened to.
-function emitRealtime(connection, channel, event, payload, id) {
-    postToApp('nativeblade-realtime', { connection, channel, event, payload, id });
-    if (channel) postToApp(`nativeblade-realtime:${channel}:${event}`, { connection, channel, event, payload, id });
+function emitRealtime(conn, channel, event, payload, id) {
+    const connection = conn.name;
+    emitConn(conn, 'nativeblade-realtime', { connection, channel, event, payload, id });
+    if (channel) emitConn(conn, `nativeblade-realtime:${channel}:${event}`, { connection, channel, event, payload, id });
 }
 
 // --- connections (lazy, one per named endpoint) -------------------------
@@ -114,11 +134,11 @@ async function setupEcho(conn) {
         let wasConnected = false;
         pusher.connection.bind('state_change', ({ current }) => {
             if (current === 'connected') {
-                postToApp(wasConnected ? 'nativeblade-realtime-reconnected' : 'nativeblade-realtime-connected',
+                emitConn(conn, wasConnected ? 'nativeblade-realtime-reconnected' : 'nativeblade-realtime-connected',
                     { connection: conn.name });
                 wasConnected = true;
             } else if (current === 'disconnected' || current === 'unavailable' || current === 'failed') {
-                postToApp('nativeblade-realtime-disconnected', { connection: conn.name, reason: current });
+                emitConn(conn, 'nativeblade-realtime-disconnected', { connection: conn.name, reason: current });
             }
         });
     }
@@ -153,13 +173,13 @@ function subscribeChannel(conn, op) {
     // Every event on the channel → the generic nb:realtime. Echo prefixes
     // broadcastAs() names with a leading '.', which we strip.
     chan.listenToAll((event, data) => {
-        emitRealtime(conn.name, op.channel, String(event).replace(/^\./, ''), data, op.id ?? null);
+        emitRealtime(conn, op.channel, String(event).replace(/^\./, ''), data, op.id ?? null);
     });
 
     if (op.type === 'presence') {
-        chan.here((members) => postToApp('nativeblade-realtime-presence', { connection: conn.name, channel: op.channel, event: 'here', members }))
-            .joining((user) => postToApp('nativeblade-realtime-presence', { connection: conn.name, channel: op.channel, event: 'joining', user }))
-            .leaving((user) => postToApp('nativeblade-realtime-presence', { connection: conn.name, channel: op.channel, event: 'leaving', user }));
+        chan.here((members) => emitConn(conn, 'nativeblade-realtime-presence', { connection: conn.name, channel: op.channel, event: 'here', members }))
+            .joining((user) => emitConn(conn, 'nativeblade-realtime-presence', { connection: conn.name, channel: op.channel, event: 'joining', user }))
+            .leaving((user) => emitConn(conn, 'nativeblade-realtime-presence', { connection: conn.name, channel: op.channel, event: 'leaving', user }));
     }
 
     conn.channels.set(op.channel, { count: 1, chan, type: op.type });
@@ -180,7 +200,7 @@ function openStream(conn, op) {
     const flush = () => {
         state.timer = null;
         if (!state.buf) return;
-        postToApp('nativeblade-realtime-stream', { connection: conn.name, streamId, delta: state.buf });
+        emitConn(conn, 'nativeblade-realtime-stream', { connection: conn.name, streamId, delta: state.buf });
         state.buf = '';
     };
 
@@ -190,11 +210,11 @@ function openStream(conn, op) {
         if (e === 'end' || e === 'stream-end') {
             flush();
             conn.streams.delete(streamId);
-            postToApp('nativeblade-realtime-stream-end', { connection: conn.name, streamId });
+            emitConn(conn, 'nativeblade-realtime-stream-end', { connection: conn.name, streamId });
         } else if (e === 'error' || e === 'stream-error') {
             flush();
             conn.streams.delete(streamId);
-            postToApp('nativeblade-realtime-stream-error', { connection: conn.name, streamId, error: data?.error ?? 'stream error' });
+            emitConn(conn, 'nativeblade-realtime-stream-error', { connection: conn.name, streamId, error: data?.error ?? 'stream error' });
         } else {
             state.buf += typeof data === 'string' ? data : (data?.delta ?? data?.text ?? '');
             state.timer ??= setTimeout(flush, STREAM_FLUSH_MS);
@@ -299,7 +319,7 @@ function openWs(conn) {
 
     ws.onopen = () => {
         conn.backoff = 500;
-        postToApp(conn.everConnected ? 'nativeblade-realtime-reconnected' : 'nativeblade-realtime-connected',
+        emitConn(conn, conn.everConnected ? 'nativeblade-realtime-reconnected' : 'nativeblade-realtime-connected',
             { connection: conn.name });
         conn.everConnected = true;
         for (const frame of conn.outbox.splice(0)) { try { ws.send(frame); } catch {} }
@@ -308,7 +328,7 @@ function openWs(conn) {
     ws.onclose = () => {
         // A mid-stream drop is an interruption to retry, NOT a gap to backfill.
         for (const streamId of [...conn.wsStreams.keys()]) errorWsStream(conn, streamId, { error: 'disconnected' });
-        postToApp('nativeblade-realtime-disconnected', { connection: conn.name, reason: 'closed' });
+        emitConn(conn, 'nativeblade-realtime-disconnected', { connection: conn.name, reason: 'closed' });
         if (!conn.closing) scheduleReconnect(conn);
     };
     ws.onerror = () => { try { ws.close(); } catch {} };
@@ -365,7 +385,7 @@ function routeWsFrame(conn, raw) {
 
     // Message mode.
     const isObj = data && typeof data === 'object';
-    emitRealtime(conn.name, (isObj && data.channel) || '', (isObj && data.event) || 'message', data, null);
+    emitRealtime(conn, (isObj && data.channel) || '', (isObj && data.event) || 'message', data, null);
 }
 
 function flushWsStream(conn, streamId) {
@@ -373,7 +393,7 @@ function flushWsStream(conn, streamId) {
     if (!st) return;
     st.timer = null;
     if (!st.buf) return;
-    postToApp('nativeblade-realtime-stream', { connection: conn.name, streamId, delta: st.buf });
+    emitConn(conn, 'nativeblade-realtime-stream', { connection: conn.name, streamId, delta: st.buf });
     st.buf = '';
 }
 
@@ -381,7 +401,7 @@ function endWsStream(conn, streamId) {
     const st = conn.wsStreams.get(streamId);
     if (st?.timer) clearTimeout(st.timer);
     conn.wsStreams.delete(streamId);
-    postToApp('nativeblade-realtime-stream-end', { connection: conn.name, streamId });
+    emitConn(conn, 'nativeblade-realtime-stream-end', { connection: conn.name, streamId });
 }
 
 function errorWsStream(conn, streamId, data) {
@@ -389,7 +409,7 @@ function errorWsStream(conn, streamId, data) {
     if (!st) return;
     if (st.timer) clearTimeout(st.timer);
     conn.wsStreams.delete(streamId);
-    postToApp('nativeblade-realtime-stream-error', { connection: conn.name, streamId, error: data?.error ?? 'stream error' });
+    emitConn(conn, 'nativeblade-realtime-stream-error', { connection: conn.name, streamId, error: data?.error ?? 'stream error' });
 }
 
 // Common defaults for AI/token WS frames (a future config hook can override).

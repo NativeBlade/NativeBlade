@@ -265,7 +265,63 @@ public function unmount(): void
 }
 ```
 
+## 8. High-frequency feeds: deliver straight to JS (`deliver: 'js'`)
+
+Every default realtime event becomes a Livewire `#[On]` dispatch — a full
+php-wasm request. That's right for **human-paced** traffic (chat, presence,
+notifications). It is **fatal** for a firehose: a multiplayer game broadcasting
+state at ~20 Hz, live cursors, or a telemetry stream turns into tens of PHP
+requests per second, each booting Laravel and writing to the runtime's virtual
+filesystem — until it runs out of file descriptors and every request 500s
+(`File descriptor value too large`).
+
+For those, declare the connection `deliver: 'js'`. Its events **bypass
+Livewire/PHP entirely** and surface as DOM `CustomEvent`s that your own
+`public/js` consumes directly, at native speed:
+
+```php
+NativeBladeConfig::realtimeConfig(function (RealtimeConfig $c) {
+    $c->connection('game', 'ws', [
+        'url'     => 'wss://game.myapp.com/play',
+        'deliver' => 'js',          // <- events go to public/js, never to PHP
+    ]);
+});
+```
+
+Consume them in a small module under `public/js/` (see ARCHITECTURE.md for the
+modularity rule). The events keep the same names, delivered on `window`:
+
+```js
+// public/js/game/net.js
+window.addEventListener('nb:realtime', (e) => {
+    applyServerFrame(e.detail.payload);        // e.detail = { connection, channel, event, payload, id }
+});
+window.addEventListener('nb:realtime-connected',    () => setStatus('online'));
+window.addEventListener('nb:realtime-reconnected',  () => rejoin());
+window.addEventListener('nb:realtime-disconnected', () => setStatus('offline'));
+```
+
+That listener is the **whole** bridge — no capture-phase tricks, no patching
+`Livewire.dispatch`, no frame-mirror detection. Events are delivered only to the
+active app frame, so a background/navigation buffer frame never double-consumes.
+
+**Sending** still goes through PHP at human rate — call a Livewire method from JS
+for actions the server must validate:
+
+```js
+const wire = window.Livewire.find(root.closest('[wire\\:id]').getAttribute('wire:id'));
+wire.$call('sendMove', movement);              // one request per user action, not per frame
+```
+
+…or, for a raw `ws` connection you publish on directly, use
+`NativeBlade::realtimeSend(...)` from that Livewire method. The rule: **inbound
+firehose → JS; outbound user actions → a normal Livewire call.**
+
 ## Events reference
+
+Default connections deliver these as Livewire `#[On]` events; `deliver: 'js'`
+connections deliver the identical set as `window` DOM `CustomEvent`s whose
+`event.detail` holds the same arguments.
 
 | Event                         | Arguments                                            |
 |-------------------------------|------------------------------------------------------|
