@@ -91,7 +91,8 @@ async function setupEcho(conn) {
     const Echo = (await import('laravel-echo')).default;
     if (typeof window !== 'undefined') window.Pusher = Pusher;
 
-    conn.echo = new Echo({
+    const token = authToken();
+    const opts = {
         broadcaster: s.driver, // 'reverb' | 'pusher'
         key: s.key,
         wsHost: s.host,
@@ -99,10 +100,14 @@ async function setupEcho(conn) {
         wssPort: s.port ?? 443,
         forceTLS: (s.scheme ?? 'https') === 'https',
         enabledTransports: ['ws', 'wss'],
-        cluster: s.cluster, // pusher-hosted only
-        authEndpoint: s.authEndpoint,
-        auth: authToken() ? { headers: { Authorization: `Bearer ${authToken()}` } } : undefined,
-    });
+        // Always an OBJECT, never undefined: pusher-js does `'params' in auth`
+        // when building its channel authorizer, which throws on undefined.
+        authEndpoint: s.authEndpoint || '/broadcasting/auth',
+        auth: { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+    };
+    if (s.cluster) opts.cluster = s.cluster; // pusher-hosted only
+
+    conn.echo = new Echo(opts);
 
     // Lifecycle → the gap-fill hooks. pusher-js exposes the raw connection; the
     // FIRST 'connected' is a fresh connect, later ones are reconnects (where the
