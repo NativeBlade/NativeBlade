@@ -34,6 +34,7 @@ import * as networkMod from './network.js';
 import * as tasksMod from './tasks.js';
 import * as sensorsMod from './sensors.js';
 import * as realtimeMod from './realtime.js';
+import * as shellModuleMod from './shell-module.js';
 
 export const actions = {
     // dialog
@@ -165,4 +166,10 @@ export const actions = {
     realtime_whisper: realtimeMod.realtime_whisper,
     realtime_leave: realtimeMod.realtime_leave,
     realtime_auth: realtimeMod.realtime_auth,
+
+    // native shell modules (HasNativeShell / #[NativeProp])
+    shell_module_mount: shellModuleMod.shell_module_mount,
+    shell_module_update: shellModuleMod.shell_module_update,
+    shell_module_command: shellModuleMod.shell_module_command,
+    shell_module_destroy: shellModuleMod.shell_module_destroy,
 };
