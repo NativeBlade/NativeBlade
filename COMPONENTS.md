@@ -198,4 +198,8 @@ Creates: `nativeblade-components/stat-card/` with `.php`, `.blade.php`
 }
 ```
 
-Auto-synced on `nativeblade:dev`. See [nativeblade-toast](https://github.com/NativeBlade/nativeblade-toast) as example.
+Auto-synced into `nativeblade-components/` at the start of both `nativeblade:dev`
+and `nativeblade:build` (recursive — packages may ship subfolders). This also
+covers native shell modules ([NATIVE-SHELL.md](NATIVE-SHELL.md)): a package can
+distribute a module and `protected string $shell = '<name>'` finds it. See
+[nativeblade-toast](https://github.com/NativeBlade/nativeblade-toast) as example.

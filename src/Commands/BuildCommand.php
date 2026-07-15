@@ -3,12 +3,15 @@
 namespace NativeBlade\Commands;
 
 use Illuminate\Console\Command;
+use NativeBlade\Commands\Concerns\SyncsPackageComponents;
 use NativeBlade\Config\PluginRegistry;
 use NativeBlade\NativeBladeServiceProvider;
 use NativeBlade\ShellConfig;
 
 class BuildCommand extends Command
 {
+    use SyncsPackageComponents;
+
     protected $signature = 'nativeblade:build
         {platform : android, ios, windows, macos, or linux}
         {--targets= : Comma-separated Android architectures (aarch64,armv7,x86_64,i686). Default: all}
@@ -49,6 +52,8 @@ class BuildCommand extends Command
 
         $this->line('  Applying config...');
         $this->call('nativeblade:config');
+
+        $this->syncPackageComponents();
 
         $this->line('');
         $this->line('  Building frontend...');

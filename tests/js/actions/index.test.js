@@ -78,6 +78,10 @@ const EXPECTED_ACTIONS = [
     'realtime_whisper',
     'realtime_leave',
     'realtime_auth',
+    'shell_module_mount',
+    'shell_module_update',
+    'shell_module_command',
+    'shell_module_destroy',
 ];
 
 describe('actions/index', () => {

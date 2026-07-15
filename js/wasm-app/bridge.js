@@ -33,11 +33,21 @@ const apis = {
     invokeTauri: null,
 };
 
+// Modules that must react to a navigation frame swap (e.g. shell-module GC)
+// register here — bridge stays dependency-free of them.
+const frameSwapCallbacks = [];
+export function onFrameSwap(callback) {
+    frameSwapCallbacks.push(callback);
+}
+
 // Update the active iframe reference. Called by the router when it swaps the
 // visible frame for a buffer frame during a SPA-style navigation.
 export function setFrame(appFrame) {
     appFrameRef = appFrame;
     cameraModule.init(appFrame);
+    for (const callback of frameSwapCallbacks) {
+        try { callback(appFrame); } catch (e) { console.error('[NB] frame-swap callback failed', e); }
+    }
 }
 
 // Post a message into the active app iframe (follows router frame swaps).
@@ -130,6 +140,9 @@ function buildCtx(appFrame, replyWindow = null) {
         // actions, and posting to the "current" frame would deliver the
         // response to the OUTGOING page instead.
         appFrame,
+        // The window that dispatched this action (buffer frame during a
+        // navigation transition) — lets handlers tie state to its source page.
+        replyWindow,
         post: (type, data = {}) =>
             (replyWindow ?? appFrame?.contentWindow)?.postMessage({ type, ...data }, '*'),
         // shared modules + helpers

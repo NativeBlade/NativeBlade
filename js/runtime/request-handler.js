@@ -57,6 +57,18 @@ export async function handleRequest(path, options = {}) {
     php.writeFile('/tmp/__nb_server.json', JSON.stringify(serverVars));
     if (body) php.writeFile('/tmp/request_body', body);
 
+    // Shell-module ride-along: snapshot the current shell-owned #[NativeProp]
+    // values (window.__NB_SHELL_PROPS__ is set by the shell-module action) so
+    // HasNativeShell components read them fresh at hydrate — zero extra requests.
+    try {
+        const shellProps = typeof window !== 'undefined' && typeof window.__NB_SHELL_PROPS__ === 'function'
+            ? window.__NB_SHELL_PROPS__()
+            : null;
+        if (shellProps && Object.keys(shellProps).length) {
+            php.writeFile('/tmp/__nb_shell_props.json', JSON.stringify(shellProps));
+        }
+    } catch {}
+
     const hasBody = body ? '1' : '0';
     const parsePost = (!isJson && body) ? '1' : '0';
 
