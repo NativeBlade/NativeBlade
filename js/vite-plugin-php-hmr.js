@@ -112,6 +112,33 @@ export default function phpHmrPlugin(projectRoot) {
                 next();
             });
 
+            // App identity for the Portal's app list: product name + icon as a
+            // data URL (smallest icon first — this lands in the Portal's
+            // localStorage, one entry per remembered app).
+            server.middlewares.use((req, res, next) => {
+                if (!req.url.startsWith('/__app_meta')) return next();
+
+                res.setHeader('Content-Type', 'application/json');
+
+                let name = '';
+                try {
+                    const conf = JSON.parse(readFileSync(path.join(projectRoot, 'src-tauri/tauri.conf.json'), 'utf-8'));
+                    name = conf.productName || '';
+                } catch {}
+                if (!name) name = path.basename(projectRoot);
+
+                let icon = '';
+                for (const candidate of ['128x128.png', 'icon.png', 'logo.png']) {
+                    try {
+                        const buf = readFileSync(path.join(projectRoot, 'src-tauri/icons', candidate));
+                        icon = 'data:image/png;base64,' + buf.toString('base64');
+                        break;
+                    } catch {}
+                }
+
+                res.end(JSON.stringify({ name, icon }));
+            });
+
             server.middlewares.use((req, res, next) => {
                 if (!req.url.startsWith('/__php_changes') && !req.url.startsWith('/__php_version')) {
                     return next();
