@@ -137,7 +137,7 @@ export async function shell_module_mount(payload, ctx) {
                     `[NB] shell module '${shell}' is persistent and already owned by ${existing.owner}, `
                     + `but ${owner} also declares it — its props now silently overwrite the previous owner's. `
                     + `A persistent shell must have a SINGLE owner component living above navigation; `
-                    + `other screens should message that owner instead (see NATIVE-SHELL.md).`
+                    + `other screens should use NativeBlade::shellCommand('${shell}', ...) instead (see NATIVE-SHELL.md).`
                 );
             }
             instances.delete(existing.id);
@@ -213,7 +213,16 @@ export function shell_module_update(payload) {
 }
 
 export function shell_module_command(payload) {
-    const inst = instances.get(payload?.id);
+    // Addressed by component id (owner's $this->shell(...)) or, without an id,
+    // by shell NAME (NativeBlade::shellCommand from any screen/service).
+    let inst = payload?.id ? instances.get(payload.id) : null;
+    if (!inst && payload?.shell) {
+        const matches = [...instances.values()].filter(i => i.shell === payload.shell);
+        inst = matches.find(i => i.persist) || matches[0] || null;
+        if (matches.length > 1) {
+            console.warn(`[NB] shellCommand('${payload.shell}'): ${matches.length} instances running, targeting ${inst.persist ? 'the persistent one' : 'the first'} — address per-instance commands through the owner instead`);
+        }
+    }
     if (!inst) return;
     const run = () => {
         try { inst.module?.command?.(payload.command, payload.args || []); }

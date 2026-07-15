@@ -61,6 +61,17 @@ trait HasNativeShell
     #[Locked]
     public string $shellId = '';
 
+    /**
+     * PHP-owned prop values as of the last flush, kept across requests so
+     * updates only carry CHANGED props. Without the diff, every render would
+     * re-push all props and silently revert module state that a shellCommand
+     * from another screen legitimately changed.
+     *
+     * @var array<string, mixed>
+     */
+    #[Locked]
+    public array $shellSynced = [];
+
     /** @var array<int, array{action: string, data: array<string, mixed>}> */
     private array $nativeShellQueue = [];
 
@@ -113,11 +124,12 @@ trait HasNativeShell
 
     /**
      * Flush the envelope with the response. Queued actions keep the order they
-     * were issued (so destroy-then-mount sequences behave), and the props
-     * update is inserted right after the last mount — a mount always receives
-     * current props next, and commands always run after them. When the net
-     * effect of the queue is "destroyed" (a destroy with no mount after it),
-     * no update is sent at all: it would only target the dead instance.
+     * were issued (so destroy-then-mount sequences behave), and a props update
+     * carrying only the CHANGED props is inserted right after the last mount —
+     * commands always run after current props. Unchanged props are never
+     * re-pushed (a render of the owner must not revert module state another
+     * screen changed via shellCommand), and when the net effect of the queue
+     * is "destroyed", no update is sent at all.
      */
     public function renderedHasNativeShell(mixed ...$args): void
     {
@@ -134,19 +146,32 @@ trait HasNativeShell
             }
         }
 
+        $current = $this->nativePropValues();
+        $changed = [];
+        foreach ($current as $name => $value) {
+            if (!array_key_exists($name, $this->shellSynced) || $this->shellSynced[$name] !== $value) {
+                $changed[$name] = $value;
+            }
+        }
+        $this->shellSynced = $current;
+
         if ($lastDestroy > $lastMount) {
             $this->dispatch('__nativeblade', actions: $queue);
             return;
         }
 
-        $update = ['action' => 'shell_module_update', 'data' => [
-            'shell' => $this->nativeShellName(),
-            'id' => $this->getId(),
-            'props' => $this->nativePropValues(),
-        ]];
-        array_splice($queue, $lastMount + 1, 0, [$update]);
+        if ($changed !== []) {
+            $update = ['action' => 'shell_module_update', 'data' => [
+                'shell' => $this->nativeShellName(),
+                'id' => $this->getId(),
+                'props' => $changed,
+            ]];
+            array_splice($queue, $lastMount + 1, 0, [$update]);
+        }
 
-        $this->dispatch('__nativeblade', actions: $queue);
+        if ($queue !== []) {
+            $this->dispatch('__nativeblade', actions: $queue);
+        }
     }
 
     /**

@@ -894,6 +894,28 @@ final class NativeResponseTest extends TestCase
     }
 
     #[Test]
+    public function shell_command_targets_a_module_by_name_with_positional_args(): void
+    {
+        $r = (new NativeResponse())->shellCommand('player', 'seek', [30]);
+
+        self::assertSame([[
+            'action' => 'shell_module_command',
+            'data' => ['shell' => 'player', 'command' => 'seek', 'args' => [30]],
+        ]], $r->toArray());
+    }
+
+    #[Test]
+    public function shell_command_wraps_an_associative_payload_as_a_single_arg(): void
+    {
+        $r = (new NativeResponse())->shellCommand('player', 'play', ['trackId' => 7, 'queue' => [7, 8]]);
+
+        self::assertSame([[
+            'action' => 'shell_module_command',
+            'data' => ['shell' => 'player', 'command' => 'play', 'args' => [['trackId' => 7, 'queue' => [7, 8]]]],
+        ]], $r->toArray());
+    }
+
+    #[Test]
     public function realtime_send_includes_the_connection_when_given(): void
     {
         $r = (new NativeResponse())->realtimeSend('feed', 'move', ['x' => 3], 'ws');

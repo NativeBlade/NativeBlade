@@ -1057,6 +1057,38 @@ class NativeResponse
     }
 
     // ------------------------------------------------------------------
+    // Native shell modules
+    // ------------------------------------------------------------------
+
+    /**
+     * Send a command to a native shell module BY NAME, from any component or
+     * service — no need to be the module's owner or round-trip an event to it.
+     * The JS side resolves the running instance of that `$shell` (persistent
+     * modules are singletons per name, so the match is unambiguous).
+     *
+     * ```
+     * return NativeBlade::shellCommand('player', 'play', [
+     *     'trackId' => $trackId,
+     *     'queue'   => $this->queueIds,
+     * ])->toResponse();
+     * ```
+     *
+     * Commands are for making the module DO something. To change what the
+     * module IS showing (its `#[NativeProp]` state), message the owner
+     * component instead — props keep a single owner. See NATIVE-SHELL.md.
+     *
+     * @param  array<int|string, mixed>  $args  Passed to `module.command($command, $args)`.
+     */
+    public function shellCommand(string $shell, string $command, array $args = []): static
+    {
+        return $this->push('shell_module_command', [
+            'shell' => $shell,
+            'command' => $command,
+            'args' => array_values($args) === $args ? $args : [$args],
+        ]);
+    }
+
+    // ------------------------------------------------------------------
     // Process
     // ------------------------------------------------------------------
 

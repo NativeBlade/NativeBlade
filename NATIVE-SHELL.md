@@ -147,19 +147,42 @@ data goes in shell-owned props or a `deliver: 'js'` realtime connection
   declare the same `$shell`, the second one adopts the instance and its props
   silently overwrite the first's (a `tab-bar` with `unread = 3` on Home gets
   zeroed by Profile's `unread = 0`). The framework logs a console warning when
-  it detects a different owner adopting. The right shape: declare the shell in
-  a component that lives above navigation (an app-shell/layout component) and
-  have screens message that owner instead of redeclaring it:
+  it detects a different owner adopting. The right shape: declare the shell
+  **once**, in a component that lives above navigation (an app-shell/layout
+  component); every other screen or service interacts with the module **by
+  name**, without declaring anything:
 
   ```php
-  // AppShell.php — lives as long as the app lives
-  protected string $shell = 'tab-bar';
+  // AppShell.php — the single owner, lives as long as the app lives
+  protected string $shell = 'audio-player';
   protected bool $shellPersist = true;
-  #[NativeProp] public int $unread = 0;
+  #[NativeProp] public string $trackUrl = '';
 
-  // HomeScreen.php — doesn't declare $shell, just tells the owner
-  $this->dispatch('unread-changed', count: 5)->to(AppShell::class);
+  // AlbumScreen.php — no $shell here; commands the module by name
+  return NativeBlade::shellCommand('audio-player', 'play', [
+      'trackId' => $trackId,
+      'queue'   => $this->queueIds,
+  ])->toResponse();
   ```
+
+  **What a command may touch — and how breaking this fails.** A command must
+  never change state that a PHP-owned prop describes. The framework cannot
+  enforce this (a command name is an opaque string — nothing can detect that
+  `'play'` collides with what `$trackUrl` shows), and because prop updates are
+  **diffed** (only changed props are pushed, so an unrelated owner render never
+  reverts module state), breaking it **fails silently**: command `play(B)` from
+  a screen without writing the shared state, and on the owner's next render it
+  derives `A`, the diff sees no change, nothing is pushed — the module keeps
+  playing B while PHP believes A. No flicker, no revert, no console error. The
+  bug surfaces days later, as a bookmark saved with the wrong track.
+
+  That makes the shared source **mandatory, not a style preference**: state
+  that PHP-owned props display (`trackUrl`, `playing`) lives in exactly one
+  place — a service / `app/Native/State` wrapper. A screen that commands the
+  module writes that state through the service **in the same action** as the
+  `shellCommand`, and the owner derives its props from that source whenever it
+  next runs. Shell-owned props (`position`) and transient behavior are fair
+  game from anywhere — they have no PHP-owned description to contradict.
 - A remount of the same component id replaces the instance (old `destroy()`
   runs first).
 - **Keep state on `this`, not at module scope.** Each mount gets its own
@@ -171,6 +194,7 @@ data goes in shell-owned props or a `deliver: 'js'` realtime connection
 
 ## Current limitations (prototype)
 
-- PHP-owned props are re-pushed on every render (no diffing yet); keep them
-  small and JSON-serializable.
+- `#[NativeProp]` values must be small and JSON-serializable — a PHP-owned
+  prop rides the Livewire payload **twice** (its value plus the last-flushed
+  shadow that powers update diffing), so a big blob in a prop costs double.
 - One module per component (`$shell` is a single name).

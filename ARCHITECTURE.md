@@ -140,7 +140,8 @@ navigation), and there are two shapes, picked by whether they carry state:
   `$shellPersist = true` when it must outlive its screen. See
   [NATIVE-SHELL.md](NATIVE-SHELL.md) — including the single-owner rule: a
   persistent shell is declared by ONE component living above navigation;
-  other screens message that owner, never redeclare the same `$shell`.
+  other screens command it by name with `NativeBlade::shellCommand()`, never
+  redeclare the same `$shell`.
 
 Rule of thumb: if you catch yourself re-mounting the "same" element on every
 screen, syncing its state through `getState()` calls at mount, or animating it

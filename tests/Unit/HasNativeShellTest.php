@@ -166,6 +166,36 @@ final class HasNativeShellTest extends TestCase
     }
 
     #[Test]
+    public function unchanged_props_are_not_repushed_on_later_renders(): void
+    {
+        $c = $this->component();
+        $c->renderedHasNativeShell();          // first flush: everything is new
+        $c->dispatched = [];
+
+        $c->renderedHasNativeShell();          // nothing changed, nothing queued
+        self::assertSame([], $c->dispatched, 'no envelope at all — an idle render must not touch the module');
+
+        $c->playing = true;
+        $c->renderedHasNativeShell();
+        $update = $c->dispatched[0][1]['actions'][0];
+        self::assertSame('shell_module_update', $update['action']);
+        self::assertSame(['playing' => true], $update['data']['props'], 'only the changed prop is pushed');
+    }
+
+    #[Test]
+    public function the_diff_shadow_holds_only_php_owned_props(): void
+    {
+        $c = $this->component();
+        $c->renderedHasNativeShell();
+
+        self::assertSame(
+            ['url', 'playing'],
+            array_keys($c->shellSynced),
+            'shell-owned props are never shadowed — PHP does not push them, so tracking them would only bloat the snapshot'
+        );
+    }
+
+    #[Test]
     public function a_lone_destroy_flushes_without_an_update_for_the_dead_instance(): void
     {
         $c = $this->component();
