@@ -11,16 +11,17 @@ use ReflectionProperty;
 /**
  * Binds a Livewire component to a native shell module — a JS module living in
  * the webview SHELL (the parent window, outside the app iframe), loaded from
- * `public/js/shell/{name}.js`. Because the shell survives SPA navigations, a
- * shell module can keep playing video/audio across screens (mini-player) when
- * `$shellPersist = true`.
+ * `nativeblade-components/{name}/{name}.js` (the same folder and build
+ * pipeline as custom shell components — multi-file modules welcome). Because
+ * the shell survives SPA navigations, a shell module can keep playing
+ * video/audio across screens (mini-player) when `$shellPersist = true`.
  *
  * Declare the module and mark synced props:
  *
  * ```
  * use HasNativeShell;
  *
- * protected string $shell = 'video-player';
+ * protected string $shell = 'video-player';      // -> nativeblade-components/video-player/video-player.js
  * protected bool $shellPersist = false;          // true: survives navigation
  *
  * #[NativeProp] public string $url = '';          // PHP -> shell on render

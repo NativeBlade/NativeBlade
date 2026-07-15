@@ -1,9 +1,12 @@
 // Native shell modules — the JS counterpart of PHP's HasNativeShell trait.
 //
-// A shell module is an app-provided single-file ES module at
-// `public/js/shell/{name}.js`, loaded HERE in the shell (the parent window,
-// outside the app iframe) — so it survives SPA navigations and can keep
-// video/audio running across screens when the component sets $shellPersist.
+// A shell module is an app-provided ES module at
+// `nativeblade-components/{name}/{name}.js` (the same `@components` alias and
+// build pipeline custom shell components use — split it into as many files as
+// you like, the bundler resolves imports). It runs HERE in the shell (the
+// parent window, outside the app iframe) — so it survives SPA navigations and
+// can keep video/audio running across screens when the component sets
+// $shellPersist.
 //
 // Module contract (default export):
 //   export default {
@@ -60,21 +63,12 @@ async function loadModule(name) {
         if (!/^[a-z0-9_-]+$/i.test(name)) {
             throw new Error(`invalid shell module name '${name}'`);
         }
-        // Lazy: php-runtime drags in @php-wasm/universal, which only exists in
-        // a built app (not in this repo's test env) — resolve it at call time.
-        const { getInstance } = await import('../../runtime/php-runtime.js');
-        const php = getInstance();
-        if (!php) throw new Error('PHP runtime not ready');
-        // The webview has no file server; read the source from the wasm FS and
-        // import it as a blob. Single-file modules only — relative imports
-        // don't resolve from a blob URL.
-        const src = php.readFileAsText(`/app/public/js/shell/${name}.js`);
-        const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
-        try {
-            return (await import(/* @vite-ignore */ url)).default;
-        } finally {
-            URL.revokeObjectURL(url);
-        }
+        // Same load path as custom shell components (component-registry):
+        // the @components alias resolves to the app's nativeblade-components/
+        // folder and the bundler ships the module (and anything it imports).
+        const mod = await import(`@components/${name}/${name}.js`);
+        if (!mod.default) throw new Error(`shell module '${name}' has no default export`);
+        return mod.default;
     })();
     moduleCache.set(name, promise);
     promise.catch(() => moduleCache.delete(name));

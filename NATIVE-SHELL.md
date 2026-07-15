@@ -22,7 +22,7 @@ class VideoScreen extends Component
 {
     use HasNativeShell;
 
-    protected string $shell = 'video-player';   // -> public/js/shell/video-player.js
+    protected string $shell = 'video-player';   // -> nativeblade-components/video-player/video-player.js
     protected bool $shellPersist = false;        // true: survives navigation (mini-player)
 
     #[NativeProp] public string $url = '';       // PHP owns: pushed to the module on render
@@ -48,11 +48,13 @@ class VideoScreen extends Component
 }
 ```
 
-## JS side — `public/js/shell/video-player.js`
+## JS side — `nativeblade-components/video-player/video-player.js`
 
-A single-file ES module (the shell imports it as a blob, so relative imports
-don't resolve — keep the module self-contained; your in-page code under
-`public/js/` can stay modular as usual).
+Shell modules live in the app's `nativeblade-components/` folder — the same
+place (and `@components` build alias) custom shell components use. They are
+bundled at build time, so split the module into as many files as you like and
+`import` freely; the default export is the module contract. Changes are picked
+up by the `nativeblade:dev` rebuild like any other shell component.
 
 ```js
 export default {
@@ -123,7 +125,6 @@ data goes in shell-owned props or a `deliver: 'js'` realtime connection
 
 ## Current limitations (prototype)
 
-- Shell modules are **single-file** (blob import — no relative imports).
 - PHP-owned props are re-pushed on every render (no diffing yet); keep them
   small and JSON-serializable.
 - Ride-along injection assigns values directly (no `updated*` hooks fire).
