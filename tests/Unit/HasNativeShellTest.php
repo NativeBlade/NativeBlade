@@ -37,6 +37,7 @@ final class HasNativeShellTest extends TestCase
         self::assertSame([
             'shell' => 'video-player',
             'id' => 'lw-1',
+            'owner' => FakeVideoComponent::class,
             'props' => ['url' => 'https://x/video.mp4', 'playing' => false],
             'shellProps' => [['name' => 'position', 'throttle' => 500]],
             'persist' => false,

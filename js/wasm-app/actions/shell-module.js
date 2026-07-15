@@ -84,7 +84,7 @@ function setShellProp(inst, key, value) {
 }
 
 export async function shell_module_mount(payload, ctx) {
-    const { shell, id, props = {}, shellProps = [], persist = false } = payload || {};
+    const { shell, id, owner = '', props = {}, shellProps = [], persist = false } = payload || {};
     if (!shell || !id) return;
 
     ensureFrameSwapGc();
@@ -99,8 +99,17 @@ export async function shell_module_mount(payload, ctx) {
     if (persist) {
         const existing = [...instances.values()].find(i => i.shell === shell && i.persist);
         if (existing) {
+            if (owner && existing.owner && existing.owner !== owner) {
+                console.warn(
+                    `[NB] shell module '${shell}' is persistent and already owned by ${existing.owner}, `
+                    + `but ${owner} also declares it — its props now silently overwrite the previous owner's. `
+                    + `A persistent shell must have a SINGLE owner component living above navigation; `
+                    + `other screens should message that owner instead (see NATIVE-SHELL.md).`
+                );
+            }
             instances.delete(existing.id);
             existing.id = id;
+            existing.owner = owner;
             existing.specs = specs;
             existing.win = ctx?.replyWindow || ctx?.appFrame?.contentWindow || existing.win;
             instances.set(id, existing);
@@ -111,7 +120,7 @@ export async function shell_module_mount(payload, ctx) {
     if (instances.has(id)) destroyInstance(id);
 
     const inst = {
-        id, shell, specs,
+        id, shell, specs, owner,
         module: null,
         state: {},
         persist: !!persist,

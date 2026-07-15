@@ -80,6 +80,7 @@ trait HasNativeShell
         $this->nativeShellQueue[] = ['action' => 'shell_module_mount', 'data' => [
             'shell' => $this->nativeShellName(),
             'id' => $this->getId(),
+            'owner' => static::class,
             'props' => $this->nativePropValues(),
             'shellProps' => $this->nativeShellOwnedSpecs(),
             'persist' => property_exists($this, 'shellPersist') && (bool) $this->shellPersist,

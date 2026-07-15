@@ -101,6 +101,13 @@ must *react* to the change (re-render from the value), and never below a few
 hundred ms. To move a value against its direction (PHP adjusting a shell-owned
 position), use a command: `$this->shell('seek', 30)`.
 
+**`updated*()` hooks never fire for shell-owned props.** This is permanent
+semantics, not a gap: both hydrate injection and the throttled push assign the
+value directly, so `updatedPosition()` will not run — don't write it by reflex.
+A shell-owned prop is data you *read* inside an action, not an event you react
+to; when PHP must react to a moment, have the module `ctx.emit()` an event and
+listen with `#[On]`.
+
 ## Events
 
 `ctx.emit('ended', {reason: 'eof'})` is delivered on two names — pick one:
@@ -127,6 +134,24 @@ data goes in shell-owned props or a `deliver: 'js'` realtime connection
   the screen gives the component a new Livewire id, and the new mount *adopts*
   the running instance (no second `mount()` — the video keeps playing; current
   props are applied via `update()`). One persistent instance per `$shell` name.
+- **A persistent shell has ONE owner component.** Adoption is the semantics of
+  *the same owner coming back to its screen* — if two different components
+  declare the same `$shell`, the second one adopts the instance and its props
+  silently overwrite the first's (a `tab-bar` with `unread = 3` on Home gets
+  zeroed by Profile's `unread = 0`). The framework logs a console warning when
+  it detects a different owner adopting. The right shape: declare the shell in
+  a component that lives above navigation (an app-shell/layout component) and
+  have screens message that owner instead of redeclaring it:
+
+  ```php
+  // AppShell.php — lives as long as the app lives
+  protected string $shell = 'tab-bar';
+  protected bool $shellPersist = true;
+  #[NativeProp] public int $unread = 0;
+
+  // HomeScreen.php — doesn't declare $shell, just tells the owner
+  $this->dispatch('unread-changed', count: 5)->to(AppShell::class);
+  ```
 - A remount of the same component id replaces the instance (old `destroy()`
   runs first).
 - **Keep state on `this`, not at module scope.** Each mount gets its own
@@ -140,5 +165,4 @@ data goes in shell-owned props or a `deliver: 'js'` realtime connection
 
 - PHP-owned props are re-pushed on every render (no diffing yet); keep them
   small and JSON-serializable.
-- Ride-along injection assigns values directly (no `updated*` hooks fire).
 - One module per component (`$shell` is a single name).
