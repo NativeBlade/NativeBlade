@@ -120,6 +120,33 @@ class Cart extends Component { /* … */ }
 
 Rule of thumb: if you're writing `@if($screen === …)` or `match($tab)` in a Blade view to pick which whole screen to show, stop — those are separate components behind separate routes. Native tab bars are configured with `NativeBladeConfig::bottomNav([...])` pointing at those routes, not a property toggle.
 
+## Anything that persists across screens is a shell component
+
+A screen lives inside the app iframe and **dies on navigation**. If a piece of
+UI or behavior must survive the user moving between screens — a mini-player
+that keeps playing, a tab bar with a badge, a toast host, a global timer, an
+upload progress pill — building it inside a page and re-rendering it on every
+screen is faking persistence: it flickers, loses state, and every screen pays
+for it. Persistent things live in the **shell** (the parent window, above
+navigation), and there are two shapes, picked by whether they carry state:
+
+- **Stateless / config-driven chrome** (bottom nav, top bar, toast, splash
+  accents): a classic shell component — `php artisan nativeblade:component`
+  (type: shell) → `nativeblade-components/{name}/`, rendered from its Blade
+  `data-nb` config. See [COMPONENTS.md](COMPONENTS.md).
+- **Stateful, owned by a Livewire component** (video/audio mini-player,
+  tab-bar with live unread count, anything a screen controls and reads back):
+  a **native shell module** — `use HasNativeShell` + `#[NativeProp]`, with
+  `$shellPersist = true` when it must outlive its screen. See
+  [NATIVE-SHELL.md](NATIVE-SHELL.md) — including the single-owner rule: a
+  persistent shell is declared by ONE component living above navigation;
+  other screens message that owner, never redeclare the same `$shell`.
+
+Rule of thumb: if you catch yourself re-mounting the "same" element on every
+screen, syncing its state through `getState()` calls at mount, or animating it
+to hide the flicker of a remount — it wanted to be a shell component from the
+start.
+
 ## Folder structure
 
 ```
@@ -872,6 +899,8 @@ These are bugs in disguise. The MCP architecture tool will flag any of these.
 11. **One mega-component holding every screen behind a `$screen`/`$tab` toggle.** Each screen is its own component behind its own route; decompose busy screens into child components by responsibility.
 
 12. **A monolithic script in `public/js/`.** Custom front-end code is split by responsibility (model / logic / rendering) into small files grouped in a feature folder and wired with ES modules — never one giant file that mixes concerns.
+
+13. **Cross-screen UI faked inside pages.** An element re-rendered on every screen to look persistent (mini-player, badge bar, toast host, global timer) is a shell component: config-driven chrome → `nativeblade-components/` shell component; stateful and screen-controlled → a native shell module (`HasNativeShell`, NATIVE-SHELL.md). Pages die on navigation; the shell doesn't.
 
 ## Worked example: a complete feature
 
