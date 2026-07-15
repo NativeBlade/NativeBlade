@@ -16,6 +16,12 @@ final class ComponentCommandTest extends TestCase
 {
     use WithTempBasePath;
 
+    private const TYPE_CHOICES = [
+        'shell' => 'Shell (outside WebView — header, nav, toast, dialog)',
+        'embedded' => 'Embedded (inside WebView — modal, card, form)',
+        'module' => 'Shell module (stateful, bound to a Livewire component via HasNativeShell)',
+    ];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -35,7 +41,7 @@ final class ComponentCommandTest extends TestCase
             ->expectsChoice(
                 'Where does this component render?',
                 'shell',
-                ['shell' => 'Shell (outside WebView — header, nav, toast, dialog)', 'embedded' => 'Embedded (inside WebView — modal, card, form)']
+                self::TYPE_CHOICES
             )
             ->assertExitCode(0);
 
@@ -53,7 +59,7 @@ final class ComponentCommandTest extends TestCase
             ->expectsChoice(
                 'Where does this component render?',
                 'shell',
-                ['shell' => 'Shell (outside WebView — header, nav, toast, dialog)', 'embedded' => 'Embedded (inside WebView — modal, card, form)']
+                self::TYPE_CHOICES
             )
             ->assertExitCode(0);
 
@@ -71,7 +77,7 @@ final class ComponentCommandTest extends TestCase
             ->expectsChoice(
                 'Where does this component render?',
                 'embedded',
-                ['shell' => 'Shell (outside WebView — header, nav, toast, dialog)', 'embedded' => 'Embedded (inside WebView — modal, card, form)']
+                self::TYPE_CHOICES
             )
             ->assertExitCode(0);
 
@@ -89,7 +95,7 @@ final class ComponentCommandTest extends TestCase
             ->expectsChoice(
                 'Where does this component render?',
                 'shell',
-                ['shell' => 'Shell (outside WebView — header, nav, toast, dialog)', 'embedded' => 'Embedded (inside WebView — modal, card, form)']
+                self::TYPE_CHOICES
             )
             ->assertExitCode(0);
 
@@ -104,7 +110,7 @@ final class ComponentCommandTest extends TestCase
             ->expectsChoice(
                 'Where does this component render?',
                 'shell',
-                ['shell' => 'Shell (outside WebView — header, nav, toast, dialog)', 'embedded' => 'Embedded (inside WebView — modal, card, form)']
+                self::TYPE_CHOICES
             )
             ->assertExitCode(0);
 
@@ -114,13 +120,52 @@ final class ComponentCommandTest extends TestCase
     }
 
     #[Test]
+    public function module_component_scaffolds_js_and_css_only(): void
+    {
+        $this->artisan('nativeblade:component', ['name' => 'mini-player'])
+            ->expectsChoice(
+                'Where does this component render?',
+                'module',
+                self::TYPE_CHOICES
+            )
+            ->assertExitCode(0);
+
+        $dir = base_path('nativeblade-components/mini-player');
+        self::assertFileExists($dir . '/mini-player.js');
+        self::assertFileExists($dir . '/mini-player.css');
+        self::assertFileDoesNotExist($dir . '/MiniPlayer.php');
+        self::assertFileDoesNotExist($dir . '/mini-player.blade.php');
+    }
+
+    #[Test]
+    public function module_js_stub_has_the_default_export_contract(): void
+    {
+        $this->artisan('nativeblade:component', ['name' => 'mini-player'])
+            ->expectsChoice(
+                'Where does this component render?',
+                'module',
+                self::TYPE_CHOICES
+            )
+            ->assertExitCode(0);
+
+        $js = file_get_contents(base_path('nativeblade-components/mini-player/mini-player.js'));
+
+        self::assertStringContainsString("import './mini-player.css';", $js);
+        self::assertStringContainsString('export default {', $js);
+        foreach (['mount(ctx, props)', 'update(props)', 'command(name, args)', 'destroy()'] as $hook) {
+            self::assertStringContainsString($hook, $js);
+        }
+        self::assertStringContainsString('ctx.place(this.el', $js);
+    }
+
+    #[Test]
     public function blade_stub_renders_slot_and_message_data_attrs(): void
     {
         $this->artisan('nativeblade:component', ['name' => 'banner'])
             ->expectsChoice(
                 'Where does this component render?',
                 'shell',
-                ['shell' => 'Shell (outside WebView — header, nav, toast, dialog)', 'embedded' => 'Embedded (inside WebView — modal, card, form)']
+                self::TYPE_CHOICES
             )
             ->assertExitCode(0);
 
