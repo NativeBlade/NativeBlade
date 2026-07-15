@@ -129,6 +129,12 @@ data goes in shell-owned props or a `deliver: 'js'` realtime connection
   props are applied via `update()`). One persistent instance per `$shell` name.
 - A remount of the same component id replaces the instance (old `destroy()`
   runs first).
+- **Keep state on `this`, not at module scope.** Each mount gets its own
+  object, so `this` state resets on destroy → mount, while `$shellPersist`
+  adoption keeps it across navigation — both behave as expected. Module-scope
+  variables (`let n = 0` above the export) survive even `shellDestroy()`,
+  because the loaded code is cached; use them only when you explicitly want
+  state to outlive the module instance.
 
 ## Current limitations (prototype)
 
