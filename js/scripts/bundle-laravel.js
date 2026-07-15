@@ -107,12 +107,15 @@ const EXCLUDE_PATTERNS = [
     /\/fixtures?\//i,
     /(?<!Resources)\/stubs?\//i,
     /\/benchmarks?\//i,
-    /\/phpunit/i,
-    /\/phpstan/i,
-    /\/psalm/i,
-    /\/pint/i,
-    /\/rector/i,
-    /\/infection/i,
+    // Scoped to the vendor PACKAGE dirs: a bare /phpunit/i also matched paths
+    // INSIDE other packages (collision's src/Adapters/Phpunit/Autoload.php is
+    // hard-required by the composer autoloader — excluding it fatals the boot).
+    /\/vendor\/phpunit\//i,
+    /\/vendor\/phpstan\//i,
+    /\/vendor\/psalm\//i,
+    /\/vendor\/laravel\/pint\//i,
+    /\/vendor\/rector\//i,
+    /\/vendor\/infection\//i,
     /\/CHANGELOG/i,
     /\/UPGRADE/i,
     /\/CONTRIBUTING/i,
@@ -266,6 +269,29 @@ for (const dir of INCLUDE_DIRS) {
         } catch {}
     }
 }
+
+// Consistency guard: every file composer's autoloader hard-requires at boot
+// (the $files list in autoload_files.php) MUST be in the bundle — an exclude
+// pattern that punches a hole there becomes a fatal at PHP boot inside the
+// wasm. Re-include anything the filters dropped, loudly.
+try {
+    const filesPhp = bundle['/vendor/composer/autoload_files.php'] || '';
+    const required = [];
+    for (const m of filesPhp.matchAll(/\$vendorDir\s*\.\s*'([^']+)'/g)) required.push('/vendor' + m[1]);
+    for (const m of filesPhp.matchAll(/\$baseDir\s*\.\s*'([^']+)'/g)) required.push(m[1]);
+    for (const rel of required) {
+        if (bundle[rel]) continue;
+        try {
+            bundle[rel] = readFileSync(join(ROOT, rel), 'utf-8');
+            totalSize += bundle[rel].length;
+            track(rel, bundle[rel].length);
+            fileCount++;
+            console.warn(`autoload requires ${rel} but the bundle filters excluded it — re-included.`);
+        } catch {
+            console.warn(`autoload requires ${rel} but it is missing on disk — the app will fatal at boot (re-run composer install).`);
+        }
+    }
+} catch {}
 
 // Pre-bundle each shell component/module into a single ESM file shipped at
 // /__nb-components/{name}.js. A built app resolves `@components/{name}/{name}.js`
