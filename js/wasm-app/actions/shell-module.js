@@ -57,6 +57,39 @@ function destroyInstance(id) {
     try { inst.module?.destroy?.(); } catch (e) { console.error(`[NB] shell module '${inst.shell}' destroy failed`, e); }
 }
 
+// Optional positioning helper for module elements: fixed placement in one of
+// the common spots, safe-area aware. Only what positioning needs — visual
+// styles (and overrides) are the module's own, applied after the call.
+function placeElement(el, position = 'top-center', { offset = 10, zIndex = 99999 } = {}) {
+    if (!el) return el;
+    el.style.position = 'fixed';
+    el.style.zIndex = String(zIndex);
+
+    if (position === 'center') {
+        el.style.top = '50%';
+        el.style.left = '50%';
+        el.style.transform = 'translate(-50%, -50%)';
+        return el;
+    }
+
+    const [vertical, horizontal = 'center'] = position.split('-');
+    if (vertical === 'bottom') {
+        el.style.bottom = `calc(env(safe-area-inset-bottom, 0px) + ${offset}px)`;
+    } else {
+        el.style.top = `calc(env(safe-area-inset-top, 0px) + ${offset}px)`;
+    }
+
+    if (horizontal === 'left') {
+        el.style.left = `${offset}px`;
+    } else if (horizontal === 'right') {
+        el.style.right = `${offset}px`;
+    } else {
+        el.style.left = '50%';
+        el.style.transform = 'translateX(-50%)';
+    }
+    return el;
+}
+
 function pushProp(inst, key) {
     inst.lastPush[key] = Date.now();
     postToApp('nativeblade-shell-prop', { id: inst.id, shell: inst.shell, key, value: inst.state[key] });
@@ -150,6 +183,7 @@ export async function shell_module_mount(payload, ctx) {
     const moduleCtx = {
         shell,
         get id() { return inst.id; },
+        place: placeElement,
         set: (key, value) => setShellProp(inst, key, value),
         emit: (event, data = {}) => {
             postToApp(`nativeblade-shell:${shell}:${event}`, { id: inst.id, shell, ...data });

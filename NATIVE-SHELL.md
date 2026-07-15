@@ -54,7 +54,15 @@ Shell modules live in the app's `nativeblade-components/` folder — the same
 place (and `@components` build alias) custom shell components use. They are
 bundled at build time, so split the module into as many files as you like and
 `import` freely; the default export is the module contract. Changes are picked
-up by the `nativeblade:dev` rebuild like any other shell component.
+up by the `nativeblade:dev` rebuild like any other shell component. Scaffold
+one with `php artisan nativeblade:component` (type: **module**).
+
+Besides `ctx.set` / `ctx.emit`, the ctx offers an **optional** positioning
+helper: `ctx.place(el, position, { offset = 10, zIndex = 99999 })` with
+positions `top-left|top-center|top-right|bottom-left|bottom-center|bottom-right|center`
+— fixed placement, safe-area aware. It only sets what positioning needs;
+apply your own styles after the call to extend or override any of it (or skip
+the helper entirely and position by hand).
 
 ```js
 export default {
