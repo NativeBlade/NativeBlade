@@ -106,7 +106,7 @@ trait HasNativeShell
 
         foreach ($this->nativeProps() as $name => $attr) {
             if ($attr->from === NativeProp::SHELL && array_key_exists($name, $mine)) {
-                $this->{$name} = $mine[$name];
+                $this->assignNativeProp($name, $mine[$name]);
             }
         }
     }
@@ -115,25 +115,35 @@ trait HasNativeShell
      * Flush the envelope with the response. Queued actions keep the order they
      * were issued (so destroy-then-mount sequences behave), and the props
      * update is inserted right after the last mount — a mount always receives
-     * current props next, and commands always run after them.
+     * current props next, and commands always run after them. When the net
+     * effect of the queue is "destroyed" (a destroy with no mount after it),
+     * no update is sent at all: it would only target the dead instance.
      */
     public function renderedHasNativeShell(mixed ...$args): void
     {
         $queue = $this->nativeShellQueue;
         $this->nativeShellQueue = [];
 
+        $lastMount = -1;
+        $lastDestroy = -1;
+        foreach ($queue as $i => $item) {
+            if ($item['action'] === 'shell_module_mount') {
+                $lastMount = $i;
+            } elseif ($item['action'] === 'shell_module_destroy') {
+                $lastDestroy = $i;
+            }
+        }
+
+        if ($lastDestroy > $lastMount) {
+            $this->dispatch('__nativeblade', actions: $queue);
+            return;
+        }
+
         $update = ['action' => 'shell_module_update', 'data' => [
             'shell' => $this->nativeShellName(),
             'id' => $this->getId(),
             'props' => $this->nativePropValues(),
         ]];
-
-        $lastMount = -1;
-        foreach ($queue as $i => $item) {
-            if ($item['action'] === 'shell_module_mount') {
-                $lastMount = $i;
-            }
-        }
         array_splice($queue, $lastMount + 1, 0, [$update]);
 
         $this->dispatch('__nativeblade', actions: $queue);
@@ -185,7 +195,21 @@ trait HasNativeShell
             return;
         }
 
-        $this->{$key} = $value;
+        $this->assignNativeProp($key, $value);
+    }
+
+    /**
+     * Shell values are raw JSON — a module can write a type the declared
+     * property rejects. Fail closed (keep the previous value) instead of
+     * fatalling the request on a TypeError.
+     */
+    private function assignNativeProp(string $name, mixed $value): void
+    {
+        try {
+            $this->{$name} = $value;
+        } catch (\TypeError) {
+            error_log("[NativeBlade] shell value for {$name} does not match its declared type; kept previous value.");
+        }
     }
 
     // ------------------------------------------------------------------
