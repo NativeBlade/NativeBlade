@@ -160,6 +160,8 @@ final class HasNativeShellTest extends TestCase
         $c->syncNativeShellProp('lw-1', 'position', ['array' => 'into int']);
         self::assertSame(0, $c->position, 'throttled push keeps the previous value on TypeError');
 
+        self::assertSame(['position', 'position'], $c->typeMismatches, 'both rejections are reported');
+
         unlink($file);
     }
 
@@ -204,9 +206,17 @@ final class FakeVideoComponent
 
     public string $propsFile = '';
 
+    /** @var array<int, string> */
+    public array $typeMismatches = [];
+
     public function getId(): string
     {
         return 'lw-1';
+    }
+
+    protected function reportNativePropTypeMismatch(string $name): void
+    {
+        $this->typeMismatches[] = $name;
     }
 
     public function dispatch(string $event, mixed ...$params): void

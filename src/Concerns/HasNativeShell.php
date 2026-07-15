@@ -208,8 +208,17 @@ trait HasNativeShell
         try {
             $this->{$name} = $value;
         } catch (\TypeError) {
-            error_log("[NativeBlade] shell value for {$name} does not match its declared type; kept previous value.");
+            $this->reportNativePropTypeMismatch($name);
         }
+    }
+
+    /**
+     * Surfaces a rejected shell value (stderr reaches the DevTools console in
+     * the wasm runtime). Overridable so tests can capture instead of print.
+     */
+    protected function reportNativePropTypeMismatch(string $name): void
+    {
+        error_log("[NativeBlade] shell value for {$name} does not match its declared type; kept previous value.");
     }
 
     // ------------------------------------------------------------------
