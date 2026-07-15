@@ -116,10 +116,16 @@ data goes in shell-owned props or a `deliver: 'js'` realtime connection
 
 ## Lifecycle
 
-- Instance is created when the component mounts, keyed by the component id.
+- Instance is created when the component mounts. The default export may be a
+  plain object (shallow-cloned per instance, so `this` state never leaks
+  across mounts), a factory function, or a class.
 - Non-persistent instances are destroyed on navigation. `$shellPersist = true`
   keeps the module alive across screens; end it explicitly with
   `$this->shellDestroy()` (e.g. "close mini-player").
+- A **persistent module is a singleton per shell name**: navigating back to
+  the screen gives the component a new Livewire id, and the new mount *adopts*
+  the running instance (no second `mount()` — the video keeps playing; current
+  props are applied via `update()`). One persistent instance per `$shell` name.
 - A remount of the same component id replaces the instance (old `destroy()`
   runs first).
 

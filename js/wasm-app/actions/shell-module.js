@@ -89,10 +89,26 @@ export async function shell_module_mount(payload, ctx) {
 
     ensureFrameSwapGc();
 
-    if (instances.has(id)) destroyInstance(id);
-
     const specs = {};
     for (const spec of shellProps) specs[spec.name] = spec.throttle ?? null;
+
+    // A persistent module is a singleton per shell name: navigating back gives
+    // the component a NEW Livewire id, so match by name and rebind the running
+    // instance to it instead of stacking a second mount. Props are applied by
+    // the update action that follows in the same envelope.
+    if (persist) {
+        const existing = [...instances.values()].find(i => i.shell === shell && i.persist);
+        if (existing) {
+            instances.delete(existing.id);
+            existing.id = id;
+            existing.specs = specs;
+            existing.win = ctx?.replyWindow || ctx?.appFrame?.contentWindow || existing.win;
+            instances.set(id, existing);
+            return;
+        }
+    }
+
+    if (instances.has(id)) destroyInstance(id);
 
     const inst = {
         id, shell, specs,
@@ -106,9 +122,9 @@ export async function shell_module_mount(payload, ctx) {
     };
     instances.set(id, inst);
 
-    let module;
+    let exported;
     try {
-        module = await loadModule(shell);
+        exported = await loadModule(shell);
     } catch (e) {
         console.error(`[NB] shell module '${shell}' failed to load`, e);
         if (instances.get(id) === inst) instances.delete(id);
@@ -116,18 +132,23 @@ export async function shell_module_mount(payload, ctx) {
     }
     if (instances.get(id) !== inst) return;
 
-    inst.module = module;
+    // The export is shared between instances — give each its own object so
+    // `this` state (elements, timers) never leaks across mounts.
+    inst.module = typeof exported === 'function'
+        ? (exported.prototype ? new exported() : exported())
+        : { ...exported };
+
     const moduleCtx = {
-        id,
         shell,
+        get id() { return inst.id; },
         set: (key, value) => setShellProp(inst, key, value),
         emit: (event, data = {}) => {
-            postToApp(`nativeblade-shell:${shell}:${event}`, { id, shell, ...data });
-            postToApp(`nativeblade-shell:${shell}:${id}:${event}`, { id, shell, ...data });
+            postToApp(`nativeblade-shell:${shell}:${event}`, { id: inst.id, shell, ...data });
+            postToApp(`nativeblade-shell:${shell}:${inst.id}:${event}`, { id: inst.id, shell, ...data });
         },
     };
 
-    try { await module?.mount?.(moduleCtx, props); }
+    try { await inst.module?.mount?.(moduleCtx, props); }
     catch (e) { console.error(`[NB] shell module '${shell}' mount failed`, e); }
 
     for (const run of inst.pending.splice(0)) run();
