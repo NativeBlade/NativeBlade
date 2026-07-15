@@ -36,9 +36,19 @@ trait SyncsPackageComponents
             $nb = $package['extra']['nativeblade'] ?? null;
             if (!$nb || empty($nb['components'])) continue;
 
-            $pkgPath = base_path('vendor/' . ($package['name'] ?? ''));
+            $pkgName = $package['name'] ?? '';
+            if (!is_string($pkgName) || !preg_match('#^[a-z0-9_.-]+/[a-z0-9_.-]+$#i', $pkgName)) continue;
+
+            $pkgPath = base_path('vendor/' . $pkgName);
 
             foreach ($nb['components'] as $name => $folder) {
+                // Both values come from a third party's composer.json: the name
+                // becomes a path we recursively DELETE, the folder a path we
+                // copy FROM — neither may traverse. Same name rule as the JS
+                // module loader.
+                if (!is_string($name) || !preg_match('/^[a-z0-9_-]+$/i', $name)) continue;
+                if (!is_string($folder) || str_contains($folder, '..')) continue;
+
                 $srcDir = $pkgPath . '/' . ltrim($folder, '/');
                 if (!is_dir($srcDir)) continue;
 
@@ -62,25 +72,43 @@ trait SyncsPackageComponents
         return $names;
     }
 
-    /** Recursive copy — package components may ship subfolders (assets, lib/). */
+    /**
+     * Recursive copy — package components may ship subfolders (assets, lib/).
+     * Symlinks are skipped entirely: following one would pull files from
+     * outside the package into the app bundle.
+     */
     private function copyComponentDir(string $src, string $dest): void
     {
         @mkdir($dest, 0755, true);
-        foreach (scandir($src) as $entry) {
+        $entries = scandir($src);
+        if ($entries === false) return;
+        foreach ($entries as $entry) {
             if ($entry === '.' || $entry === '..') continue;
             $from = "{$src}/{$entry}";
+            if (is_link($from)) continue;
             $to = "{$dest}/{$entry}";
             is_dir($from) ? $this->copyComponentDir($from, $to) : copy($from, $to);
         }
     }
 
+    /** Recursive delete that removes symlinks as links — never follows them. */
     private function deleteComponentDir(string $dir): void
     {
+        if (is_link($dir)) {
+            @unlink($dir);
+            return;
+        }
         if (!is_dir($dir)) return;
-        foreach (scandir($dir) as $entry) {
+        $entries = scandir($dir);
+        if ($entries === false) return;
+        foreach ($entries as $entry) {
             if ($entry === '.' || $entry === '..') continue;
             $path = "{$dir}/{$entry}";
-            is_dir($path) ? $this->deleteComponentDir($path) : @unlink($path);
+            if (is_link($path) || is_file($path)) {
+                @unlink($path);
+                continue;
+            }
+            if (is_dir($path)) $this->deleteComponentDir($path);
         }
         @rmdir($dir);
     }

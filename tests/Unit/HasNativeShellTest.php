@@ -145,6 +145,36 @@ final class HasNativeShellTest extends TestCase
     }
 
     #[Test]
+    public function a_type_mismatched_shell_value_is_ignored_instead_of_fatalling(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'nbshell');
+        file_put_contents($file, json_encode([
+            'lw-1' => ['position' => 'not-a-number'],
+        ]));
+
+        $c = $this->component();
+        $c->propsFile = $file;
+        $c->hydrateHasNativeShell();
+        self::assertSame(0, $c->position, 'hydrate keeps the previous value on TypeError');
+
+        $c->syncNativeShellProp('lw-1', 'position', ['array' => 'into int']);
+        self::assertSame(0, $c->position, 'throttled push keeps the previous value on TypeError');
+
+        unlink($file);
+    }
+
+    #[Test]
+    public function a_lone_destroy_flushes_without_an_update_for_the_dead_instance(): void
+    {
+        $c = $this->component();
+        $c->shellDestroy();
+        $c->renderedHasNativeShell();
+
+        $actions = array_column($c->dispatched[0][1]['actions'], 'action');
+        self::assertSame(['shell_module_destroy'], $actions);
+    }
+
+    #[Test]
     public function missing_shell_declaration_throws(): void
     {
         $c = new FakeShellLessComponent();

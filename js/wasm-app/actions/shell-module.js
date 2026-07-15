@@ -175,9 +175,14 @@ export async function shell_module_mount(payload, ctx) {
     if (instances.get(id) !== inst) return;
 
     // The export is shared between instances — give each its own object so
-    // `this` state (elements, timers) never leaks across mounts.
+    // `this` state (elements, timers) never leaks across mounts. Only real
+    // classes get `new`: plain functions also have .prototype, so detect via
+    // source text (classes throw if called without new; factories may rely on
+    // being called without it).
+    const isClass = typeof exported === 'function'
+        && /^class\b/.test(Function.prototype.toString.call(exported));
     inst.module = typeof exported === 'function'
-        ? (exported.prototype ? new exported() : exported())
+        ? (isClass ? new exported() : exported())
         : { ...exported };
 
     const moduleCtx = {
