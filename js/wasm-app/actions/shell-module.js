@@ -6,6 +6,7 @@
 // NATIVE-SHELL.md.
 
 import { postToApp, onFrameSwap } from '../bridge.js';
+import { importAppComponent } from '../component-registry.js';
 
 const instances = new Map();   // component id -> instance
 const moduleCache = new Map(); // shell name -> Promise<module>
@@ -42,7 +43,7 @@ async function loadModule(name) {
         if (!/^[a-z0-9_-]+$/i.test(name)) {
             throw new Error(`invalid shell module name '${name}'`);
         }
-        const mod = await import(`@components/${name}/${name}.js`);
+        const mod = await importAppComponent(name);
         if (!mod.default) throw new Error(`shell module '${name}' has no default export`);
         return mod.default;
     })();

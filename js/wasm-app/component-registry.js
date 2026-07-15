@@ -35,10 +35,33 @@ export async function renderAll(components, activePath, appFrame) {
     }
 }
 
+// Resolve an app component module. A built app bundles nativeblade-components/
+// through the @components alias at ITS vite build — but in the Portal the shell
+// was compiled before this app existed, so fall back to the single-file bundle
+// bundle-laravel.js ships at /__nb-components/{name}.js and blob-import it.
+export async function importAppComponent(name) {
+    try {
+        return await import(`@components/${name}/${name}.js`);
+    } catch (buildTimeError) {
+        try {
+            const { getInstance } = await import('../runtime/php-runtime.js');
+            const src = getInstance()?.readFileAsText(`/app/__nb-components/${name}.js`);
+            if (!src) throw buildTimeError;
+            const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+            try {
+                return await import(/* @vite-ignore */ url);
+            } finally {
+                URL.revokeObjectURL(url);
+            }
+        } catch {
+            throw buildTimeError;
+        }
+    }
+}
+
 async function tryLoadCustom(name) {
     try {
-        const mod = await import(`@components/${name}/${name}.js`);
-        registry[name] = mod;
+        registry[name] = await importAppComponent(name);
     } catch {}
 }
 

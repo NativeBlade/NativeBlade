@@ -33,6 +33,14 @@ build. The Portal app just resolves the bundle from a remote URL instead of
 from its own binary. Native bridges (fs, db, http, notifications, camera, etc.)
 work exactly the same, because PHP is still running on the device.
 
+**Custom shell components and shell modules** also work: the Portal's shell was
+compiled before your app existed, so it can't resolve your
+`nativeblade-components/` through the build alias — instead, the dev server
+pre-bundles each component into a single ESM file (CSS inlined) shipped inside
+the laravel bundle at `/__nb-components/{name}.js`, and the Portal's runtime
+falls back to loading those. Requires `esbuild` in the app's devDependencies
+(new apps have it; existing ones: `php artisan nativeblade:update`).
+
 ## Running the dev server
 
 In your Laravel project root:

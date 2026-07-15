@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, statSync, readdirSync, mkdirSync, existsSy
 import { join, relative, extname, resolve } from 'path';
 import { execSync } from 'child_process';
 import { gzipSync } from 'zlib';
+import { createRequire } from 'module';
 
 const ROOT = process.argv[2] || process.cwd();
 
@@ -265,6 +266,58 @@ for (const dir of INCLUDE_DIRS) {
         } catch {}
     }
 }
+
+// Pre-bundle each shell component/module into a single ESM file shipped at
+// /__nb-components/{name}.js. A built app resolves `@components/{name}/{name}.js`
+// at its own vite build — but the PORTAL's shell was compiled before this app
+// existed, so its runtime falls back to a blob import of these files instead.
+// CSS imports are inlined as a <style> injector so a single file carries the
+// whole component.
+try {
+    const componentsDir = join(ROOT, 'nativeblade-components');
+    if (existsSync(componentsDir)) {
+        let esbuild = null;
+        try { esbuild = createRequire(join(ROOT, 'package.json'))('esbuild'); } catch {}
+        if (!esbuild) {
+            console.warn('esbuild not found in the app node_modules — shell components will not load in the Portal.');
+            console.warn('Fix: php artisan nativeblade:update (or: npm i -D esbuild).');
+        } else {
+            for (const entry of readdirSync(componentsDir, { withFileTypes: true })) {
+                if (!entry.isDirectory()) continue;
+                const name = entry.name;
+                const entryFile = join(componentsDir, name, `${name}.js`);
+                if (!existsSync(entryFile)) continue;
+                try {
+                    const result = esbuild.buildSync({
+                        entryPoints: [entryFile],
+                        bundle: true,
+                        format: 'esm',
+                        write: false,
+                        outdir: '__nb-components-build',
+                        absWorkingDir: ROOT,
+                        logLevel: 'silent',
+                    });
+                    let js = '';
+                    let css = '';
+                    for (const out of result.outputFiles) {
+                        if (out.path.endsWith('.css')) css += out.text;
+                        else js += out.text;
+                    }
+                    const styleInject = css
+                        ? `(()=>{const s=document.createElement('style');s.textContent=${JSON.stringify(css)};document.head.appendChild(s);})();\n`
+                        : '';
+                    const rel = `/__nb-components/${name}.js`;
+                    bundle[rel] = styleInject + js;
+                    totalSize += bundle[rel].length;
+                    track(rel, bundle[rel].length);
+                    fileCount++;
+                } catch (e) {
+                    console.warn(`Could not pre-bundle shell component '${name}': ${e.message} — it will not load in the Portal.`);
+                }
+            }
+        }
+    }
+} catch {}
 
 function writeAtomic(target, data) {
     const tmp = target + '.tmp';
