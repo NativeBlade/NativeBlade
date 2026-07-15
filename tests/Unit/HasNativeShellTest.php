@@ -128,6 +128,22 @@ final class HasNativeShellTest extends TestCase
     }
 
     #[Test]
+    public function shell_mount_requeues_a_mount_envelope_after_destroy(): void
+    {
+        $c = $this->component();
+        $c->shellDestroy();
+        $c->shellMount();
+        $c->renderedHasNativeShell();
+
+        $actions = array_column($c->dispatched[0][1]['actions'], 'action');
+        self::assertSame(
+            ['shell_module_destroy', 'shell_module_mount', 'shell_module_update'],
+            $actions,
+            'issue order is preserved (destroy before mount) with props right after the mount'
+        );
+    }
+
+    #[Test]
     public function missing_shell_declaration_throws(): void
     {
         $c = new FakeShellLessComponent();

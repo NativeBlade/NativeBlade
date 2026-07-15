@@ -67,7 +67,16 @@ trait HasNativeShell
     public function mountHasNativeShell(): void
     {
         $this->shellId = $this->getId();
+        $this->shellMount();
+    }
 
+    /**
+     * (Re)create the shell module instance. Runs automatically at component
+     * mount; call it yourself to bring back a module ended by shellDestroy()
+     * (e.g. "reopen mini-player").
+     */
+    public function shellMount(): void
+    {
         $this->nativeShellQueue[] = ['action' => 'shell_module_mount', 'data' => [
             'shell' => $this->nativeShellName(),
             'id' => $this->getId(),
@@ -102,22 +111,14 @@ trait HasNativeShell
     }
 
     /**
-     * Flush the envelope with the response: mount first (when this request
-     * mounted), then the current PHP-owned props, then queued commands in the
-     * order they were issued — so a command always sees the props that
-     * preceded it.
+     * Flush the envelope with the response. Queued actions keep the order they
+     * were issued (so destroy-then-mount sequences behave), and the props
+     * update is inserted right after the last mount — a mount always receives
+     * current props next, and commands always run after them.
      */
     public function renderedHasNativeShell(mixed ...$args): void
     {
-        $mounts = [];
-        $rest = [];
-        foreach ($this->nativeShellQueue as $item) {
-            if ($item['action'] === 'shell_module_mount') {
-                $mounts[] = $item;
-            } else {
-                $rest[] = $item;
-            }
-        }
+        $queue = $this->nativeShellQueue;
         $this->nativeShellQueue = [];
 
         $update = ['action' => 'shell_module_update', 'data' => [
@@ -126,7 +127,15 @@ trait HasNativeShell
             'props' => $this->nativePropValues(),
         ]];
 
-        $this->dispatch('__nativeblade', actions: [...$mounts, $update, ...$rest]);
+        $lastMount = -1;
+        foreach ($queue as $i => $item) {
+            if ($item['action'] === 'shell_module_mount') {
+                $lastMount = $i;
+            }
+        }
+        array_splice($queue, $lastMount + 1, 0, [$update]);
+
+        $this->dispatch('__nativeblade', actions: $queue);
     }
 
     /**

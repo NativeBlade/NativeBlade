@@ -121,7 +121,8 @@ data goes in shell-owned props or a `deliver: 'js'` realtime connection
   across mounts), a factory function, or a class.
 - Non-persistent instances are destroyed on navigation. `$shellPersist = true`
   keeps the module alive across screens; end it explicitly with
-  `$this->shellDestroy()` (e.g. "close mini-player").
+  `$this->shellDestroy()` (e.g. "close mini-player") and bring it back with
+  `$this->shellMount()` ("reopen mini-player").
 - A **persistent module is a singleton per shell name**: navigating back to
   the screen gives the component a new Livewire id, and the new mount *adopts*
   the running instance (no second `mount()` — the video keeps playing; current
