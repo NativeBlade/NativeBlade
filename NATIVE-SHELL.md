@@ -79,9 +79,11 @@ export default {
         this.video.addEventListener('ended', () => ctx.emit('ended'));
     },
 
-    update(props) {                       // PHP-owned props after each render
-        if (this.video.src !== props.url) this.video.src = props.url;
-        props.playing ? this.video.play() : this.video.pause();
+    update(props) {
+        // PARTIAL patch: only the props that CHANGED since the last flush.
+        // Absence means "unchanged", never "false" — always guard with `in`.
+        if ('url' in props && this.video.src !== props.url) this.video.src = props.url;
+        if ('playing' in props) props.playing ? this.video.play() : this.video.pause();
     },
 
     command(name, args) {                 // $this->shell('seek', 30)
@@ -99,7 +101,7 @@ export default {
 
 | Declaration | Owner | How the other side sees it | Cost |
 |---|---|---|---|
-| `#[NativeProp]` | PHP | module's `update(props)` on every render | rides the response |
+| `#[NativeProp]` | PHP | module's `update(props)` — a **partial patch** with only the changed props (`mount` gets them all) | rides the response |
 | `#[NativeProp(from: SHELL)]` | shell (`ctx.set`) | injected at hydrate on the **next natural request** | **zero** extra requests |
 | `#[NativeProp(from: SHELL, throttle: 500)]` | shell | hydrate injection **plus** an active Livewire update at most once per 500 ms | one request per push — keep coarse |
 

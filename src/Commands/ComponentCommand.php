@@ -161,6 +161,8 @@ export default {
     },
 
     update(props) {
+        // PARTIAL patch: only the props that CHANGED since the last flush —
+        // absence means "unchanged", never "false". Guard with `'key' in props`.
         // TODO: apply the PHP-owned #[NativeProp] values
     },
 

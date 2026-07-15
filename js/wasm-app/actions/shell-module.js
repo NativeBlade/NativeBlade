@@ -1,7 +1,9 @@
 // Native shell modules — JS counterpart of PHP's HasNativeShell trait.
 // Loads `nativeblade-components/{name}/{name}.js` (default export contract:
 // mount(ctx, props) / update(props) / command(name, args) / destroy()) in the
-// shell window, so instances survive SPA navigations. See NATIVE-SHELL.md.
+// shell window, so instances survive SPA navigations. update(props) is a
+// PARTIAL patch — only changed props; guard with `'key' in props`. See
+// NATIVE-SHELL.md.
 
 import { postToApp, onFrameSwap } from '../bridge.js';
 
