@@ -288,8 +288,9 @@ NativeBladeConfig::realtimeConfig(function (RealtimeConfig $c) {
 });
 ```
 
-Consume them in a small module under `public/js/` (see ARCHITECTURE.md for the
-modularity rule). The events keep the same names, delivered on `window`:
+Consume them in a small script under `public/js/` (a classic script — no
+`import`/`export` there; see ARCHITECTURE.md). The events keep the same names,
+delivered on `window`:
 
 ```js
 // public/js/game/net.js

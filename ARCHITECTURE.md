@@ -769,27 +769,49 @@ Why: inlining libraries and ad-hoc scripts bloats every render, defeats browser 
 
 ### Your own JS in `public/js/` must stay modular — split by responsibility
 
-`public/js/` is served statically (no bundler runs over it), so it's tempting to
-let one file grow into a monolith. Don't. The same decomposition discipline that
-applies to PHP applies here: **one responsibility per file, grouped in folders,
-kept small.**
+The same decomposition discipline that applies to PHP applies here: **one
+responsibility per file, grouped in folders, kept small.**
+
+**But know how these files are actually loaded.** The webview has no file
+server: at render time every `<script src="/js/…">` is **inlined into the
+page**, in tag order, and `type="module"` is **stripped** in the process. That
+has two hard consequences:
+
+- **`import`/`export` do not work in `public/js` files.** An inlined script is
+  a classic script — an `import` statement dies on its first line
+  (`Cannot use import statement outside a module`), and a relative import
+  could not resolve anyway (there is no server to fetch from). ES modules
+  belong to the built pipelines: `nativeblade-components/` (bundled via
+  `@components`) and `resources/js` (vite).
+- **Load order is your dependency graph** — one `<script src>` tag per file in
+  `app.blade.php`, dependencies first.
+
+So the pattern is classic scripts sharing **one namespace global**:
+
+```js
+// public/js/pet/model.js
+window.Pet = window.Pet || {};
+Pet.model = { state: {}, tick() { /* … */ } };
+
+// public/js/pet/renderer.js
+Pet.renderer = { draw(state) { /* … */ } };
+
+// public/js/pet/main.js — last tag, wires everything
+Pet.start = () => requestAnimationFrame(function loop() { /* … */ });
+```
 
 - Split a feature's script into separate files by concern — data/model, logic,
   and rendering are not the same file. A pet minigame is
-  `public/js/pet/model.js`, `public/js/pet/renderer.js`, `public/js/pet/input.js`,
-  not one 800-line `pet.js`.
-- Group a feature's files in its own folder under `public/js/` (`public/js/pet/`,
-  `public/js/charts/`), so the tree shows the structure at a glance.
-- Wire them together with ES modules: load the entry with
-  `<script type="module" src="/js/pet/main.js">` and `import` the pieces from
-  relative paths. Modern webviews run native modules; no build step needed.
+  `public/js/pet/model.js`, `renderer.js`, `input.js` — not one 800-line `pet.js`.
+- Group a feature's files in its own folder under `public/js/`
+  (`public/js/pet/`, `public/js/charts/`).
 - When a file crosses a few hundred lines, or mixes two concerns (e.g. state
   mutation *and* canvas drawing), that's the signal to break it up.
 
-Why: a single giant script is unreadable, untestable, impossible to reuse across
-screens, and re-downloaded whole on any edit. Small, single-purpose modules read
-like the rest of the codebase and cache independently. This mirrors the framework
-runtime itself — `js/wasm-app/` is dozens of small files, not one blob.
+Why: a single giant script is unreadable, untestable, and impossible to reuse
+across screens. Small, single-purpose files read like the rest of the codebase.
+This mirrors the framework runtime itself — `js/wasm-app/` is dozens of small
+files, not one blob.
 
 ### The loading splash is `resources/js/index.html`
 
@@ -899,7 +921,7 @@ These are bugs in disguise. The MCP architecture tool will flag any of these.
 
 11. **One mega-component holding every screen behind a `$screen`/`$tab` toggle.** Each screen is its own component behind its own route; decompose busy screens into child components by responsibility.
 
-12. **A monolithic script in `public/js/`.** Custom front-end code is split by responsibility (model / logic / rendering) into small files grouped in a feature folder and wired with ES modules — never one giant file that mixes concerns.
+12. **A monolithic script in `public/js/` — or `import`/`export` in one.** Custom front-end code is split by responsibility (model / logic / rendering) into small classic-script files grouped in a feature folder, wired through one namespace global with one `<script>` tag per file in dependency order. Scripts are INLINED at render time and `type="module"` is stripped, so an `import` statement is a guaranteed first-line SyntaxError.
 
 13. **Cross-screen UI faked inside pages.** An element re-rendered on every screen to look persistent (mini-player, badge bar, toast host, global timer) is a shell component: config-driven chrome → `nativeblade-components/` shell component; stateful and screen-controlled → a native shell module (`HasNativeShell`, NATIVE-SHELL.md). Pages die on navigation; the shell doesn't.
 
