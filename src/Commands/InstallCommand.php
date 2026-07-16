@@ -250,7 +250,16 @@ class InstallCommand extends Command
         if ($code === 0) {
             $this->line("  <fg=green>✓</> npm dependencies installed");
         } else {
-            $this->line("  <fg=yellow>→</> npm install failed, run manually: npm install");
+            // Without node_modules nothing downstream works (npm run build,
+            // nativeblade:dev) — surface npm's actual error, loudly.
+            $this->newLine();
+            $this->error('  npm install FAILED — the project will not build until this is fixed:');
+            foreach (array_slice($output, -12) as $line) {
+                $this->line('  <fg=red>' . $line . '</>');
+            }
+            $this->newLine();
+            $this->line("  <fg=yellow>→</> Fix the error above, then run: npm install");
+            $this->newLine();
         }
     }
 
