@@ -172,5 +172,10 @@ export function handleNativeAction(action, payload, appFrame, replyWindow = null
     }
     import(`@components/${action}/${action}.js`)
         .then(mod => { if (mod.render) mod.render(payload); })
-        .catch(() => {});
+        .catch(() => {
+            console.warn(
+                `[NB] unknown action '${action}' — dropped. The runtime is likely older than the app `
+                + `(restart nativeblade:dev / rebuild the app / update the Portal).`
+            );
+        });
 }

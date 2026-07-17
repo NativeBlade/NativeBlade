@@ -10,21 +10,98 @@ body.nb-scanning iframe {
     inset: 0;
     z-index: 2147483000;
     pointer-events: none;
+    font-family: system-ui, -apple-system, sans-serif;
 }
 
-/* Viewfinder: a clear, slightly rounded square with a thin border and a
-   dimmed surround (the big box-shadow). */
+/* Covers the camera warm-up: solid at first, cross-fades out once .is-live. */
+#nb-scanner-overlay .nb-scanner-backdrop {
+    position: absolute;
+    inset: 0;
+    background: #000;
+    opacity: 1;
+    transition: opacity 0.4s ease;
+}
+#nb-scanner-overlay.is-live .nb-scanner-backdrop {
+    opacity: 0;
+}
+
+/* Header: a solid white bar anchoring the screen. */
+#nb-scanner-overlay .nb-scanner-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: calc(16px + env(safe-area-inset-top)) 20px 16px;
+    background: #fff;
+    text-align: center;
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.15);
+}
+
+#nb-scanner-overlay .nb-scanner-title {
+    color: #111;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+
+/* Viewfinder: dimmed surround + corner brackets. */
 #nb-scanner-overlay .nb-scanner-frame {
     position: absolute;
-    top: 50%;
+    top: 45%;
     left: 50%;
-    width: 64vw;
-    max-width: 280px;
+    width: 66vw;
+    max-width: 300px;
     aspect-ratio: 1 / 1;
     transform: translate(-50%, -50%);
-    border: 1.5px solid rgba(255, 255, 255, 0.92);
-    border-radius: 10px;
-    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.4);
+    border-radius: 22px;
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+
+#nb-scanner-overlay .nb-sc {
+    position: absolute;
+    width: 34px;
+    height: 34px;
+    border: 4px solid #fff;
+    border-radius: 3px;
+}
+#nb-scanner-overlay .nb-sc-tl { top: 0;    left: 0;   border-right: 0; border-bottom: 0; border-top-left-radius: 22px; }
+#nb-scanner-overlay .nb-sc-tr { top: 0;    right: 0;  border-left: 0;  border-bottom: 0; border-top-right-radius: 22px; }
+#nb-scanner-overlay .nb-sc-bl { bottom: 0; left: 0;   border-right: 0; border-top: 0;    border-bottom-left-radius: 22px; }
+#nb-scanner-overlay .nb-sc-br { bottom: 0; right: 0;  border-left: 0;  border-top: 0;    border-bottom-right-radius: 22px; }
+
+/* Sweeping scan line — only once the camera is visible. */
+#nb-scanner-overlay .nb-scanner-line {
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    top: 0;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), transparent);
+    box-shadow: 0 0 12px 2px rgba(255, 255, 255, 0.35);
+    opacity: 0;
+}
+#nb-scanner-overlay.is-live .nb-scanner-line {
+    opacity: 1;
+    animation: nb-scan-sweep 2.4s ease-in-out infinite;
+}
+@keyframes nb-scan-sweep {
+    0%, 100% { top: 8%; }
+    50%      { top: 90%; }
+}
+
+#nb-scanner-overlay .nb-scanner-hint {
+    position: absolute;
+    left: 50%;
+    top: calc(45% + min(33vw, 150px) + 24px);
+    transform: translateX(-50%);
+    max-width: 80vw;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 15px;
+    font-weight: 500;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
 }
 
 #nb-scanner-overlay .nb-scanner-cancel {
@@ -33,12 +110,17 @@ body.nb-scanning iframe {
     bottom: calc(40px + env(safe-area-inset-bottom));
     transform: translateX(-50%);
     pointer-events: auto;
-    padding: 12px 28px;
-    border: none;
+    padding: 13px 34px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 999px;
-    background: rgba(0, 0, 0, 0.75);
+    background: rgba(20, 20, 20, 0.55);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
     color: #fff;
     font-size: 16px;
     font-weight: 600;
     -webkit-tap-highlight-color: transparent;
+}
+#nb-scanner-overlay .nb-scanner-cancel:active {
+    background: rgba(60, 60, 60, 0.65);
 }

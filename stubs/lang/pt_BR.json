@@ -15,5 +15,7 @@
     "boot.rendering": "Renderizando...",
     "boot.loading": "Carregando...",
     "boot.ready": "Pronto!",
-    "scanner.cancel": "Cancelar"
+    "scanner.cancel": "Cancelar",
+    "scanner.hint": "Aponte a câmera para o código",
+    "scanner.title": "Escanear código"
 }

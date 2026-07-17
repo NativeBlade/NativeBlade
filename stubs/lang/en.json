@@ -15,5 +15,7 @@
     "boot.rendering": "Rendering...",
     "boot.loading": "Loading...",
     "boot.ready": "Ready!",
-    "scanner.cancel": "Cancel"
+    "scanner.cancel": "Cancel",
+    "scanner.hint": "Point the camera at the code",
+    "scanner.title": "Scan code"
 }
