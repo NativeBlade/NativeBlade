@@ -35,6 +35,7 @@ import * as tasksMod from './tasks.js';
 import * as sensorsMod from './sensors.js';
 import * as realtimeMod from './realtime.js';
 import * as shellModuleMod from './shell-module.js';
+import * as jsEventMod from './js-event.js';
 
 export const actions = {
     // dialog
@@ -172,4 +173,7 @@ export const actions = {
     shell_module_update: shellModuleMod.shell_module_update,
     shell_module_command: shellModuleMod.shell_module_command,
     shell_module_destroy: shellModuleMod.shell_module_destroy,
+
+    // page JS (NativeBlade::jsEvent)
+    js_event: jsEventMod.js_event,
 };

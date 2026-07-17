@@ -1089,6 +1089,39 @@ class NativeResponse
     }
 
     // ------------------------------------------------------------------
+    // Page JS
+    // ------------------------------------------------------------------
+
+    /**
+     * Send an event to your own page JavaScript (`public/js/...`), delivered
+     * as a DOM CustomEvent named `nb:js:{event}` on `window`:
+     *
+     * ```
+     * // PHP
+     * return NativeBlade::jsEvent('map-located', [
+     *     'lat' => $coords['latitude'],
+     *     'lng' => $coords['longitude'],
+     * ])->toResponse();
+     *
+     * // public/js/map/main.js
+     * window.addEventListener('nb:js:map-located', (e) => {
+     *     Map.center(e.detail.lat, e.detail.lng);
+     * });
+     * ```
+     *
+     * The payload key `type` is reserved and stripped.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public function jsEvent(string $event, array $payload = []): static
+    {
+        return $this->push('js_event', [
+            'event' => $event,
+            'payload' => $payload,
+        ]);
+    }
+
+    // ------------------------------------------------------------------
     // Process
     // ------------------------------------------------------------------
 

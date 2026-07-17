@@ -813,6 +813,32 @@ across screens. Small, single-purpose files read like the rest of the codebase.
 This mirrors the framework runtime itself — `js/wasm-app/` is dozens of small
 files, not one blob.
 
+### Talking to your page JS from PHP: `NativeBlade::jsEvent()`
+
+When PHP needs to hand data to your own `public/js` code (center a map, feed a
+chart, start an animation), use `jsEvent` — it arrives as a DOM CustomEvent
+named `nb:js:{event}` on `window`:
+
+```php
+// Livewire component
+return NativeBlade::jsEvent('map-located', [
+    'lat' => $coords['latitude'],
+    'lng' => $coords['longitude'],
+])->toResponse();
+```
+
+```js
+// public/js/map/main.js
+window.addEventListener('nb:js:map-located', (e) => {
+    Map.center(e.detail.lat, e.detail.lng);
+});
+```
+
+This is the NativeBlade-native lane — don't mix idioms with raw Livewire
+dispatches for the same job. It composes with the other lanes: shell modules
+(`#[NativeProp]`/`shellCommand`) for shell-side JS, and realtime `deliver: 'js'`
+for high-frequency feeds.
+
 ### The loading splash is `resources/js/index.html`
 
 The screen shown while php-wasm boots is `resources/js/index.html` — the very first thing the user sees. Customize it (logo, colors, name) to match the app; don't ship it looking generic.

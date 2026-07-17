@@ -894,6 +894,17 @@ final class NativeResponseTest extends TestCase
     }
 
     #[Test]
+    public function js_event_queues_event_name_and_payload(): void
+    {
+        $r = (new NativeResponse())->jsEvent('map-located', ['lat' => -23.5, 'lng' => -46.6]);
+
+        self::assertSame([[
+            'action' => 'js_event',
+            'data' => ['event' => 'map-located', 'payload' => ['lat' => -23.5, 'lng' => -46.6]],
+        ]], $r->toArray());
+    }
+
+    #[Test]
     public function shell_command_targets_a_module_by_name_with_positional_args(): void
     {
         $r = (new NativeResponse())->shellCommand('player', 'seek', [30]);

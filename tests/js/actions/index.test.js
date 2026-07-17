@@ -82,6 +82,7 @@ const EXPECTED_ACTIONS = [
     'shell_module_update',
     'shell_module_command',
     'shell_module_destroy',
+    'js_event',
 ];
 
 describe('actions/index', () => {
