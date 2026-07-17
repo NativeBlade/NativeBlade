@@ -13,11 +13,23 @@ export const code = `
         var path = '', isReq = url instanceof Request;
 
         if (isReq) {
-            try { var p = new URL(url.url); path = p.pathname + p.search; } catch(e) { path = url.url; }
+            // A cross-origin Request goes to the real network — only the app's
+            // own URLs are served by PHP-wasm.
+            try {
+                var p = new URL(url.url);
+                if (p.origin !== location.origin) return _orig.call(window, url, opts);
+                path = p.pathname + p.search;
+            } catch(e) { path = url.url; }
             if (url.url.startsWith('blob:')) path = '/';
         } else if (typeof url === 'string') {
             if (url.startsWith('/')) path = url;
-            else if (url.startsWith('http')) { try { var u = new URL(url); path = u.pathname + u.search; } catch(e) { path = url; } }
+            else if (url.startsWith('http')) {
+                try {
+                    var u = new URL(url);
+                    if (u.origin !== location.origin) return _orig.call(window, url, opts);
+                    path = u.pathname + u.search;
+                } catch(e) { path = url; }
+            }
             else path = '/' + url;
         }
         if (!path) path = '/';
