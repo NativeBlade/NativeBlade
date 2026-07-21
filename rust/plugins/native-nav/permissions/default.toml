@@ -1,0 +1,13 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = """
+Default permission set for the NativeBlade native-nav plugin.
+Allows snapshotting the current page and running the native page transition.
+"""
+
+permissions = [
+  "allow-snapshot",
+  "allow-animate",
+  "allow-cancel",
+]
