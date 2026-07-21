@@ -26,6 +26,11 @@ export function goBack() {
     if (historyStack.length > 0) {
         const prev = historyStack.pop();
         navigateInternal(prev, { direction: 'back' });
+    } else {
+        // Backing out of the root screen: the app decides what happens.
+        // Delivered as nb:exit-requested — listen with #[On] and answer with
+        // an alert/confirm, or NativeBlade::exit(). No listener = no-op.
+        appFrame?.contentWindow?.postMessage({ type: 'nativeblade-exit-requested' }, '*');
     }
 }
 
@@ -183,7 +188,7 @@ async function navigateInternal(path, options = {}) {
         setOnBridgeComplete((completedResult) => {
             setOnBridgeComplete(defaultBridgeCallback);
             if (!completedResult.bridgePending && completedResult.text) {
-                renderPage(completedResult.text, path, options, version);
+                renderPage(completedResult.text, path, options, version).then(armBackSentinel);
             }
         });
         return;
@@ -196,7 +201,18 @@ async function navigateInternal(path, options = {}) {
         return;
     }
 
-    renderPage(response.text, path, options, version);
+    await renderPage(response.text, path, options, version);
+    armBackSentinel();
+}
+
+// The webview's joint session history gains an entry every time an iframe
+// srcdoc is (re)assigned. Android's back gesture walks that joint history
+// (WryActivity: canGoBack -> goBack), so without this the gesture re-navigates
+// a dead iframe entry instead of reaching our popstate handler. Re-arming a
+// same-document sentinel after every navigation keeps the TOP entry ours:
+// gesture -> popstate -> app-level goBack().
+function armBackSentinel() {
+    try { history.pushState(null, '', location.href); } catch {}
 }
 
 async function renderPage(text, path, options, version) {
