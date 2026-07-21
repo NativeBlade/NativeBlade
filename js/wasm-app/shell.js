@@ -3,14 +3,14 @@ import * as bottomNav from './components/bottom-nav/bottom-nav.js';
 import * as topBar from './components/top-bar/top-bar.js';
 import * as drawer from './components/drawer/drawer.js';
 import * as modal from './components/modal/modal.js';
-import { goBack } from './router.js';
+import { goBack, navigateReplace } from './router.js';
 
 let appFrame = null;
 
 export function init(frame, navigateFn) {
     appFrame = frame;
 
-    bottomNav.setHandler(navigateFn);
+    bottomNav.setHandler((path) => navigateReplace(path, { transition: 'none' }));
     topBar.setHandler(navigateFn);
     topBar.setBackHandler(() => { goBack(); return null; });
     drawer.setHandler(navigateFn);
