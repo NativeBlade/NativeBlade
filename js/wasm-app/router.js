@@ -9,6 +9,7 @@ import { init as initAutoUpdate } from './auto-update.js';
 import { init as initScheduler } from './scheduler.js';
 import { setFrame as setPushFrame } from './push.js';
 import { logScreenIfEnabled } from '../runtime/analytics-screen.js';
+import { nativeNavBegin, nativeNavFinish } from './native-nav.js';
 
 let appFrame = null;
 let bufferFrame = null;
@@ -298,6 +299,52 @@ async function renderPage(text, path, options, version) {
         bufferFrame.style.zIndex = '0';
         bufferFrame.style.pointerEvents = 'none';
         bufferFrame.srcdoc = '';
+        return;
+    }
+
+    // Native transition compositor (optional NATIVE_NAV plugin): freeze the
+    // outgoing page as a native overlay, swap the DOM instantly beneath it,
+    // and let the platform animate the overlay in its own style. Falls back
+    // to the CSS transitions below when the plugin isn't installed.
+    if (await nativeNavBegin(appFrame)) {
+        bufferFrame.style.transition = 'none';
+        bufferFrame.style.transform = 'translateX(0)';
+        bufferFrame.style.opacity = '1';
+        bufferFrame.style.zIndex = '2';
+        bufferFrame.style.pointerEvents = 'none';
+
+        const nativeLoaded = new Promise((resolve) => {
+            const onLoad = () => {
+                bufferFrame.removeEventListener('load', onLoad);
+                resolve();
+            };
+            bufferFrame.addEventListener('load', onLoad);
+        });
+        delete bufferFrame.dataset.nbMirror;
+        bufferFrame.srcdoc = html;
+        await nativeLoaded;
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        const oldFrame = appFrame;
+        appFrame = bufferFrame;
+        bufferFrame = oldFrame;
+        try { setBridgeFrame(appFrame); } catch {}
+        try { setPushFrame(appFrame); } catch {}
+
+        appFrame.style.transition = '';
+        appFrame.style.transform = 'translateX(0)';
+        appFrame.style.opacity = '1';
+        appFrame.style.zIndex = '1';
+        appFrame.style.pointerEvents = 'auto';
+
+        bufferFrame.style.transition = 'none';
+        bufferFrame.style.transform = 'translateX(100%)';
+        bufferFrame.style.opacity = '0';
+        bufferFrame.style.zIndex = '0';
+        bufferFrame.style.pointerEvents = 'none';
+        bufferFrame.srcdoc = '';
+
+        nativeNavFinish(direction, duration);
         return;
     }
 

@@ -57,6 +57,7 @@ tauri-plugin-nfc = { version = "2", optional = true }
 tauri-plugin-nativeblade-push = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/push", optional = true }
 tauri-plugin-nativeblade-media = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/media", optional = true }
 tauri-plugin-nativeblade-review = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/review", optional = true }
+tauri-plugin-nativeblade-native-nav = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/native-nav", optional = true }
 tauri-plugin-nativeblade-secure-storage = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/secure-storage", optional = true }
 tauri-plugin-nativeblade-sharing = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/sharing", optional = true }
 tauri-plugin-nativeblade-analytics = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/analytics", optional = true }

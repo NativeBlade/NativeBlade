@@ -22,6 +22,9 @@ enum Plugin: string
     /** Native in-app review prompt (StoreKit on iOS, Play In-App Review on Android). Powers `NativeBlade::requestReview()`. NativeBlade native plugin. */
     case IN_APP_REVIEW = 'in_app_review';
 
+    /** Native page-transition compositor: snapshots the outgoing page and animates it in the platform's own style (Material on Android). Android-only prototype; the router falls back to CSS transitions everywhere else. NativeBlade native plugin. */
+    case NATIVE_NAV = 'native_nav';
+
     /** Encrypted key-value storage (Keychain on iOS, Tink AEAD sealed by the Android Keystore). Powers `NativeBlade::setSecure()`/`getSecure()`. NativeBlade native plugin. */
     case SECURE_STORAGE = 'secure_storage';
 
