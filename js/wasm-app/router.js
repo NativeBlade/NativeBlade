@@ -23,7 +23,11 @@ let autoUpdateInitialized = false;
 let defaultBridgeCallback = null;
 
 export function goBack() {
-    console.info('[NB] goBack: stack depth', historyStack.length, historyStack.length ? '→ ' + historyStack[historyStack.length - 1] : '(root, dispatching nb:exit-requested)');
+    // Drop any falsy entries defensively (stacks persisted before the null
+    // guard existed, or future regressions) — backing into one 404s.
+    while (historyStack.length > 0 && !historyStack[historyStack.length - 1]) {
+        historyStack.pop();
+    }
     if (historyStack.length > 0) {
         const prev = historyStack.pop();
         navigateInternal(prev, { direction: 'back' });
@@ -164,7 +168,9 @@ export async function navigate(path, options = {}) {
         return navigateInternal(path, { ...options, direction: 'back' });
     }
 
-    if (currentPath !== path) {
+    // currentPath is null until the very first navigation — pushing it would
+    // put a null in the stack, and backing into it 404s (navigate to "null").
+    if (currentPath && currentPath !== path) {
         historyStack.push(currentPath);
     }
     return navigateInternal(path, options);
