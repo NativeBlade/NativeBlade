@@ -23,6 +23,7 @@ let autoUpdateInitialized = false;
 let defaultBridgeCallback = null;
 
 export function goBack() {
+    console.info('[NB] goBack: stack depth', historyStack.length, historyStack.length ? '→ ' + historyStack[historyStack.length - 1] : '(root, dispatching nb:exit-requested)');
     if (historyStack.length > 0) {
         const prev = historyStack.pop();
         navigateInternal(prev, { direction: 'back' });

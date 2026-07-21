@@ -73,6 +73,7 @@ async function main() {
         } catch {}
 
         window.addEventListener('popstate', () => {
+            console.info('[NB] popstate: system back reached the shell, url =', location.href);
             goBack();
             history.pushState(null, '', location.href);
         });
