@@ -24,12 +24,16 @@ export async function nativeNavBegin(frame) {
             height: r.height,
             dpr: window.devicePixelRatio || 1,
         });
+        if (available !== true) console.info('[NB] native-nav active: transitions run on the OS compositor');
         available = true;
         return true;
     } catch (e) {
         // A failure on a previously-working session (transient) falls back to
         // CSS for this navigation only; an initial failure disables probing.
-        if (available !== true) available = false;
+        if (available !== true) {
+            available = false;
+            console.info('[NB] native-nav unavailable, using CSS transitions:', e?.message || e);
+        }
         return false;
     }
 }
