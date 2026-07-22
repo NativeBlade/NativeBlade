@@ -59,6 +59,14 @@ class PluginRegistry
                 'mobile_capabilities' => ['nativeblade-review:default'],
             ],
 
+            Plugin::NATIVE_NAV => [
+                'feature' => 'native_nav',
+                'feature_crate' => 'tauri-plugin-nativeblade-native-nav',
+                'rust_init' => 'tauri_plugin_nativeblade_native_nav::init()',
+                'mobile_only' => true,
+                'mobile_capabilities' => ['nativeblade-native-nav:default'],
+            ],
+
             Plugin::SECURE_STORAGE => [
                 'feature' => 'secure_storage',
                 'feature_crate' => 'tauri-plugin-nativeblade-secure-storage',

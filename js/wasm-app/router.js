@@ -9,6 +9,7 @@ import { init as initAutoUpdate } from './auto-update.js';
 import { init as initScheduler } from './scheduler.js';
 import { setFrame as setPushFrame } from './push.js';
 import { logScreenIfEnabled } from '../runtime/analytics-screen.js';
+import { nativeNavBegin, nativeNavFinish } from './native-nav.js';
 
 let appFrame = null;
 let bufferFrame = null;
@@ -22,9 +23,19 @@ let autoUpdateInitialized = false;
 let defaultBridgeCallback = null;
 
 export function goBack() {
+    // Drop any falsy entries defensively (stacks persisted before the null
+    // guard existed, or future regressions) — backing into one 404s.
+    while (historyStack.length > 0 && !historyStack[historyStack.length - 1]) {
+        historyStack.pop();
+    }
     if (historyStack.length > 0) {
         const prev = historyStack.pop();
         navigateInternal(prev, { direction: 'back' });
+    } else {
+        // Backing out of the root screen: the app decides what happens.
+        // Delivered as nb:exit-requested — listen with #[On] and answer with
+        // an alert/confirm, or NativeBlade::exit(). No listener = no-op.
+        appFrame?.contentWindow?.postMessage({ type: 'nativeblade-exit-requested' }, '*');
     }
 }
 
@@ -157,7 +168,9 @@ export async function navigate(path, options = {}) {
         return navigateInternal(path, { ...options, direction: 'back' });
     }
 
-    if (currentPath !== path) {
+    // currentPath is null until the very first navigation — pushing it would
+    // put a null in the stack, and backing into it 404s (navigate to "null").
+    if (currentPath && currentPath !== path) {
         historyStack.push(currentPath);
     }
     return navigateInternal(path, options);
@@ -182,7 +195,7 @@ async function navigateInternal(path, options = {}) {
         setOnBridgeComplete((completedResult) => {
             setOnBridgeComplete(defaultBridgeCallback);
             if (!completedResult.bridgePending && completedResult.text) {
-                renderPage(completedResult.text, path, options, version);
+                renderPage(completedResult.text, path, options, version).then(armBackSentinel);
             }
         });
         return;
@@ -195,7 +208,18 @@ async function navigateInternal(path, options = {}) {
         return;
     }
 
-    renderPage(response.text, path, options, version);
+    await renderPage(response.text, path, options, version);
+    armBackSentinel();
+}
+
+// The webview's joint session history gains an entry every time an iframe
+// srcdoc is (re)assigned. Android's back gesture walks that joint history
+// (WryActivity: canGoBack -> goBack), so without this the gesture re-navigates
+// a dead iframe entry instead of reaching our popstate handler. Re-arming a
+// same-document sentinel after every navigation keeps the TOP entry ours:
+// gesture -> popstate -> app-level goBack().
+function armBackSentinel() {
+    try { history.pushState(null, '', location.href); } catch {}
 }
 
 async function renderPage(text, path, options, version) {
@@ -298,6 +322,52 @@ async function renderPage(text, path, options, version) {
         bufferFrame.style.zIndex = '0';
         bufferFrame.style.pointerEvents = 'none';
         bufferFrame.srcdoc = '';
+        return;
+    }
+
+    // Native transition compositor (optional NATIVE_NAV plugin): freeze the
+    // outgoing page as a native overlay, swap the DOM instantly beneath it,
+    // and let the platform animate the overlay in its own style. Falls back
+    // to the CSS transitions below when the plugin isn't installed.
+    if (await nativeNavBegin(appFrame)) {
+        bufferFrame.style.transition = 'none';
+        bufferFrame.style.transform = 'translateX(0)';
+        bufferFrame.style.opacity = '1';
+        bufferFrame.style.zIndex = '2';
+        bufferFrame.style.pointerEvents = 'none';
+
+        const nativeLoaded = new Promise((resolve) => {
+            const onLoad = () => {
+                bufferFrame.removeEventListener('load', onLoad);
+                resolve();
+            };
+            bufferFrame.addEventListener('load', onLoad);
+        });
+        delete bufferFrame.dataset.nbMirror;
+        bufferFrame.srcdoc = html;
+        await nativeLoaded;
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        const oldFrame = appFrame;
+        appFrame = bufferFrame;
+        bufferFrame = oldFrame;
+        try { setBridgeFrame(appFrame); } catch {}
+        try { setPushFrame(appFrame); } catch {}
+
+        appFrame.style.transition = '';
+        appFrame.style.transform = 'translateX(0)';
+        appFrame.style.opacity = '1';
+        appFrame.style.zIndex = '1';
+        appFrame.style.pointerEvents = 'auto';
+
+        bufferFrame.style.transition = 'none';
+        bufferFrame.style.transform = 'translateX(100%)';
+        bufferFrame.style.opacity = '0';
+        bufferFrame.style.zIndex = '0';
+        bufferFrame.style.pointerEvents = 'none';
+        bufferFrame.srcdoc = '';
+
+        nativeNavFinish(direction, duration);
         return;
     }
 

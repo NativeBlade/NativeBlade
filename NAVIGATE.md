@@ -174,6 +174,33 @@ public function onBiometric($success, $error = null, $id = null)
 }
 ```
 
+## The Android back gesture
+
+The system back gesture (or button) is routed to the NativeBlade router: with
+navigation history it behaves exactly like the header back arrow — previous
+screen, `direction: back` transition. **On the root screen** (nothing left to
+go back to) the framework does not decide for you: it dispatches
+`nb:exit-requested` and your app chooses what happens — confirm, sync, or
+quit. No listener means the gesture is simply ignored on the root.
+
+```php
+#[On('nb:exit-requested')]
+public function onExitRequested()
+{
+    return NativeBlade::confirm(function ($c) {
+        $c->title('Sair?')->message('Deseja fechar o app?')->id('exit');
+    })->toResponse();
+}
+
+#[On('nb:confirm')]
+public function onConfirm($confirmed, $id = null)
+{
+    if ($id === 'exit' && $confirmed) {
+        return NativeBlade::exit()->toResponse();
+    }
+}
+```
+
 ## What NOT to do
 
 | Pattern | Why to avoid |

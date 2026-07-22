@@ -105,7 +105,11 @@ class AndroidConfig
         return $this;
     }
 
-    /** Target Android SDK level. Default 35 (Android 15). */
+    /**
+     * Target Android SDK level. Google Play requires updates to target the
+     * latest SDK (36 / Android 16 as of 2026) — keep this at the current
+     * requirement or the Play Console blocks new releases.
+     */
     public function targetSdk(int $version): static
     {
         $this->config['targetSdk'] = $version;
