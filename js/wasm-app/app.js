@@ -104,9 +104,20 @@ async function main() {
     // BEFORE this bundle runs. A satellite must NEVER reach boot() below — a
     // second php-wasm deadlocks the shared IndexedDB and freezes both windows.
     const satelliteId = getSatelliteId();
-    console.info('[NB flow] main() start —',
-        '__NB_SATELLITE__=', window.__NB_SATELLITE__,
-        '| tauri=', !!window.__TAURI_INTERNALS__,
+
+    // Cross-window debug: same-origin shell docs share a BroadcastChannel, so a
+    // satellite's flow shows up in the MAIN window's console (easy to open).
+    let ownLabel = '?';
+    try {
+        const meta = window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.metadata;
+        ownLabel = (meta && meta.currentWindow && meta.currentWindow.label) || '?';
+        const bc = new BroadcastChannel('nb-win-debug');
+        bc.onmessage = (e) => console.info('[NB OTHER WINDOW]', e.data);
+        bc.postMessage({ label: ownLabel, satelliteGlobal: window.__NB_SATELLITE__, resolvedSatelliteId: satelliteId });
+    } catch (e) {}
+
+    console.info('[NB flow] main() start — label=', ownLabel,
+        '| __NB_SATELLITE__=', window.__NB_SATELLITE__,
         '| resolved satelliteId=', satelliteId);
 
     if (satelliteId) {
