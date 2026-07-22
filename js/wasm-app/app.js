@@ -30,19 +30,37 @@ const status = document.getElementById('status') || { textContent: '', style: {}
 // ?nbWindow={id}. It must NOT boot php-wasm — for now it just proves the window
 // opened and answers the reachability question (is Tauri reachable from the
 // origin-null app iframe?). The relay + component render land in slice 2.
+// Two synchronous signals, so satellite detection can't silently fail into a
+// second php-wasm boot: the init-script global, then the Tauri window label.
+function getSatelliteId() {
+    if (typeof window === 'undefined') return null;
+    if (window.__NB_SATELLITE__) return String(window.__NB_SATELLITE__);
+    try {
+        const meta = window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.metadata;
+        const lbl = (meta && meta.currentWindow && meta.currentWindow.label) || '';
+        if (lbl.indexOf('nb-window-') === 0) return lbl.slice('nb-window-'.length);
+    } catch (e) {}
+    return null;
+}
+
 function bootSatellite(id) {
-    console.info('[NB satellite] booting as satellite window, id=' + id);
+    console.info('[NB satellite] SATELLITE PATH ran, id=' + id
+        + ' (via ' + (window.__NB_SATELLITE__ ? 'init-script' : 'label') + ')');
+
     const shellHasTauri = !!window.__TAURI_INTERNALS__;
+    document.body.style.cssText = 'margin:0;background:#0a7d2e;color:#fff;font:16px system-ui,sans-serif';
     document.body.innerHTML =
-        '<div style="padding:16px;font:14px system-ui,sans-serif;color:#fff">'
-        + '<b>NativeBlade satellite window</b><br>id: ' + id
-        + '<br>shell __TAURI__: <b>' + shellHasTauri + '</b>'
-        + '<div id="nb-probe" style="margin-top:8px;color:#8fdc8f">probing iframe…</div></div>';
+        '<div style="padding:24px">'
+        + '<div style="font-size:22px;font-weight:800;margin-bottom:12px">✅ SATELLITE WINDOW</div>'
+        + 'id: <b>' + id + '</b><br>'
+        + 'shell __TAURI__: <b>' + shellHasTauri + '</b>'
+        + '<div id="nb-probe" style="margin-top:12px;opacity:.9">probing iframe reachability…</div>'
+        + '</div>';
 
     const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'width:100%;height:60px;border:1px solid #333;margin-top:8px';
+    iframe.style.cssText = 'width:90%;height:44px;margin:0 24px;border:0;background:#064d1c';
     iframe.srcdoc =
-        '<body style="color:#8fdc8f;font:13px system-ui;padding:8px;background:#111">'
+        '<body style="margin:0;color:#cfffd6;font:13px system-ui;padding:10px;background:#064d1c">'
         + '<' + 'script>'
         + 'var t = !!window.__TAURI_INTERNALS__;'
         + 'document.body.textContent = "iframe __TAURI__: " + t;'
@@ -52,11 +70,10 @@ function bootSatellite(id) {
 
     window.addEventListener('message', function (e) {
         if (e.data && e.data.__nbProbe) {
-            const verdict = { shellHasTauri, iframeHasTauri: e.data.iframeHasTauri };
-            console.info('[NB satellite] reachability verdict:', verdict);
+            console.info('[NB satellite] reachability:', { shellHasTauri, iframeHasTauri: e.data.iframeHasTauri });
             const el = document.getElementById('nb-probe');
             if (el) el.textContent = 'iframe __TAURI__: ' + e.data.iframeHasTauri
-                + (e.data.iframeHasTauri ? ' (unexpected — relay may be unnecessary)' : ' (expected — relay via shell)');
+                + (e.data.iframeHasTauri ? '  (relay maybe unnecessary)' : '  (relay via shell — expected)');
         }
     });
 }
@@ -65,12 +82,19 @@ async function main() {
     // Set synchronously by the window's initialization_script (Rust open_window)
     // BEFORE this bundle runs. A satellite must NEVER reach boot() below — a
     // second php-wasm deadlocks the shared IndexedDB and freezes both windows.
-    const satelliteId = (typeof window !== 'undefined' && window.__NB_SATELLITE__) || null;
+    const satelliteId = getSatelliteId();
+    console.info('[NB flow] main() start —',
+        '__NB_SATELLITE__=', window.__NB_SATELLITE__,
+        '| tauri=', !!window.__TAURI_INTERNALS__,
+        '| resolved satelliteId=', satelliteId);
+
     if (satelliteId) {
+        console.info('[NB flow] → SATELLITE branch (no php-wasm)');
         bootSatellite(satelliteId);
         return;
     }
 
+    console.info('[NB flow] → MAIN branch (booting php-wasm)');
     try {
         await loadTranslations();
 
