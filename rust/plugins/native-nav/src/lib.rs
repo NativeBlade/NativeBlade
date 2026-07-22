@@ -15,6 +15,18 @@ pub use error::{Error, Result};
 
 mod error;
 
+/// The page region to freeze, in CSS pixels plus the device pixel ratio —
+/// exactly what the JS router sends from `getBoundingClientRect()`.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotRect {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub dpr: f32,
+}
+
 #[cfg(target_os = "android")]
 mod mobile;
 #[cfg(not(target_os = "android"))]
