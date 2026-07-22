@@ -30,21 +30,6 @@ const status = document.getElementById('status') || { textContent: '', style: {}
 // ?nbWindow={id}. It must NOT boot php-wasm — for now it just proves the window
 // opened and answers the reachability question (is Tauri reachable from the
 // origin-null app iframe?). The relay + component render land in slice 2.
-// A satellite window is identified by its Tauri window LABEL (nb-window-{id}),
-// not a URL query — Tauri would 404 an index.html?query path. The label is
-// injected at window creation, readable immediately.
-async function detectSatelliteId() {
-    if (typeof window === 'undefined' || !window.__TAURI_INTERNALS__) return null;
-    try {
-        const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-        const labelStr = getCurrentWebviewWindow().label || '';
-        return labelStr.startsWith('nb-window-') ? labelStr.slice('nb-window-'.length) : null;
-    } catch (e) {
-        console.warn('[NB] satellite detection failed:', e);
-        return null;
-    }
-}
-
 function bootSatellite(id) {
     console.info('[NB satellite] booting as satellite window, id=' + id);
     const shellHasTauri = !!window.__TAURI_INTERNALS__;
@@ -77,7 +62,10 @@ function bootSatellite(id) {
 }
 
 async function main() {
-    const satelliteId = await detectSatelliteId();
+    // Set synchronously by the window's initialization_script (Rust open_window)
+    // BEFORE this bundle runs. A satellite must NEVER reach boot() below — a
+    // second php-wasm deadlocks the shared IndexedDB and freezes both windows.
+    const satelliteId = (typeof window !== 'undefined' && window.__NB_SATELLITE__) || null;
     if (satelliteId) {
         bootSatellite(satelliteId);
         return;

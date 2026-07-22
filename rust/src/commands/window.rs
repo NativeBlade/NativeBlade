@@ -1,8 +1,10 @@
 //! Multi-window support (WINDOWS.md spike). Opens real OS windows that load the
-//! same frontend as the main window; the JS boot reads its own window LABEL
-//! (`nb-window-{id}`) to enter satellite/relay mode instead of starting a second
-//! php-wasm runtime. Identity travels by label, NOT a URL query string — Tauri
-//! resolves `WebviewUrl::App` as a file path and would 404 on `index.html?...`.
+//! same frontend as the main window. Identity is injected as a global via an
+//! `initialization_script` that runs BEFORE the app bundle, so the JS boot sees
+//! `window.__NB_SATELLITE__` synchronously and enters satellite mode instead of
+//! booting a SECOND php-wasm (two runtimes deadlock on the shared IndexedDB —
+//! it froze both windows). Not a URL query (Tauri 404s `index.html?...`) and not
+//! the window label (needs an async API read that can fail before the guard).
 //!
 //! Commands are ASYNC on purpose: a SYNC command creating a window deadlocks —
 //! it runs on the main thread, and `build()` waits for the event loop that the
@@ -53,7 +55,12 @@ pub async fn open_window(app: AppHandle, config: WindowConfig) -> Result<(), Str
     }
 
     let url = WebviewUrl::App("index.html".into());
+    let init_script = format!(
+        "window.__NB_SATELLITE__ = {};",
+        serde_json::to_string(&config.id).unwrap_or_else(|_| "\"\"".into())
+    );
     let mut builder = WebviewWindowBuilder::new(&app, lbl.as_str(), url)
+        .initialization_script(&init_script)
         .title(config.id.as_str())
         .resizable(config.resizable.unwrap_or(true))
         .decorations(!config.frameless.unwrap_or(false))

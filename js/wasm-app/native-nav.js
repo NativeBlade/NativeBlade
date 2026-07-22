@@ -7,19 +7,6 @@
 // using its CSS transitions.
 
 let available = null; // null = unprobed, then true/false
-let isMobile = null;   // desktop bypasses to CSS; mobile lets the plugin self-detect
-
-async function ensureMobile() {
-    if (isMobile !== null) return isMobile;
-    try {
-        const { platform } = await import('@tauri-apps/plugin-os');
-        const p = await platform();
-        isMobile = p === 'android' || p === 'ios';
-    } catch {
-        isMobile = false;
-    }
-    return isMobile;
-}
 
 export async function nativeNavBegin(frame) {
     if (available === false) return false;
@@ -27,11 +14,11 @@ export async function nativeNavBegin(frame) {
         available = false;
         return false;
     }
-    // Desktop bypass: page transitions there are fluid on CSS and there is no
-    // native-nav plugin for desktop. On mobile we still try — the plugin's own
-    // Unsupported response self-detects (Android works today; iOS bypasses now
-    // and starts working when its Swift side lands, no JS change needed).
-    if (!(await ensureMobile())) {
+    // Desktop bypass — SYNCHRONOUS (bridge.js sets __NB_IS_MOBILE__ at boot).
+    // No await here: this is the navigation hot path and must never block it.
+    // On mobile we still try; the plugin's own Unsupported response self-detects
+    // (Android works today; iOS bypasses now, works when its Swift side lands).
+    if (!window.__NB_IS_MOBILE__) {
         available = false;
         return false;
     }
