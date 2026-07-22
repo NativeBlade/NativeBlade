@@ -26,7 +26,49 @@ const splash = document.getElementById('splash');
 const appFrame = document.getElementById('app');
 const status = document.getElementById('status') || { textContent: '', style: {} };
 
+// SLICE 1 (WINDOWS.md): a satellite window loads the same frontend with
+// ?nbWindow={id}. It must NOT boot php-wasm — for now it just proves the window
+// opened and answers the reachability question (is Tauri reachable from the
+// origin-null app iframe?). The relay + component render land in slice 2.
+function bootSatellite(id) {
+    const shellHasTauri = !!window.__TAURI_INTERNALS__;
+    document.body.innerHTML =
+        '<div style="padding:16px;font:14px system-ui,sans-serif;color:#fff">'
+        + '<b>NativeBlade satellite window</b><br>id: ' + id
+        + '<br>shell __TAURI__: <b>' + shellHasTauri + '</b>'
+        + '<div id="nb-probe" style="margin-top:8px;color:#8fdc8f">probing iframe…</div></div>';
+
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width:100%;height:60px;border:1px solid #333;margin-top:8px';
+    iframe.srcdoc =
+        '<body style="color:#8fdc8f;font:13px system-ui;padding:8px;background:#111">'
+        + '<' + 'script>'
+        + 'var t = !!window.__TAURI_INTERNALS__;'
+        + 'document.body.textContent = "iframe __TAURI__: " + t;'
+        + 'parent.postMessage({ __nbProbe: true, iframeHasTauri: t }, "*");'
+        + '</' + 'script></body>';
+    document.body.appendChild(iframe);
+
+    window.addEventListener('message', function (e) {
+        if (e.data && e.data.__nbProbe) {
+            const verdict = { shellHasTauri, iframeHasTauri: e.data.iframeHasTauri };
+            console.info('[NB satellite] reachability verdict:', verdict);
+            const el = document.getElementById('nb-probe');
+            if (el) el.textContent = 'iframe __TAURI__: ' + e.data.iframeHasTauri
+                + (e.data.iframeHasTauri ? ' (unexpected — relay may be unnecessary)' : ' (expected — relay via shell)');
+        }
+    });
+}
+
 async function main() {
+    const satelliteId = typeof location !== 'undefined'
+        ? new URLSearchParams(location.search).get('nbWindow')
+        : null;
+    if (satelliteId) {
+        bootSatellite(satelliteId);
+        return;
+    }
+
     try {
         await loadTranslations();
 

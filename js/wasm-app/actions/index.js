@@ -36,6 +36,7 @@ import * as sensorsMod from './sensors.js';
 import * as realtimeMod from './realtime.js';
 import * as shellModuleMod from './shell-module.js';
 import * as jsEventMod from './js-event.js';
+import * as windowMod from './window.js';
 
 export const actions = {
     // dialog
@@ -176,4 +177,9 @@ export const actions = {
 
     // page JS (NativeBlade::jsEvent)
     js_event: jsEventMod.js_event,
+
+    // desktop windows (NativeBlade::window / closeWindow / focusWindow)
+    open_window: windowMod.open_window,
+    close_window: windowMod.close_window,
+    focus_window: windowMod.focus_window,
 };

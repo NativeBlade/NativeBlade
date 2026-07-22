@@ -5,6 +5,7 @@ namespace NativeBlade;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Livewire\Livewire;
+use NativeBlade\Config\Window;
 use NativeBlade\Plugins\Biometric;
 use NativeBlade\Plugins\Camera;
 use NativeBlade\Plugins\Clipboard;
@@ -1086,6 +1087,42 @@ class NativeResponse
             'command' => $command,
             'args' => array_values($args) === $args ? $args : [$args],
         ]);
+    }
+
+    // ------------------------------------------------------------------
+    // Desktop windows (WINDOWS.md)
+    // ------------------------------------------------------------------
+
+    /**
+     * Open a desktop satellite window rendering a Livewire component. The window
+     * is a real OS window (frameless/always-on-top/sized) driven by the main
+     * runtime — no second php-wasm. Desktop only. See WINDOWS.md.
+     *
+     * ```php
+     * return NativeBlade::window(function (Window $w) {
+     *     $w->id('chat')->component(ChatPanel::class)->size(380, 560)->frameless();
+     * })->toResponse();
+     * ```
+     *
+     * @param  \Closure(Window): void  $callback
+     */
+    public function window(Closure $callback): static
+    {
+        $window = new Window();
+        $callback($window);
+        return $this->push('open_window', $window->toArray());
+    }
+
+    /** Close a satellite window by its `id`. */
+    public function closeWindow(string $id): static
+    {
+        return $this->push('close_window', ['id' => $id]);
+    }
+
+    /** Focus (raise) a satellite window by its `id`. */
+    public function focusWindow(string $id): static
+    {
+        return $this->push('focus_window', ['id' => $id]);
     }
 
     // ------------------------------------------------------------------

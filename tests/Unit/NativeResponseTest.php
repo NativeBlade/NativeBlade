@@ -894,6 +894,30 @@ final class NativeResponseTest extends TestCase
     }
 
     #[Test]
+    public function window_queues_the_builder_config_as_open_window(): void
+    {
+        $r = (new NativeResponse())->window(function ($w) {
+            $w->id('chat')->size(380, 560)->frameless()->alwaysOnTop();
+        });
+
+        self::assertSame([[
+            'action' => 'open_window',
+            'data' => ['id' => 'chat', 'width' => 380, 'height' => 560, 'frameless' => true, 'alwaysOnTop' => true],
+        ]], $r->toArray());
+    }
+
+    #[Test]
+    public function close_and_focus_window_target_by_id(): void
+    {
+        $r = (new NativeResponse())->closeWindow('chat')->focusWindow('inspector');
+
+        self::assertSame([
+            ['action' => 'close_window', 'data' => ['id' => 'chat']],
+            ['action' => 'focus_window', 'data' => ['id' => 'inspector']],
+        ], $r->toArray());
+    }
+
+    #[Test]
     public function js_event_queues_event_name_and_payload(): void
     {
         $r = (new NativeResponse())->jsEvent('map-located', ['lat' => -23.5, 'lng' => -46.6]);
