@@ -10,6 +10,7 @@ import { init as initScheduler } from './scheduler.js';
 import { setFrame as setPushFrame } from './push.js';
 import { logScreenIfEnabled } from '../runtime/analytics-screen.js';
 import { nativeNavBegin, nativeNavFinish } from './native-nav.js';
+import { positionDesktopWindow } from './desktop-window.js';
 
 let appFrame = null;
 let bufferFrame = null;
@@ -241,6 +242,7 @@ async function renderPage(text, path, options, version) {
     splash.style.display = 'none';
     appFrame.style.display = 'block';
     await applyConfig(config, path);
+    if (config.window?.anchor) positionDesktopWindow(config.window.anchor);
 
     if (!autoUpdateInitialized && config.update) {
         autoUpdateInitialized = true;

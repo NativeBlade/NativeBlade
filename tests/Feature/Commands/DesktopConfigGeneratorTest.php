@@ -115,6 +115,44 @@ final class DesktopConfigGeneratorTest extends TestCase
     }
 
     #[Test]
+    public function exact_position_writes_coordinates_and_forces_center_off(): void
+    {
+        $this->generator->generate(['x' => 100, 'y' => 80, 'center' => true]);
+
+        $win = json_decode(file_get_contents(base_path('src-tauri/tauri.conf.json')), true)['app']['windows'][0];
+
+        self::assertSame(100, $win['x']);
+        self::assertSame(80, $win['y']);
+        self::assertFalse($win['center'], 'exact position overrides center');
+    }
+
+    #[Test]
+    public function center_anchor_maps_to_static_center(): void
+    {
+        $this->generator->generate(['positionAnchor' => 'center']);
+
+        $win = json_decode(file_get_contents(base_path('src-tauri/tauri.conf.json')), true)['app']['windows'][0];
+
+        self::assertTrue($win['center']);
+        self::assertArrayNotHasKey('x', $win);
+        self::assertArrayNotHasKey('y', $win);
+    }
+
+    #[Test]
+    public function corner_anchor_leaves_center_off_and_no_coordinates(): void
+    {
+        // A corner anchor is resolved at launch by the shell (JS), so the static
+        // config carries neither center nor x/y.
+        $this->generator->generate(['positionAnchor' => 'bottom-right']);
+
+        $win = json_decode(file_get_contents(base_path('src-tauri/tauri.conf.json')), true)['app']['windows'][0];
+
+        self::assertFalse($win['center']);
+        self::assertArrayNotHasKey('x', $win);
+        self::assertArrayNotHasKey('y', $win);
+    }
+
+    #[Test]
     public function generate_does_nothing_when_tauri_conf_missing(): void
     {
         unlink(base_path('src-tauri/tauri.conf.json'));

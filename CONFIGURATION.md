@@ -91,6 +91,8 @@ php artisan nativeblade:config
 | `alwaysOnTop(bool)` | Window stays above other windows (default `false`) |
 | `maximized(bool)` | Start maximized (default `false`) |
 | `center(bool)` | Center window on screen at launch (default `false`) |
+| `position(int $x, int $y)` | Open at a fixed top-left position in pixels. Overrides `center()` |
+| `position(string $anchor)` | Open at a named anchor on the primary screen: `center`, `top-left/center/right`, `bottom-left/center/right`. Corner anchors resolve at launch from the monitor size |
 | `tray(Closure)` | System tray icon and behavior — see [System Tray](#system-tray) |
 | `menu(Closure)` | Native menu bar — see [Menu Builder](#menu-builder) |
 | `updateUrl(string)` | URL returning the auto-update version JSON. See [UPDATES.md](./UPDATES.md) |

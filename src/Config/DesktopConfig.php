@@ -192,10 +192,57 @@ class DesktopConfig
         return $this;
     }
 
-    /** Center the window on screen when the app opens. */
+    /** Center the window on screen when the app opens. Ignored if `position()` is set. */
     public function center(bool $value = true): static
     {
         $this->config['center'] = $value;
+        return $this;
+    }
+
+    /** Named window anchors resolved against the primary screen at launch. */
+    private const ANCHORS = [
+        'center', 'top-left', 'top-center', 'top-right',
+        'bottom-left', 'bottom-center', 'bottom-right',
+    ];
+
+    /**
+     * Open the window at a fixed position instead of centered. Overrides
+     * `center()` — position and center are mutually exclusive.
+     *
+     * Two forms:
+     *
+     * ```php
+     * $config->position(100, 80);            // exact: top-left corner in pixels
+     * $config->position('bottom-right');     // anchor on the primary screen
+     * ```
+     *
+     * Anchors: `center`, `top-left`, `top-center`, `top-right`, `bottom-left`,
+     * `bottom-center`, `bottom-right`. Corner anchors are resolved at launch
+     * from the monitor size (they use the full screen, not the work area, so a
+     * `bottom-*` window can sit under the taskbar). For a fixed pixel offset,
+     * use the two-int form. Multi-monitor targeting belongs to on-demand
+     * windows, not this launch config.
+     */
+    public function position(int|string $x, ?int $y = null): static
+    {
+        if (is_string($x)) {
+            if (!in_array($x, self::ANCHORS, true)) {
+                throw new \InvalidArgumentException(
+                    "Invalid window anchor '{$x}'. Use one of: " . implode(', ', self::ANCHORS)
+                    . ", or position(int \$x, int \$y)."
+                );
+            }
+            $this->config['positionAnchor'] = $x;
+            unset($this->config['x'], $this->config['y']);
+            return $this;
+        }
+
+        if ($y === null) {
+            throw new \InvalidArgumentException('position(int $x, int $y) requires both coordinates.');
+        }
+        $this->config['x'] = $x;
+        $this->config['y'] = $y;
+        unset($this->config['positionAnchor']);
         return $this;
     }
 

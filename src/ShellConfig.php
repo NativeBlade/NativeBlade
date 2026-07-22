@@ -104,6 +104,14 @@ class ShellConfig
             $config['schedules'] = $schedules;
         }
 
+        // Named corner anchors need the monitor size, so the shell resolves them
+        // at launch. 'center' and exact x/y are static (tauri.conf), never here.
+        if ($platformKey === 'desktop'
+            && isset($platformConfig['positionAnchor'])
+            && $platformConfig['positionAnchor'] !== 'center') {
+            $config['window'] = ['anchor' => $platformConfig['positionAnchor']];
+        }
+
         return $config;
     }
 

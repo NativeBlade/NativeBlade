@@ -59,7 +59,17 @@ class DesktopConfigGenerator
         $conf['app']['windows'][0]['transparent'] = $desktop['transparent'] ?? false;
         $conf['app']['windows'][0]['alwaysOnTop'] = $desktop['alwaysOnTop'] ?? false;
         $conf['app']['windows'][0]['maximized']   = $desktop['maximized']   ?? false;
-        $conf['app']['windows'][0]['center']      = $desktop['center']      ?? false;
+
+        $hasPosition = isset($desktop['x'], $desktop['y']);
+        $anchor = $desktop['positionAnchor'] ?? null;
+        if ($hasPosition) {
+            $conf['app']['windows'][0]['x'] = $desktop['x'];
+            $conf['app']['windows'][0]['y'] = $desktop['y'];
+        } else {
+            unset($conf['app']['windows'][0]['x'], $conf['app']['windows'][0]['y']);
+        }
+        $conf['app']['windows'][0]['center'] = !$hasPosition
+            && ($anchor === 'center' || ($anchor === null && ($desktop['center'] ?? false)));
 
         if (isset($desktop['updateUrl'])) {
             $conf['plugins']['updater'] = [
