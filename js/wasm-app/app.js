@@ -34,11 +34,32 @@ const status = document.getElementById('status') || { textContent: '', style: {}
 // second php-wasm boot: the init-script global, then the Tauri window label.
 function getSatelliteId() {
     if (typeof window === 'undefined') return null;
+
+    // Diagnostic: dump both signals + the raw internals so we can find where
+    // the window label actually lives in this Tauri version.
+    try {
+        console.info('[NB detect] __NB_SATELLITE__ =', window.__NB_SATELLITE__);
+        console.info('[NB detect] internals.metadata =',
+            JSON.stringify(window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.metadata));
+    } catch (e) {
+        console.info('[NB detect] internals dump failed:', e);
+    }
+
     if (window.__NB_SATELLITE__) return String(window.__NB_SATELLITE__);
+
+    // Backup: scan the internals object for anything that looks like our label.
     try {
         const meta = window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.metadata;
-        const lbl = (meta && meta.currentWindow && meta.currentWindow.label) || '';
-        if (lbl.indexOf('nb-window-') === 0) return lbl.slice('nb-window-'.length);
+        const candidates = [
+            meta && meta.currentWindow && meta.currentWindow.label,
+            meta && meta.currentWebview && meta.currentWebview.label,
+            meta && meta.__currentWindow && meta.__currentWindow.label,
+        ];
+        for (const lbl of candidates) {
+            if (typeof lbl === 'string' && lbl.indexOf('nb-window-') === 0) {
+                return lbl.slice('nb-window-'.length);
+            }
+        }
     } catch (e) {}
     return null;
 }
