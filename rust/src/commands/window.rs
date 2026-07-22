@@ -2,11 +2,13 @@
 //! same frontend as the main window with `?nbWindow={id}`, so the JS boot enters
 //! satellite/relay mode instead of starting a second php-wasm runtime.
 //!
-//! Commands are SYNC on purpose: window creation must run on the main thread,
-//! which non-async Tauri commands do by default.
+//! Commands are ASYNC on purpose: a SYNC command creating a window deadlocks —
+//! it runs on the main thread, and `build()` waits for the event loop that the
+//! blocked main thread can't pump. Async commands run off the main thread, so
+//! `build()` can dispatch window creation to a free event loop.
 
 use serde::Deserialize;
-use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -39,7 +41,7 @@ fn label(id: &str) -> String {
 }
 
 #[tauri::command]
-pub fn open_window<R: Runtime>(app: AppHandle<R>, config: WindowConfig) -> Result<(), String> {
+pub async fn open_window(app: AppHandle, config: WindowConfig) -> Result<(), String> {
     let lbl = label(&config.id);
 
     // Already open: focus it instead of stacking a duplicate.
@@ -70,7 +72,7 @@ pub fn open_window<R: Runtime>(app: AppHandle<R>, config: WindowConfig) -> Resul
 }
 
 #[tauri::command]
-pub fn close_window<R: Runtime>(app: AppHandle<R>, id: String) -> Result<(), String> {
+pub async fn close_window(app: AppHandle, id: String) -> Result<(), String> {
     if let Some(win) = app.get_webview_window(&label(&id)) {
         win.close().map_err(|e| e.to_string())?;
     }
@@ -78,7 +80,7 @@ pub fn close_window<R: Runtime>(app: AppHandle<R>, id: String) -> Result<(), Str
 }
 
 #[tauri::command]
-pub fn focus_window<R: Runtime>(app: AppHandle<R>, id: String) -> Result<(), String> {
+pub async fn focus_window(app: AppHandle, id: String) -> Result<(), String> {
     if let Some(win) = app.get_webview_window(&label(&id)) {
         win.set_focus().map_err(|e| e.to_string())?;
     }
