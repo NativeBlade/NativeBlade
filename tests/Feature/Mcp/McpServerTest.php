@@ -256,19 +256,75 @@ class McpServerTest extends TestCase
         $this->assertArrayHasKey('transition', $data);
     }
 
-    public function test_list_docs_returns_readme_and_plugins(): void
+    public function test_list_docs_returns_known_pages(): void
     {
-        $payload = $this->callTool('list_docs');
-        $data = json_decode($payload, true);
+        $names = $this->listDocNames();
 
-        $names = array_column($data['docs'], 'name');
-        $this->assertContains('README.md', $names);
-        $this->assertContains('PLUGINS.md', $names);
+        $this->assertContains('core/plugins.md', $names);
+        $this->assertContains('core/architecture.md', $names);
+        $this->assertContains('mobile/media.md', $names);
+    }
+
+    public function test_list_docs_walks_nested_directories(): void
+    {
+        $names = $this->listDocNames();
+        foreach (['core/', 'mobile/', 'desktop/', 'configuration/', 'guides/'] as $section) {
+            $this->assertNotEmpty(
+                array_filter($names, static fn (string $n): bool => str_starts_with($n, $section)),
+                "expected at least one page under {$section}"
+            );
+        }
+    }
+
+    public function test_list_docs_names_are_relative_markdown_paths(): void
+    {
+        $names = $this->listDocNames();
+        $this->assertNotEmpty($names);
+
+        foreach ($names as $name) {
+            $this->assertMatchesRegularExpression('#^[A-Za-z0-9_/-]+\.md$#', $name);
+            $this->assertStringNotContainsString('\\', $name, 'names must use forward slashes');
+            $this->assertStringNotContainsString('..', $name);
+            $this->assertFalse(str_starts_with($name, '/'), "name should be relative: {$name}");
+        }
+    }
+
+    public function test_list_docs_is_sorted_by_name(): void
+    {
+        $names = $this->listDocNames();
+
+        $sorted = $names;
+        sort($sorted, SORT_STRING);
+        $this->assertSame($sorted, $names);
+    }
+
+    public function test_list_docs_entries_carry_metadata(): void
+    {
+        $data = json_decode($this->callTool('list_docs'), true);
+        $this->assertNotEmpty($data['docs']);
+
+        foreach ($data['docs'] as $doc) {
+            $this->assertArrayHasKey('name', $doc);
+            $this->assertArrayHasKey('title', $doc);
+            $this->assertArrayHasKey('summary', $doc);
+            $this->assertArrayHasKey('size_bytes', $doc);
+            $this->assertGreaterThan(0, $doc['size_bytes']);
+        }
+    }
+
+    public function test_list_docs_parses_title_from_heading(): void
+    {
+        $data = json_decode($this->callTool('list_docs'), true);
+
+        $byName = array_column($data['docs'], null, 'name');
+        $this->assertArrayHasKey('core/plugins.md', $byName);
+        $this->assertSame('Native Plugins', $byName['core/plugins.md']['title']);
+        $this->assertNotEmpty($byName['core/plugins.md']['summary']);
     }
 
     public function test_read_doc_returns_file_content(): void
     {
-        $payload = $this->callTool('read_doc', ['name' => 'PLUGINS.md']);
+        $payload = $this->callTool('read_doc', ['name' => 'core/plugins.md']);
         $this->assertNotEmpty($payload);
         $this->assertStringContainsString('# Native Plugins', $payload);
     }
@@ -349,5 +405,13 @@ class McpServerTest extends TestCase
         ]);
 
         return $response['result']['content'][0]['text'];
+    }
+
+    /** @return list<string> */
+    private function listDocNames(): array
+    {
+        $data = json_decode($this->callTool('list_docs'), true);
+
+        return array_column($data['docs'], 'name');
     }
 }
