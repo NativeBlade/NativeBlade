@@ -13,7 +13,7 @@ class ListDocs implements Tool
 
     public function description(): string
     {
-        return 'List the framework documentation files (README, PLUGINS, MEDIA, PUSH, etc.) with their topic and a short summary. Use this to discover which doc to fetch via read_doc before answering a question about a feature.';
+        return 'List the framework documentation pages with their topic and a short summary. Names are paths under the docs directory (e.g. "core/plugins.md", "mobile/media.md"). Use this to discover which page to fetch via read_doc before answering a question about a feature.';
     }
 
     public function inputSchema(): array
@@ -30,15 +30,24 @@ class ListDocs implements Tool
         $root = $this->docsRoot();
         $docs = [];
 
-        foreach (glob($root . '/*.md') ?: [] as $path) {
-            $name = basename($path);
-            [$title, $summary] = $this->parseHeader($path);
-            $docs[] = [
-                'name' => $name,
-                'title' => $title,
-                'summary' => $summary,
-                'size_bytes' => filesize($path) ?: 0,
-            ];
+        if (is_dir($root)) {
+            $it = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)
+            );
+            foreach ($it as $file) {
+                if (!$file->isFile() || strtolower($file->getExtension()) !== 'md') {
+                    continue;
+                }
+                $path = $file->getPathname();
+                $name = ltrim(str_replace('\\', '/', substr($path, strlen($root))), '/');
+                [$title, $summary] = $this->parseHeader($path);
+                $docs[] = [
+                    'name' => $name,
+                    'title' => $title,
+                    'summary' => $summary,
+                    'size_bytes' => filesize($path) ?: 0,
+                ];
+            }
         }
 
         usort($docs, fn ($a, $b) => strcmp($a['name'], $b['name']));
@@ -51,7 +60,7 @@ class ListDocs implements Tool
 
     private function docsRoot(): string
     {
-        return dirname(__DIR__, 3);
+        return dirname(__DIR__, 3) . '/docs/docs';
     }
 
     /**

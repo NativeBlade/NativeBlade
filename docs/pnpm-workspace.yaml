@@ -1,0 +1,6 @@
+allowBuilds:
+  '@docmd/engine-rust': true
+  esbuild: true
+onlyBuiltDependencies:
+  - esbuild
+  - "@docmd/engine-rust"

@@ -1,0 +1,51 @@
+/* NativeBlade brand theme for docmd.
+   Palette mirrors cloud/resources/css/app.css: near-black ink, red accent,
+   Inter Tight + JetBrains Mono. Loaded after the theme, so these win. */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* Light theme: keep the light surface, switch the accent to brand red. */
+:root {
+  --link-color: #dc2626;
+  --link-color-hover: #b91c1c;
+  --sidebar-link-active-bg: rgba(220, 38, 38, 0.10);
+  --glow-color: rgba(220, 38, 38, 0.10);
+  --glow-color-strong: rgba(220, 38, 38, 0.20);
+}
+
+/* Dark theme: brand ink background, brand red accent. */
+:root[data-theme=dark] {
+  --bg-color: #060608;
+  --sidebar-bg: #0b0b0d;
+  --text-color: #d7d9de;
+  --text-heading: #f4f5f7;
+  --text-muted: #9aa0a8;
+  --border-color: #1b1b1f;
+  --border-color-hover: #2a2a30;
+  --header-bg: rgb(10 10 12 / 72%);
+  --header-border: #1b1b1f;
+  --sidebar-text: #c7cad0;
+  --link-color: #ff5151;
+  --link-color-hover: #ff8585;
+  --sidebar-link-active-bg: rgba(255, 81, 81, 0.14);
+  --sidebar-link-active-text: #ffffff;
+  --glow-color: rgba(255, 81, 81, 0.18);
+  --glow-color-strong: rgba(255, 81, 81, 0.30);
+  --code-bg: #101013;
+}
+
+/* Brand typography. */
+body {
+  font-family: 'Inter Tight', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+code, pre, kbd, samp {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Keep the sidebar logo a sensible size. */
+.logo-link img {
+  height: auto;
+  max-height: 34px;
+  max-width: 200px;
+  width: auto;
+}

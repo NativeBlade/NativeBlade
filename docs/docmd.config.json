@@ -1,0 +1,144 @@
+{
+  "title": "NativeBlade",
+  "url": "https://docs.nativeblade.dev",
+  "src": "docs",
+  "out": "site",
+  "engine": "js",
+  "favicon": "assets/images/favicon.png",
+  "logo": {
+    "light": "/assets/images/nb-logo.png",
+    "dark": "/assets/images/nb-logo.png",
+    "alt": "NativeBlade"
+  },
+  "layout": {
+    "spa": true,
+    "header": { "enabled": true },
+    "sidebar": { "collapsible": true, "defaultCollapsed": false },
+    "optionsMenu": {
+      "position": "sidebar-top",
+      "components": { "search": true, "themeSwitch": true }
+    },
+    "footer": {
+      "style": "minimal",
+      "content": "© 2026 NativeBlade — Laravel + Livewire, native.",
+      "branding": false
+    }
+  },
+  "theme": {
+    "name": "default",
+    "appearance": "system",
+    "codeHighlight": true,
+    "customCss": ["/assets/css/branding.css"]
+  },
+  "minify": true,
+  "autoTitleFromH1": true,
+  "copyCode": true,
+  "pageNavigation": true,
+  "versions": {
+    "current": "sdk37",
+    "position": "sidebar-top",
+    "all": [
+      { "id": "sdk37", "dir": "docs", "label": "SDK 37 (Latest)" }
+    ]
+  },
+  "navigation": [
+    { "title": "Introduction", "path": "/" },
+    {
+      "title": "Core",
+      "collapsible": true,
+      "children": [
+        { "title": "Architecture", "path": "/core/architecture/" },
+        { "title": "Action Response", "path": "/core/action-response/" },
+        { "title": "Components", "path": "/core/components/" },
+        { "title": "Native Shell Modules", "path": "/core/native-shell/" },
+        { "title": "Animations", "path": "/core/animations/" },
+        { "title": "Navigation", "path": "/core/navigation/" },
+        { "title": "Lifecycle", "path": "/core/lifecycle/" },
+        { "title": "Directives", "path": "/core/directives/" },
+        { "title": "State Management", "path": "/core/state/" },
+        { "title": "Platform Detection", "path": "/core/platform-detection/" },
+        { "title": "Database", "path": "/core/database/" },
+        { "title": "Filesystem", "path": "/core/filesystem/" },
+        { "title": "Network", "path": "/core/network/" },
+        { "title": "Cache", "path": "/core/cache/" },
+        { "title": "Realtime", "path": "/core/realtime/" },
+        { "title": "Scheduler", "path": "/core/scheduler/" },
+        { "title": "Multi-language", "path": "/core/multi-language/" },
+        { "title": "Plugins", "path": "/core/plugins/" }
+      ]
+    },
+    {
+      "title": "Desktop",
+      "collapsible": true,
+      "children": [
+        { "title": "Getting Started", "path": "/desktop/getting-started/" },
+        { "title": "Windows", "path": "/desktop/windows/" },
+        { "title": "Shell Commands", "path": "/desktop/shell/" },
+        { "title": "Process & Window", "path": "/desktop/process/" },
+        { "title": "Menus & Tray", "path": "/desktop/menus-tray/" }
+      ]
+    },
+    {
+      "title": "Mobile",
+      "collapsible": true,
+      "children": [
+        { "title": "Getting Started", "path": "/mobile/getting-started/" },
+        { "title": "Media", "path": "/mobile/media/" },
+        { "title": "Push Notifications", "path": "/mobile/push/" },
+        { "title": "Sensors", "path": "/mobile/sensors/" },
+        { "title": "Geolocation", "path": "/mobile/geolocation/" },
+        { "title": "Biometric", "path": "/mobile/biometric/" },
+        { "title": "Barcode Scanner", "path": "/mobile/barcode-scanner/" },
+        { "title": "NFC", "path": "/mobile/nfc/" },
+        { "title": "Haptics", "path": "/mobile/haptics/" },
+        { "title": "In-App Review", "path": "/mobile/in-app-review/" },
+        { "title": "Secure Storage", "path": "/mobile/secure-storage/" },
+        { "title": "Sharing", "path": "/mobile/sharing/" },
+        { "title": "AdMob", "path": "/mobile/admob/" },
+        { "title": "Payments", "path": "/mobile/payments/" },
+        { "title": "Analytics", "path": "/mobile/analytics/" },
+        { "title": "Background Tasks", "path": "/mobile/tasks/" },
+        { "title": "Dialogs", "path": "/mobile/dialogs/" },
+        { "title": "Clipboard", "path": "/mobile/clipboard/" },
+        { "title": "Opener", "path": "/mobile/opener/" },
+        { "title": "OS Info", "path": "/mobile/os-info/" }
+      ]
+    },
+    {
+      "title": "Configuration",
+      "collapsible": true,
+      "children": [
+        { "title": "Overview", "path": "/configuration/overview/" },
+        { "title": "Platform Options", "path": "/configuration/platform/" },
+        { "title": "Permissions & Privacy", "path": "/configuration/permissions/" },
+        { "title": "Custom Native Config", "path": "/configuration/native/" },
+        { "title": "Deep Links", "path": "/configuration/deep-links/" },
+        { "title": "Firebase & Analytics", "path": "/configuration/firebase/" },
+        { "title": "Page Transitions", "path": "/configuration/transitions/" }
+      ]
+    },
+    {
+      "title": "Guides",
+      "collapsible": true,
+      "children": [
+        { "title": "Publish", "path": "/guides/publish/" },
+        { "title": "Studio", "path": "/guides/studio/" },
+        { "title": "Updates", "path": "/guides/updates/" },
+        { "title": "CLI Commands", "path": "/guides/commands/" },
+        { "title": "MCP", "path": "/guides/mcp/" },
+        { "title": "Portal", "path": "/guides/portal/" },
+        { "title": "Upgrading", "path": "/guides/upgrade/" },
+        { "title": "Compatibility", "path": "/guides/compatibility/" }
+      ]
+    },
+    { "title": "GitHub", "path": "https://github.com/NativeBlade", "external": true }
+  ],
+  "plugins": {
+    "seo": {
+      "defaultDescription": "NativeBlade turns Laravel and Livewire apps into native mobile and desktop apps."
+    },
+    "okf": {
+      "warnOnMissingType": false
+    }
+  }
+}

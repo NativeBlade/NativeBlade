@@ -30,3 +30,9 @@ build/desktop/
 
 .DS_Store
 Thumbs.db
+
+# Documentation site (docmd) build artifacts — the docs source lives in docs/,
+# the built output and deps are generated and copied to the cloud at deploy.
+/docs/site/
+/docs/node_modules/
+/docs/.docmd-cache/

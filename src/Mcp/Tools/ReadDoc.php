@@ -13,7 +13,7 @@ class ReadDoc implements Tool
 
     public function description(): string
     {
-        return 'Return the full Markdown content of a framework documentation file. Pass the file name as returned by list_docs (e.g. "PLUGINS.md"). Only files inside the framework docs directory are accessible.';
+        return 'Return the full Markdown content of a framework documentation page. Pass the path as returned by list_docs (e.g. "core/plugins.md"). Only files inside the framework docs directory are accessible.';
     }
 
     public function inputSchema(): array
@@ -23,7 +23,7 @@ class ReadDoc implements Tool
             'properties' => [
                 'name' => [
                     'type' => 'string',
-                    'description' => 'Documentation file name with extension, as returned by list_docs (e.g. "MEDIA.md").',
+                    'description' => 'Documentation page path with extension, as returned by list_docs (e.g. "mobile/media.md").',
                 ],
             ],
             'required' => ['name'],
@@ -37,17 +37,20 @@ class ReadDoc implements Tool
             throw new \InvalidArgumentException('Argument "name" is required.');
         }
 
-        $name = basename($name);
-        if (!preg_match('/^[A-Za-z0-9_-]+\.md$/', $name)) {
-            throw new \InvalidArgumentException('Invalid doc name. Use the exact file name from list_docs (e.g. "PLUGINS.md").');
+        $name = str_replace('\\', '/', $name);
+        if (!preg_match('#^[A-Za-z0-9_/-]+\.md$#', $name) || str_contains($name, '..')) {
+            throw new \InvalidArgumentException('Invalid doc name. Use the exact path from list_docs (e.g. "core/plugins.md").');
         }
 
-        $path = $this->docsRoot() . '/' . $name;
-        if (!is_file($path)) {
+        $root = realpath($this->docsRoot());
+        $real = realpath($this->docsRoot() . '/' . $name);
+        if ($root === false || $real === false
+            || !str_starts_with($real, $root . DIRECTORY_SEPARATOR)
+            || !is_file($real)) {
             throw new \InvalidArgumentException("Doc '$name' not found. Call list_docs to see what is available.");
         }
 
-        $content = file_get_contents($path);
+        $content = file_get_contents($real);
         if ($content === false) {
             throw new \RuntimeException("Failed to read '$name'.");
         }
@@ -57,6 +60,6 @@ class ReadDoc implements Tool
 
     private function docsRoot(): string
     {
-        return dirname(__DIR__, 3);
+        return dirname(__DIR__, 3) . '/docs/docs';
     }
 }
