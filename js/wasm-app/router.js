@@ -23,6 +23,27 @@ let transition = 'none';
 let autoUpdateInitialized = false;
 let defaultBridgeCallback = null;
 
+// Promise-based request that ALSO awaits bridge (Http/DB/FS) fulfillment, so the
+// caller gets the FINAL result, not a `bridgePending` stub. Used by the window
+// relay so a satellite component can use the DB/filesystem/HTTP — the native work
+// runs here, on the main window's runtime. Each call passes its OWN completion
+// callback (`done`), so it never clobbers the main window's bridge callback (nor
+// another satellite's). Serialized so two satellite requests can't interleave
+// their re-runs through the shared php-wasm instance.
+let requestFullQueue = Promise.resolve();
+export function requestFull(path, options) {
+    const run = () => new Promise((resolve) => {
+        let settled = false;
+        const done = (r) => { if (settled) return; settled = true; resolve(r); };
+        request(path, options, done).then(
+            (result) => { if (!result || !result.bridgePending) done(result); },
+            (err) => done({ text: String(err && err.message || err), httpStatusCode: 500 })
+        );
+    });
+    requestFullQueue = requestFullQueue.then(run, run);
+    return requestFullQueue;
+}
+
 export function goBack() {
     // Drop any falsy entries defensively (stacks persisted before the null
     // guard existed, or future regressions) — backing into one 404s.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NativeBlade\Tests\Unit;
 
+use NativeBlade\Config\Window;
 use NativeBlade\NativeResponse;
 use NativeBlade\Plugins\Biometric;
 use NativeBlade\Plugins\Camera;
@@ -17,6 +18,7 @@ use NativeBlade\Plugins\Realtime;
 use NativeBlade\Plugins\Scan;
 use NativeBlade\Plugins\Shell;
 use NativeBlade\Plugins\Upload;
+use NativeBlade\Tests\Feature\Fixtures\AlertComponent;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -891,6 +893,40 @@ final class NativeResponseTest extends TestCase
             'action' => 'realtime_send',
             'data' => ['channel' => 'chat', 'event' => 'Ping', 'payload' => ['x' => 1]],
         ]], $r->toArray());
+    }
+
+    #[Test]
+    public function window_queues_the_builder_config_as_open_window(): void
+    {
+        $r = (new NativeResponse())->window(function (Window $w) {
+            $w->id('chat')->component(AlertComponent::class)->size(380, 560)->frameless()->alwaysOnTop();
+        });
+
+        self::assertSame([[
+            'action' => 'open_window',
+            'data' => ['id' => 'chat', 'component' => AlertComponent::class, 'width' => 380, 'height' => 560, 'frameless' => true, 'alwaysOnTop' => true],
+        ]], $r->toArray());
+    }
+
+    #[Test]
+    public function window_requires_id_and_component(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        (new NativeResponse())->window(function (Window $w) {
+            $w->id('chat')->size(380, 560);
+        });
+    }
+
+    #[Test]
+    public function close_and_focus_window_target_by_id(): void
+    {
+        $r = (new NativeResponse())->closeWindow('chat')->focusWindow('inspector');
+
+        self::assertSame([
+            ['action' => 'close_window', 'data' => ['id' => 'chat']],
+            ['action' => 'focus_window', 'data' => ['id' => 'inspector']],
+        ], $r->toArray());
     }
 
     #[Test]

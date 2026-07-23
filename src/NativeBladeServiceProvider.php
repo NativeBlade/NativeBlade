@@ -201,6 +201,17 @@ class NativeBladeServiceProvider extends ServiceProvider
             }
             return response()->json(['ok' => true]);
         });
+
+        // Satellite window initial render (WINDOWS.md). The satellite has no
+        // runtime; it requests this page over the IPC relay and boots livewire.js
+        // on the returned HTML. The component was registered by NativeBlade::window().
+        \Illuminate\Support\Facades\Route::get('/__nb/window/{id}', function (string $id) {
+            $component = app('nativeblade')->getState("window.component.{$id}");
+            if (!$component || !class_exists($component)) {
+                abort(404, "No component registered for window '{$id}'");
+            }
+            return view('nativeblade::window', ['component' => $component, 'windowId' => $id]);
+        });
     }
 
     private function registerPushRoutes(): void

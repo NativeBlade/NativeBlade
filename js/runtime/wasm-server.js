@@ -30,6 +30,6 @@ export async function boot(onProgress) {
     return getInstance();
 }
 
-export async function request(path, options) {
-    return handleRequest(path, options);
+export async function request(path, options, onBridge) {
+    return handleRequest(path, options, onBridge);
 }

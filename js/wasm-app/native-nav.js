@@ -14,6 +14,14 @@ export async function nativeNavBegin(frame) {
         available = false;
         return false;
     }
+    // Desktop bypass — SYNCHRONOUS (bridge.js sets __NB_IS_MOBILE__ at boot).
+    // No await here: this is the navigation hot path and must never block it.
+    // On mobile we still try; the plugin's own Unsupported response self-detects
+    // (Android works today; iOS bypasses now, works when its Swift side lands).
+    if (!window.__NB_IS_MOBILE__) {
+        available = false;
+        return false;
+    }
     try {
         const { invoke } = await import('@tauri-apps/api/core');
         const r = frame.getBoundingClientRect();

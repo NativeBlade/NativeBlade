@@ -4,6 +4,11 @@ import * as httpBridge from './http-bridge.js';
 import * as fsBridge from './fs-bridge.js';
 import * as dbBridge from './db-bridge.js';
 
+// The main window's bridge-completion callback (posts responses back to the app
+// iframe). A single global is fine for the main window because Livewire drives
+// its requests one at a time. A caller that needs its OWN completion (the window
+// relay serving a satellite) passes a per-request `onBridge` to request() instead
+// of swapping this global — so the two can never clobber each other.
 let pendingBridgeCallback = null;
 
 export function setOnBridgeComplete(fn) {
@@ -17,7 +22,7 @@ const STATIC_MIME = {
     '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
 };
 
-export async function handleRequest(path, options = {}) {
+export async function handleRequest(path, options = {}, onBridge = null) {
     const php = getInstance();
     if (!php) throw new Error('PHP not initialized');
 
@@ -97,19 +102,19 @@ export async function handleRequest(path, options = {}) {
     if (result.errors) processStderr(result.errors);
 
     if (await httpBridge.hasPendingRequest(php, text)) {
-        fulfillInBackground(php, path, options, 'http');
+        fulfillInBackground(php, path, options, 'http', onBridge);
         return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
     }
     httpBridge.done(php);
 
     if (await fsBridge.hasPendingRequest(php, text)) {
-        fulfillInBackground(php, path, options, 'fs');
+        fulfillInBackground(php, path, options, 'fs', onBridge);
         return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
     }
     fsBridge.done(php);
 
     if (await dbBridge.hasPendingRequest(php, text)) {
-        fulfillInBackground(php, path, options, 'db');
+        fulfillInBackground(php, path, options, 'db', onBridge);
         return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
     }
     dbBridge.done(php);
@@ -143,17 +148,18 @@ function processStderr(raw) {
     if (rest) console.warn('[NativeBlade PHP Errors]', rest);
 }
 
-async function fulfillInBackground(php, originalPath, originalOptions, type = 'http') {
+async function fulfillInBackground(php, originalPath, originalOptions, type = 'http', onBridge = null) {
     const bridge = type === 'db' ? dbBridge : type === 'fs' ? fsBridge : httpBridge;
     const fulfilled = await bridge.fulfill(php);
     if (!fulfilled) return;
 
-    const result = await handleRequest(originalPath, originalOptions);
+    // Thread onBridge through the re-run: a multi-bridge request re-enters
+    // handleRequest, and its own fulfillInBackground carries the same callback.
+    const result = await handleRequest(originalPath, originalOptions, onBridge);
     if (result.bridgePending) return;
 
-    if (pendingBridgeCallback) {
-        pendingBridgeCallback(result);
-    }
+    const cb = onBridge || pendingBridgeCallback;
+    if (cb) cb(result);
 }
 
 function inlineAssets(html, php) {

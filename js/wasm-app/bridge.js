@@ -86,6 +86,10 @@ export async function init(appFrame) {
         isAndroid = platform === 'android';
     } catch {}
 
+    // Expose for synchronous reads outside the ctx (e.g. native-nav's desktop
+    // bypass must not add an await to the navigation hot path).
+    if (typeof window !== 'undefined') window.__NB_IS_MOBILE__ = isMobile;
+
     if (!isMobile) {
         try { apis.notificationApi = await import('@tauri-apps/plugin-notification'); } catch {}
     }

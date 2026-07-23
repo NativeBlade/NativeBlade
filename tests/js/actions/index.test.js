@@ -83,6 +83,9 @@ const EXPECTED_ACTIONS = [
     'shell_module_command',
     'shell_module_destroy',
     'js_event',
+    'open_window',
+    'close_window',
+    'focus_window',
 ];
 
 describe('actions/index', () => {
