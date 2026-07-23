@@ -44,6 +44,20 @@ fn label(id: &str) -> String {
     format!("nb-window-{id}")
 }
 
+/// Label prefix shared by every satellite window.
+const SATELLITE_PREFIX: &str = "nb-window-";
+
+/// Close every satellite window. Called when the main window — which owns the
+/// php-wasm runtime satellites relay to — is closing: a satellite outliving it
+/// would freeze, relaying to a runtime that no longer exists.
+pub fn close_all_satellites(app: &AppHandle) {
+    for (lbl, win) in app.webview_windows() {
+        if lbl.starts_with(SATELLITE_PREFIX) {
+            let _ = win.close();
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn open_window(app: AppHandle, config: WindowConfig) -> Result<(), String> {
     let lbl = label(&config.id);

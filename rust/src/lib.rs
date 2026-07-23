@@ -56,9 +56,21 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if commands::tray::should_hide_on_close(window.app_handle()) {
+                let is_main = window.label() == "main";
+
+                // Hide-to-tray applies to the main window only — a satellite's
+                // close button must actually close that satellite.
+                if is_main && commands::tray::should_hide_on_close(window.app_handle()) {
                     api.prevent_close();
                     let _ = window.hide();
+                    return;
+                }
+
+                // The main window owns the php-wasm runtime that satellites relay
+                // to. When it closes for real, take the satellites with it — a
+                // lingering satellite would freeze against a dead runtime.
+                if is_main {
+                    commands::window::close_all_satellites(window.app_handle());
                 }
             }
         });
