@@ -170,7 +170,8 @@ why there is one runtime and one database no matter how many windows you open.
 ## Notes
 
 - **Desktop only.** Mobile has no OS multi-window; the call is a no-op there.
-- **Closing the main window quits the app**, so its extra windows close with it —
-  they are children of the runtime that feeds them.
+- **Closing the main window closes every extra window with it.** They render
+  through the main window's runtime, so the framework shuts them down rather than
+  leave them frozen against a runtime that's gone.
 - Human-paced use is smooth. Because there is one runtime, requests are
   serialized; avoid designs where many windows hammer it at the same instant.
