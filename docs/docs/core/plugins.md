@@ -80,8 +80,8 @@ Every plugin below is opt-in: declare the ones you use in
 |--------|------------------|
 | [`Plugin::NETWORK`](/core/network/) | Connectivity status and the `nb:network-changed` event. `networkStatus()`. |
 | [`Plugin::CLIPBOARD`](/mobile/clipboard/) | Read and write the clipboard. `clipboardWrite()`, `clipboardRead()`. |
-| `Plugin::UPLOAD` | Streaming HTTP uploads. `upload($path, $url)`. |
-| `Plugin::HTTP` | Native HTTP requests (bypasses CORS). |
+| [`Plugin::UPLOAD`](/core/upload/) | Streaming HTTP uploads. `upload($path, $url)`. |
+| [`Plugin::HTTP`](/core/http/) | Native HTTP requests (bypasses CORS). |
 | [`Plugin::DEEP_LINK`](/configuration/deep-links/) | Universal and app links via `NativeBladeConfig::deepLinks()`. |
 
 **Desktop**

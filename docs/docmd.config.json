@@ -60,6 +60,8 @@
         { "title": "Database", "path": "/core/database/" },
         { "title": "Filesystem", "path": "/core/filesystem/" },
         { "title": "Network", "path": "/core/network/" },
+        { "title": "HTTP", "path": "/core/http/" },
+        { "title": "Upload", "path": "/core/upload/" },
         { "title": "Cache", "path": "/core/cache/" },
         { "title": "Realtime", "path": "/core/realtime/" },
         { "title": "Scheduler", "path": "/core/scheduler/" },
