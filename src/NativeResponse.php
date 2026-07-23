@@ -1110,7 +1110,18 @@ class NativeResponse
     {
         $window = new Window();
         $callback($window);
-        return $this->push('open_window', $window->toArray());
+        $config = $window->toArray();
+
+        // Register the component so the satellite's /__nb/window/{id} render can
+        // resolve it (the satellite has no runtime — the main one renders it).
+        if (isset($config['id'], $config['component'])) {
+            try {
+                app('nativeblade')->setState("window.component.{$config['id']}", $config['component']);
+            } catch (\Throwable) {
+            }
+        }
+
+        return $this->push('open_window', $config);
     }
 
     /** Close a satellite window by its `id`. */

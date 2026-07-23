@@ -23,6 +23,27 @@ let transition = 'none';
 let autoUpdateInitialized = false;
 let defaultBridgeCallback = null;
 
+// Promise-based request that ALSO awaits bridge (Http/DB/FS) fulfillment, so the
+// caller gets the FINAL result, not a `bridgePending` stub. Used by the window
+// relay so a satellite component can use the DB/filesystem/HTTP — the native work
+// runs here, on the main window's runtime. Serialized: bridge completion uses a
+// single global callback, so overlapping bridged requests must not clobber it.
+let requestFullQueue = Promise.resolve();
+export function requestFull(path, options) {
+    const run = async () => {
+        const result = await request(path, options);
+        if (!result || !result.bridgePending) return result;
+        return new Promise((resolve) => {
+            setOnBridgeComplete((completed) => {
+                setOnBridgeComplete(defaultBridgeCallback);
+                resolve(completed);
+            });
+        });
+    };
+    requestFullQueue = requestFullQueue.then(run, run);
+    return requestFullQueue;
+}
+
 export function goBack() {
     // Drop any falsy entries defensively (stacks persisted before the null
     // guard existed, or future regressions) — backing into one 404s.

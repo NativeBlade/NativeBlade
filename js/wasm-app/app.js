@@ -5,10 +5,12 @@ import './components/camera/camera.css';
 import './components/drawer/drawer.css';
 import './components/scanner/scanner.css';
 
-import { boot, t, loadTranslations } from '../runtime/wasm-server.js';
+import { boot, t, loadTranslations, request } from '../runtime/wasm-server.js';
 import { init as initShell } from './shell.js';
-import { init as initBridge, handleNativeAction } from './bridge.js';
-import { init as initRouter, navigate, getCurrentPath, goBack, runBoot } from './router.js';
+import { init as initBridge, handleNativeAction, postToApp } from './bridge.js';
+import { inject } from './interceptor.js';
+import { relayRequest, serveWindowRequests } from './window-relay.js';
+import { init as initRouter, navigate, getCurrentPath, goBack, runBoot, requestFull } from './router.js';
 import { init as initHotReload } from './hot-reload.js';
 import { init as initStore, restoreToWasm, startAutoSync } from './state-store.js';
 import { init as initPush } from './push.js';
@@ -32,71 +34,64 @@ const status = document.getElementById('status') || { textContent: '', style: {}
 // origin-null app iframe?). The relay + component render land in slice 2.
 // Two synchronous signals, so satellite detection can't silently fail into a
 // second php-wasm boot: the init-script global, then the Tauri window label.
+// Two synchronous signals so detection can't fail into a second php-wasm boot:
+// the init-script global (Rust open_window), then the Tauri window label.
 function getSatelliteId() {
     if (typeof window === 'undefined') return null;
-
-    // Diagnostic: dump both signals + the raw internals so we can find where
-    // the window label actually lives in this Tauri version.
-    try {
-        console.info('[NB detect] __NB_SATELLITE__ =', window.__NB_SATELLITE__);
-        console.info('[NB detect] internals.metadata =',
-            JSON.stringify(window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.metadata));
-    } catch (e) {
-        console.info('[NB detect] internals dump failed:', e);
-    }
-
     if (window.__NB_SATELLITE__) return String(window.__NB_SATELLITE__);
-
-    // Backup: scan the internals object for anything that looks like our label.
     try {
         const meta = window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.metadata;
-        const candidates = [
-            meta && meta.currentWindow && meta.currentWindow.label,
-            meta && meta.currentWebview && meta.currentWebview.label,
-            meta && meta.__currentWindow && meta.__currentWindow.label,
-        ];
-        for (const lbl of candidates) {
-            if (typeof lbl === 'string' && lbl.indexOf('nb-window-') === 0) {
-                return lbl.slice('nb-window-'.length);
-            }
-        }
+        const lbl = (meta && meta.currentWindow && meta.currentWindow.label) || '';
+        if (lbl.indexOf('nb-window-') === 0) return lbl.slice('nb-window-'.length);
     } catch (e) {}
     return null;
 }
 
-function bootSatellite(id) {
-    console.info('[NB satellite] SATELLITE PATH ran, id=' + id
-        + ' (via ' + (window.__NB_SATELLITE__ ? 'init-script' : 'label') + ')');
+// Slice 2: the satellite renders a real Livewire component. Its app iframe is
+// origin-null (has no Tauri); this shell doc relays the iframe's requests over
+// IPC to the main window's php-wasm and posts the responses back — livewire.js
+// morphs locally, unaware the response crossed a window boundary.
+async function bootSatellite(id) {
+    document.body.style.cssText = 'margin:0';
+    document.body.innerHTML = '';
 
-    const shellHasTauri = !!window.__TAURI_INTERNALS__;
-    document.body.style.cssText = 'margin:0;background:#0a7d2e;color:#fff;font:16px system-ui,sans-serif';
-    document.body.innerHTML =
-        '<div style="padding:24px">'
-        + '<div style="font-size:22px;font-weight:800;margin-bottom:12px">✅ SATELLITE WINDOW</div>'
-        + 'id: <b>' + id + '</b><br>'
-        + 'shell __TAURI__: <b>' + shellHasTauri + '</b>'
-        + '<div id="nb-probe" style="margin-top:12px;opacity:.9">probing iframe reachability…</div>'
-        + '</div>';
+    const frame = document.createElement('iframe');
+    frame.id = 'app';
+    frame.style.cssText = 'border:0;width:100vw;height:100vh;display:block';
+    document.body.appendChild(frame);
 
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'width:90%;height:44px;margin:0 24px;border:0;background:#064d1c';
-    iframe.srcdoc =
-        '<body style="margin:0;color:#cfffd6;font:13px system-ui;padding:10px;background:#064d1c">'
-        + '<' + 'script>'
-        + 'var t = !!window.__TAURI_INTERNALS__;'
-        + 'document.body.textContent = "iframe __TAURI__: " + t;'
-        + 'parent.postMessage({ __nbProbe: true, iframeHasTauri: t }, "*");'
-        + '</' + 'script></body>';
-    document.body.appendChild(iframe);
+    // Bridge so native actions dispatched by the component run with THIS window's
+    // Tauri context (dialogs attach here, etc.).
+    try { await initBridge(frame); } catch (e) { console.warn('[NB satellite] bridge init failed', e); }
 
-    window.addEventListener('message', function (e) {
-        if (e.data && e.data.__nbProbe) {
-            console.info('[NB satellite] reachability:', { shellHasTauri, iframeHasTauri: e.data.iframeHasTauri });
-            const el = document.getElementById('nb-probe');
-            if (el) el.textContent = 'iframe __TAURI__: ' + e.data.iframeHasTauri
-                + (e.data.iframeHasTauri ? '  (relay maybe unnecessary)' : '  (relay via shell — expected)');
+    // Relay the iframe's traffic. Requests → main runtime → response back;
+    // native actions execute in this satellite's shell.
+    window.addEventListener('message', async function (e) {
+        const d = e.data;
+        if (!d || typeof d.type !== 'string') return;
+        if (d.type === 'nativeblade-request') {
+            const result = await relayRequest(d.path, d.options);
+            frame.contentWindow && frame.contentWindow.postMessage(
+                { type: 'nativeblade-response', id: d.id, result }, '*');
+        } else if (d.type === 'nativeblade-native') {
+            handleNativeAction(d.action, d.payload, frame, e.source);
         }
     });
+
+    // Initial render: fetch the component's page via the relay, inject the
+    // interceptor, boot it in the iframe.
+    try {
+        const result = await relayRequest('/__nb/window/' + id, { method: 'GET' });
+        if (!result || !result.text) {
+            document.body.innerHTML = '<div style="padding:20px;font:14px system-ui;color:#b00">'
+                + 'window render failed for id=' + id + ' — status '
+                + (result && result.httpStatusCode) + '</div>';
+            return;
+        }
+        frame.srcdoc = inject(result.text);
+    } catch (e) {
+        console.error('[NB satellite] initial render failed', e);
+    }
 }
 
 async function main() {
@@ -104,29 +99,16 @@ async function main() {
     // BEFORE this bundle runs. A satellite must NEVER reach boot() below — a
     // second php-wasm deadlocks the shared IndexedDB and freezes both windows.
     const satelliteId = getSatelliteId();
-
-    // Cross-window debug: same-origin shell docs share a BroadcastChannel, so a
-    // satellite's flow shows up in the MAIN window's console (easy to open).
-    let ownLabel = '?';
-    try {
-        const meta = window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.metadata;
-        ownLabel = (meta && meta.currentWindow && meta.currentWindow.label) || '?';
-        const bc = new BroadcastChannel('nb-win-debug');
-        bc.onmessage = (e) => console.info('[NB OTHER WINDOW]', e.data);
-        bc.postMessage({ label: ownLabel, satelliteGlobal: window.__NB_SATELLITE__, resolvedSatelliteId: satelliteId });
-    } catch (e) {}
-
-    console.info('[NB flow] main() start — label=', ownLabel,
-        '| __NB_SATELLITE__=', window.__NB_SATELLITE__,
-        '| resolved satelliteId=', satelliteId);
-
     if (satelliteId) {
-        console.info('[NB flow] → SATELLITE branch (no php-wasm)');
         bootSatellite(satelliteId);
         return;
     }
 
-    console.info('[NB flow] → MAIN branch (booting php-wasm)');
+    // Main window: service satellite windows' relayed requests on this runtime.
+    // requestFull awaits bridge (DB/fs/HTTP) fulfillment so satellite components
+    // can use them — the native work runs here.
+    serveWindowRequests(requestFull).catch((e) => console.warn('[NB relay] serve setup failed', e));
+
     try {
         await loadTranslations();
 

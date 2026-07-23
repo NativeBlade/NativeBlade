@@ -55,11 +55,10 @@ pub async fn open_window(app: AppHandle, config: WindowConfig) -> Result<(), Str
     }
 
     let url = WebviewUrl::App("index.html".into());
+    // Runs before the app bundle, so the JS boot sees the id synchronously and
+    // enters satellite mode instead of booting a second php-wasm.
     let id_json = serde_json::to_string(&config.id).unwrap_or_else(|_| "\"\"".into());
-    let init_script = format!(
-        "console.log('[NB init-script] ran; satellite id =', {id}); window.__NB_SATELLITE__ = {id};",
-        id = id_json
-    );
+    let init_script = format!("window.__NB_SATELLITE__ = {id};", id = id_json);
     let mut builder = WebviewWindowBuilder::new(&app, lbl.as_str(), url)
         .initialization_script(&init_script)
         .title(config.id.as_str())
