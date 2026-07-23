@@ -1112,13 +1112,18 @@ class NativeResponse
         $callback($window);
         $config = $window->toArray();
 
+        // A satellite renders by class, resolved at /__nb/window/{id}; without
+        // both the window can't render (404) — fail loud at the call site.
+        if (! isset($config['id'], $config['component'])) {
+            throw new \InvalidArgumentException('NativeBlade::window() requires both id() and component().');
+        }
+
         // Register the component so the satellite's /__nb/window/{id} render can
         // resolve it (the satellite has no runtime — the main one renders it).
-        if (isset($config['id'], $config['component'])) {
-            try {
-                app('nativeblade')->setState("window.component.{$config['id']}", $config['component']);
-            } catch (\Throwable) {
-            }
+        // Own scope so it can be bulk-cleared and never collides with app state.
+        // Skipped when the runtime isn't bound (e.g. pure unit tests).
+        if (app()->bound('nativeblade')) {
+            app('nativeblade')->setState("window.component.{$config['id']}", $config['component'], 'window');
         }
 
         return $this->push('open_window', $config);

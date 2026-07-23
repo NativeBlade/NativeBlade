@@ -5,9 +5,9 @@ import './components/camera/camera.css';
 import './components/drawer/drawer.css';
 import './components/scanner/scanner.css';
 
-import { boot, t, loadTranslations, request } from '../runtime/wasm-server.js';
+import { boot, t, loadTranslations } from '../runtime/wasm-server.js';
 import { init as initShell } from './shell.js';
-import { init as initBridge, handleNativeAction, postToApp } from './bridge.js';
+import { init as initBridge, handleNativeAction } from './bridge.js';
 import { inject } from './interceptor.js';
 import { relayRequest, serveWindowRequests } from './window-relay.js';
 import { init as initRouter, navigate, getCurrentPath, goBack, runBoot, requestFull } from './router.js';
@@ -28,14 +28,12 @@ const splash = document.getElementById('splash');
 const appFrame = document.getElementById('app');
 const status = document.getElementById('status') || { textContent: '', style: {} };
 
-// SLICE 1 (WINDOWS.md): a satellite window loads the same frontend with
-// ?nbWindow={id}. It must NOT boot php-wasm — for now it just proves the window
-// opened and answers the reachability question (is Tauri reachable from the
-// origin-null app iframe?). The relay + component render land in slice 2.
-// Two synchronous signals, so satellite detection can't silently fail into a
-// second php-wasm boot: the init-script global, then the Tauri window label.
-// Two synchronous signals so detection can't fail into a second php-wasm boot:
-// the init-script global (Rust open_window), then the Tauri window label.
+// WINDOWS.md: a satellite window loads the same frontend but must NOT boot
+// php-wasm — a second runtime deadlocks the shared IndexedDB and freezes both
+// windows. Detection uses two synchronous signals so it can never fall through
+// into a second boot:
+//   1) window.__NB_SATELLITE__ — set by Rust open_window's initialization_script
+//   2) the Tauri window label (nb-window-{id}) — fallback
 function getSatelliteId() {
     if (typeof window === 'undefined') return null;
     if (window.__NB_SATELLITE__) return String(window.__NB_SATELLITE__);
@@ -67,6 +65,9 @@ async function bootSatellite(id) {
     // Relay the iframe's traffic. Requests → main runtime → response back;
     // native actions execute in this satellite's shell.
     window.addEventListener('message', async function (e) {
+        // Only accept traffic from THIS window's own app iframe — never from any
+        // other frame/script that might postMessage into this window.
+        if (e.source !== frame.contentWindow) return;
         const d = e.data;
         if (!d || typeof d.type !== 'string') return;
         if (d.type === 'nativeblade-request') {

@@ -8,6 +8,12 @@ let reqSeq = 1;
 const pending = new Map();
 let responseListener = null;
 
+// Safety net: if a response never comes back (a dropped IPC event, a main window
+// that died without quitting the app), resolve with an error instead of hanging
+// the satellite UI forever and leaking the pending entry. Generous — real bridged
+// work (DB/HTTP) is human-paced and finishes well within this.
+const RELAY_TIMEOUT_MS = 30000;
+
 // --- satellite side ------------------------------------------------------
 
 async function ensureResponseListener() {
@@ -32,7 +38,14 @@ export async function relayRequest(path, options) {
     // B's response (both would otherwise start at s1).
     const prefix = (typeof window !== 'undefined' && window.__NB_SATELLITE__) || 'w';
     const reqId = prefix + '-s' + (reqSeq++);
-    const p = new Promise((resolve) => pending.set(reqId, resolve));
+    const p = new Promise((resolve) => {
+        const timer = setTimeout(() => {
+            if (!pending.has(reqId)) return;
+            pending.delete(reqId);
+            resolve({ text: 'window relay timed out', httpStatusCode: 504 });
+        }, RELAY_TIMEOUT_MS);
+        pending.set(reqId, (result) => { clearTimeout(timer); resolve(result); });
+    });
     await emit('nb-window-request', { reqId, path, options: options || {} });
     return p;
 }
