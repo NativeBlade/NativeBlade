@@ -2,9 +2,9 @@
 //!
 //! The JS router asks the platform to snapshot the current page as a native
 //! overlay, swaps the DOM instantly beneath it, and the platform animates the
-//! overlay away in its own idiom (Material on Android; iOS push/pop when the
-//! Swift side lands). Android-only prototype — every other platform reports
-//! Unsupported and the router falls back to CSS transitions.
+//! overlay away in its own idiom (Material shared-axis on Android, a push/pop
+//! slide on iOS). Desktop reports Unsupported and the router falls back to CSS
+//! transitions there.
 
 use tauri::{
     plugin::{Builder, TauriPlugin},
@@ -27,14 +27,14 @@ pub struct SnapshotRect {
     pub dpr: f32,
 }
 
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", target_os = "ios"))]
 mod mobile;
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod desktop;
 
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", target_os = "ios"))]
 pub use mobile::NativeBladeNativeNav;
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub use desktop::NativeBladeNativeNav;
 
 pub trait NativeBladeNativeNavExt<R: Runtime> {
@@ -50,9 +50,9 @@ impl<R: Runtime, T: Manager<R>> NativeBladeNativeNavExt<R> for T {
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("nativeblade-native-nav")
         .setup(|app, api| {
-            #[cfg(target_os = "android")]
+            #[cfg(any(target_os = "android", target_os = "ios"))]
             let handle = mobile::init(app, api)?;
-            #[cfg(not(target_os = "android"))]
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
             let handle = desktop::init(app, api)?;
 
             app.manage(handle);

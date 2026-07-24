@@ -8,7 +8,11 @@ use tauri::{
 use crate::error::Result;
 use crate::SnapshotRect;
 
+#[cfg(target_os = "android")]
 const PLUGIN_IDENTIFIER: &str = "app.nativeblade.nativenav";
+
+#[cfg(target_os = "ios")]
+tauri::ios_plugin_binding!(init_plugin_nativeblade_native_nav);
 
 pub struct NativeBladeNativeNav<R: Runtime>(PluginHandle<R>);
 
@@ -41,6 +45,11 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
     _app: &AppHandle<R>,
     api: PluginApi<R, C>,
 ) -> Result<NativeBladeNativeNav<R>> {
+    #[cfg(target_os = "android")]
     let handle = api.register_android_plugin(PLUGIN_IDENTIFIER, "NativeNavPlugin")?;
+
+    #[cfg(target_os = "ios")]
+    let handle = api.register_ios_plugin(init_plugin_nativeblade_native_nav)?;
+
     Ok(NativeBladeNativeNav(handle))
 }
