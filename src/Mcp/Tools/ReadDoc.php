@@ -42,6 +42,16 @@ class ReadDoc implements Tool
             throw new \InvalidArgumentException('Invalid doc name. Use the exact path from list_docs (e.g. "core/plugins.md").');
         }
 
+        if ($name === 'ARCHITECTURE.md' || $name === 'core/architecture.md') {
+            $arch = $this->pkgRoot() . '/ARCHITECTURE.md';
+            $content = is_file($arch) ? file_get_contents($arch) : false;
+            if ($content === false) {
+                throw new \RuntimeException('Failed to read ARCHITECTURE.md.');
+            }
+
+            return $content;
+        }
+
         $root = realpath($this->docsRoot());
         $real = realpath($this->docsRoot() . '/' . $name);
         if ($root === false || $real === false
@@ -58,8 +68,13 @@ class ReadDoc implements Tool
         return $content;
     }
 
+    private function pkgRoot(): string
+    {
+        return dirname(__DIR__, 3);
+    }
+
     private function docsRoot(): string
     {
-        return dirname(__DIR__, 3) . '/docs/docs';
+        return $this->pkgRoot() . '/docs/docs';
     }
 }

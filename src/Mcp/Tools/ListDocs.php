@@ -40,6 +40,11 @@ class ListDocs implements Tool
                 }
                 $path = $file->getPathname();
                 $name = ltrim(str_replace('\\', '/', substr($path, strlen($root))), '/');
+
+                if ($name === 'core/architecture.md') {
+                    continue;
+                }
+
                 [$title, $summary] = $this->parseHeader($path);
                 $docs[] = [
                     'name' => $name,
@@ -50,6 +55,17 @@ class ListDocs implements Tool
             }
         }
 
+        $arch = $this->pkgRoot() . '/ARCHITECTURE.md';
+        if (is_file($arch)) {
+            [$title, $summary] = $this->parseHeader($arch);
+            $docs[] = [
+                'name' => 'ARCHITECTURE.md',
+                'title' => $title,
+                'summary' => $summary,
+                'size_bytes' => filesize($arch) ?: 0,
+            ];
+        }
+
         usort($docs, fn ($a, $b) => strcmp($a['name'], $b['name']));
 
         return json_encode([
@@ -58,9 +74,14 @@ class ListDocs implements Tool
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }
 
+    private function pkgRoot(): string
+    {
+        return dirname(__DIR__, 3);
+    }
+
     private function docsRoot(): string
     {
-        return dirname(__DIR__, 3) . '/docs/docs';
+        return $this->pkgRoot() . '/docs/docs';
     }
 
     /**

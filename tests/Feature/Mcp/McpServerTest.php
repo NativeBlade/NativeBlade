@@ -261,8 +261,32 @@ class McpServerTest extends TestCase
         $names = $this->listDocNames();
 
         $this->assertContains('core/plugins.md', $names);
-        $this->assertContains('core/architecture.md', $names);
         $this->assertContains('mobile/media.md', $names);
+    }
+
+    public function test_list_docs_serves_root_architecture_not_the_docs_page(): void
+    {
+        $names = $this->listDocNames();
+
+        // The MCP exposes the full canonical ARCHITECTURE.md from the repo root
+        // and hides the condensed docs-site overview, so the agent never builds
+        // on a summary (which would invite hallucination).
+        $this->assertContains('ARCHITECTURE.md', $names);
+        $this->assertNotContains('core/architecture.md', $names);
+    }
+
+    public function test_read_doc_serves_full_root_architecture(): void
+    {
+        $full = $this->callTool('read_doc', ['name' => 'ARCHITECTURE.md']);
+
+        // The complete guide, not the ~2 KB docs-site summary.
+        $this->assertStringContainsString('Component = Controller', $full);
+        $this->assertGreaterThan(5000, strlen($full));
+
+        // The docs-site path resolves to the same canonical file, so an agent
+        // that asks for it still gets the full architecture.
+        $viaDocsPath = $this->callTool('read_doc', ['name' => 'core/architecture.md']);
+        $this->assertSame($full, $viaDocsPath);
     }
 
     public function test_list_docs_walks_nested_directories(): void

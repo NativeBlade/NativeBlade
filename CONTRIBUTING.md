@@ -1,16 +1,17 @@
 # Contributing
 
-We welcome contributions! NativeBlade is a community-driven project and there are many ways to help.
+NativeBlade is a community-driven, MIT-licensed project, and there are many ways
+to help: docs, examples, bug reports, testing on real devices, and code across
+the PHP, JS, Rust, and native layers.
 
-## Getting Started
+## Getting started
 
-1. Fork the repository
-2. Clone your fork:
+1. Fork and clone the repository:
    ```bash
    git clone git@github.com:YOUR_USERNAME/NativeBlade.git
    cd NativeBlade
    ```
-3. Create a test Laravel project and add the package locally via `composer.json`:
+2. Create a test Laravel project and point it at your local copy:
    ```json
    "repositories": [
        { "type": "path", "url": "../NativeBlade" }
@@ -18,54 +19,85 @@ We welcome contributions! NativeBlade is a community-driven project and there ar
    ```
    ```bash
    composer require nativeblade/nativeblade:@dev
+   php artisan nativeblade:install
    ```
-4. Make your changes, test them, and submit a PR.
+3. Make your change, test it against that real app, and open a PR.
 
-## Project Structure
+## Project structure
 
 ```
 NativeBlade/
-├── src/            ← PHP (ShellConfig, NativeResponse, Commands, Facades)
+├── src/            PHP: Config, NativeResponse, Commands, Facades, Plugins, Mcp
 ├── js/
-│   ├── wasm-app/   ← Shell runtime (router, bridge, interceptor, components)
-│   ├── runtime/    ← PHP WASM engine (request handler, filesystem, boot)
-│   └── scripts/    ← Build scripts (bundle-laravel, mobile-dev)
-├── rust/           ← Tauri crate (bridge, menu, tray, config)
-└── stubs/          ← Templates used by nativeblade:install
+│   ├── wasm-app/   Shell runtime (router, bridge, interceptor, shell components)
+│   ├── runtime/    php-wasm engine (request handler, http/db/fs bridges, boot)
+│   └── scripts/    Build scripts (bundle-laravel, watchers)
+├── rust/
+│   ├── src/        Core Tauri crate (windows, menu, tray, commands)
+│   └── plugins/    One Tauri plugin per native feature, each with an
+│                   android/ (Kotlin) and ios/ (Swift) implementation
+├── stubs/          Templates used by nativeblade:install
+└── docs/           The documentation site (docmd). See docs/README.md.
 ```
 
-## Areas Where You Can Help
+## Where you can help
 
-- **New native actions** — Add support for more Tauri plugins (clipboard, updater, global shortcuts)
-- **Shell components** — Built-in modal, FAB, or other shell-level UI
-- **Mobile improvements** — Better Android/iOS integration, gestures, deep links
-- **Performance** — WASM boot time, bundle size optimization, caching strategies
-- **Testing** — Unit tests for PHP classes, integration tests for the JS runtime
-- **Documentation** — Tutorials, guides, examples, translations
-- **Bug fixes** — Check [open issues](https://github.com/NativeBlade/NativeBlade/issues)
+- **Documentation.** The docs live in `docs/` (a docmd site). See
+  [docs/README.md](docs/README.md) for how to run it locally and the writing
+  conventions. This is the best first contribution.
+- **PHP layer (`src/`).** Commands, config builders, the facade, the MCP tools.
+- **JS runtime (`js/`).** The bridges, the router, shell components. Picked up by
+  Vite hot reload during `nativeblade:dev`.
+- **Native plugins (`rust/plugins/`).** The hard part, since each feature is Rust
+  plus Kotlin plus Swift. See below.
+- **Examples, bug reports, and device testing.** Reproducing an issue on a real
+  device and reporting cleanly is real, valued work.
 
-## Development Tips
+## Adding a native plugin
 
-- PHP classes are in `src/` with PSR-4 autoloading under the `NativeBlade\` namespace
-- JS changes in `js/wasm-app/` are picked up by Vite hot reload during development
-- Rust changes in `rust/` require a `cargo build` (Tauri handles this during `nativeblade:dev`)
-- Stubs in `stubs/` use `{{PLACEHOLDER}}` syntax replaced by the install command
-- The `NativeBladeServiceProvider` is the entry point — it registers everything
+The plugin system is declarative, so most of the wiring is generated:
 
-## Submitting a Pull Request
+1. Add a case to the `Plugin` enum in `src/Config/Plugin.php`.
+2. Describe it in `src/Config/PluginRegistry.php`: the Cargo feature, crate,
+   `rust_init`, capabilities, npm packages, and permissions.
+3. Implement the plugin under `rust/plugins/<name>/`, with `android/` (Kotlin)
+   and `ios/` (Swift). Mirror an existing one such as `network` for the layout,
+   the `register_android_plugin` / `register_ios_plugin` wiring, and the
+   `Package.swift`.
 
-1. Create a feature branch: `git checkout -b feature/my-feature`
-2. Keep commits focused and descriptive
-3. Test your changes against a real Laravel + Livewire project
-4. Make sure existing functionality isn't broken
-5. Submit your PR with a clear description of what and why
+`php artisan nativeblade:config` then rewrites the app's `Cargo.toml`,
+capabilities, `AndroidManifest`, `Info.plist`, and `package.json` from your
+descriptor. Nothing is edited by hand.
 
-## Reporting Issues
+## Running the tests
 
-When reporting bugs, please include:
+Three suites run on every push to `main`:
 
-- PHP, Laravel, and Livewire versions
-- Platform (Windows/macOS/Linux/Android/iOS)
-- Steps to reproduce
-- Expected vs actual behavior
-- Console errors if applicable
+```bash
+composer test                 # PHP (PHPUnit via Testbench, Laravel 12/13, PHP 8.3-8.5)
+npm test                      # JS runtime (node:test, no browser)
+cd rust && cargo test --lib   # Rust command handlers
+```
+
+Run everything at once:
+
+```bash
+composer test && npm test && (cd rust && cargo test --lib)
+```
+
+## Submitting a pull request
+
+1. Create a feature branch: `git checkout -b feature/my-change`.
+2. Keep commits focused and descriptive.
+3. Test your change against a real Laravel + Livewire app, and run the suites
+   above so nothing existing breaks.
+
+**Native changes need device proof.** Automated tests do not cover the Kotlin or
+Swift on a real screen. If your PR touches native code, describe what you tested
+and on which platform and device. Maintainers validate native changes against
+real apps before merging, so that context speeds up your review.
+
+## License
+
+By contributing, you agree that your contributions are licensed under the MIT
+license.
