@@ -53,7 +53,7 @@ class VideoScreen extends Component
 }
 ```
 
-## JS side, `nativeblade-components/video-player/video-player.js`
+## JS side
 
 Shell modules live in the app's `nativeblade-components/` folder, the same
 place (and `@components` build alias) custom shell components use. They are

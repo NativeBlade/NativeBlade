@@ -270,7 +270,7 @@ public function unmount(): void
 }
 ```
 
-## 8. High-frequency feeds: deliver straight to JS (`deliver: 'js'`)
+## 8. High-frequency feeds: deliver straight to JS
 
 Every default realtime event becomes a Livewire `#[On]` dispatch, a full
 php-wasm request. That's right for **human-paced** traffic (chat, presence,

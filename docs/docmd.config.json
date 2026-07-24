@@ -100,6 +100,7 @@
         { "title": "Payments", "path": "/mobile/payments/" },
         { "title": "Analytics", "path": "/mobile/analytics/" },
         { "title": "Background Tasks", "path": "/mobile/tasks/" },
+        { "title": "Native Navigation", "path": "/mobile/native-nav/" },
         { "title": "Dialogs", "path": "/mobile/dialogs/" },
         { "title": "Clipboard", "path": "/mobile/clipboard/" },
         { "title": "Opener", "path": "/mobile/opener/" },

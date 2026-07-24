@@ -33,5 +33,43 @@ public function mount()
 }
 ```
 
----
+## In JavaScript
+
+### From a shell module or shell script
+
+Shell JavaScript runs in the shell document, where the framework sets a
+synchronous flag at boot, so you can branch without any await:
+
+```js
+if (window.__NB_IS_MOBILE__) {
+    // Android or iOS
+} else {
+    // desktop
+}
+```
+
+### From a page script (`public/js`)
+
+Your page scripts run in an isolated frame, so hand them the platform from PHP
+with `jsEvent`:
+
+```php
+return NativeBlade::jsEvent('platform', ['os' => NativeBlade::platform()])->toResponse();
+```
+
+```js
+// public/js/app/main.js
+window.addEventListener('nb:js:platform', (e) => {
+    if (e.detail.os === 'android' || e.detail.os === 'ios') {
+        // mobile
+    }
+});
+```
+
+For a quick check without a round-trip, plain `navigator.userAgent` also works in
+any script:
+
+```js
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+```
 

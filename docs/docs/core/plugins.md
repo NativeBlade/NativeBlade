@@ -72,7 +72,7 @@ Every plugin below is opt-in: declare the ones you use in
 | [`Plugin::PAYMENTS`](/mobile/payments/) | In-app purchases and subscriptions. |
 | [`Plugin::ANALYTICS`](/mobile/analytics/) | Firebase events, screens, user properties. |
 | [`Plugin::TASK_MANAGER`](/mobile/tasks/) | Background courier: periodic `fetch` and `post`. |
-| [`Plugin::NATIVE_NAV`](/core/navigation/) | Native page transitions (Android). |
+| [`Plugin::NATIVE_NAV`](/mobile/native-nav/) | Native page transitions: native compositor on Android, CSS fallback elsewhere. |
 
 **Cross-platform**
 
