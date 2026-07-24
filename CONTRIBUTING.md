@@ -4,12 +4,20 @@ NativeBlade is a community-driven, MIT-licensed project, and there are many ways
 to help: docs, examples, bug reports, testing on real devices, and code across
 the PHP, JS, Rust, and native layers.
 
+## Branches
+
+NativeBlade ships as SDK versions, one branch each: `37.x` for SDK 37, `38.x`
+for the next, and so on. `main` always mirrors the latest SDK branch. Base your
+work on the SDK branch you are targeting (usually the latest), not on `main`.
+
 ## Getting started
 
-1. Fork and clone the repository:
+1. Fork and clone the repository, then check out the SDK branch you are
+   targeting (usually the latest, for example `37.x`):
    ```bash
    git clone git@github.com:YOUR_USERNAME/NativeBlade.git
    cd NativeBlade
+   git checkout 37.x
    ```
 2. Create a test Laravel project and point it at your local copy:
    ```json
@@ -87,10 +95,12 @@ composer test && npm test && (cd rust && cargo test --lib)
 
 ## Submitting a pull request
 
-1. Create a feature branch: `git checkout -b feature/my-change`.
+1. Branch from the SDK branch you are targeting, not `main`:
+   `git checkout 37.x && git checkout -b feature/my-change`.
 2. Keep commits focused and descriptive.
 3. Test your change against a real Laravel + Livewire app, and run the suites
    above so nothing existing breaks.
+4. Open the PR against that same SDK branch (for example `37.x`), not `main`.
 
 **Native changes need device proof.** Automated tests do not cover the Kotlin or
 Swift on a real screen. If your PR touches native code, describe what you tested
