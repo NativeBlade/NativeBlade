@@ -35,7 +35,7 @@ describe('component-registry adaptComponent', () => {
     });
 
     it('wraps a default-export module into a render(data) driver', () => {
-        const mod = { default: { mount() {}, update() {}, destroy() {} } };
+        const mod = { default: (nb) => {} };
         const wrapped = adaptComponent('tab-bar', mod);
 
         assert.notEqual(wrapped, mod);
@@ -44,14 +44,14 @@ describe('component-registry adaptComponent', () => {
     });
 
     it('the wrapper mounts the module through the host-less path', async () => {
-        const calls = [];
-        const mod = { default: { mount(ctx, props) { calls.push(['mount', props]); }, update() {}, destroy() {} } };
+        const seen = [];
+        const mod = { default: (nb) => nb.php.watch('message', (m) => seen.push(m)) };
         shellModule.__setModuleLoaderForTest(() => mod.default);
 
         const wrapped = adaptComponent('tab-bar', mod);
         wrapped.render({ message: 'Hi' });
         await new Promise((r) => setImmediate(r)); // let the dynamic import + mount settle
 
-        assert.deepEqual(calls, [['mount', { message: 'Hi' }]]);
+        assert.deepEqual(seen, ['Hi']);
     });
 });

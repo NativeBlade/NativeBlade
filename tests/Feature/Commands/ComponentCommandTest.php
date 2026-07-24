@@ -74,11 +74,11 @@ final class ComponentCommandTest extends TestCase
 
         $js = file_get_contents(base_path('nativeblade-components/loader/loader.js'));
         self::assertStringContainsString("import './loader.css';", $js);
-        self::assertStringContainsString('id = \'nb-loader\'', $js);
+        self::assertStringContainsString('nb-loader', $js);
     }
 
     #[Test]
-    public function js_stub_has_the_full_module_contract(): void
+    public function js_stub_uses_the_nb_setup_form(): void
     {
         $this->artisan('nativeblade:component', ['name' => 'mini-player'])
             ->assertExitCode(0);
@@ -86,9 +86,9 @@ final class ComponentCommandTest extends TestCase
         $js = file_get_contents(base_path('nativeblade-components/mini-player/mini-player.js'));
 
         self::assertStringContainsString("import './mini-player.css';", $js);
-        self::assertStringContainsString('export default {', $js);
-        foreach (['mount(ctx, props)', 'update(props)', 'command(name, args)', 'destroy()'] as $hook) {
-            self::assertStringContainsString($hook, $js);
+        self::assertStringContainsString('export default (nb) => {', $js);
+        foreach (['nb.element', 'nb.php.watch', 'nb.php.emit'] as $api) {
+            self::assertStringContainsString($api, $js);
         }
     }
 

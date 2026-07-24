@@ -26,9 +26,9 @@ use, not per scaffold.
 <x-nativeblade-status-bar message="Saving..." />
 ```
 
-The module's `mount(ctx, props)` runs with the tag's attributes as `props` and
+The setup function runs with the tag's attributes as `props`, and the component
 is torn down when a screen stops rendering it. No Livewire component sits behind
-it, so `ctx.set` has nowhere to land (ignored with a warning) and `ctx.emit`
+it, so `nb.php.set` has nowhere to land (ignored with a warning) and `nb.php.emit`
 fires only the **generic global** event, which any
 `#[On('nb:shell:status-bar:{event}')]` on any component can catch. Use it for a
 nav bar, toast, or dialog that carries no server state.
@@ -47,8 +47,8 @@ runtime lives inside the app iframe and never reaches it. So `wire:model`,
 `wire:click`, `wire:submit`, and every other `wire:` directive are **dead** in a
 shell component, it is plain HTML and CSS (even your app's Tailwind classes do
 not cross the iframe boundary). You write the reactivity yourself in the
-module's JS, and the way back to PHP is the `ctx` bridge (`ctx.emit` for events,
-`ctx.set` for shell-owned props), never a directive. If a piece of UI truly
+module's JS, and the way back to PHP is the `nb.php` bridge (`emit` for events,
+`set` for shell-owned props), never a directive. If a piece of UI truly
 needs `wire:`, it belongs **in-app**, inside the iframe, not in the shell.
 :::
 
@@ -92,62 +92,87 @@ class VideoScreen extends Component
 
 ## JS side
 
-Shell modules live in the app's `nativeblade-components/` folder, the same
-place (and `@components` build alias) custom shell components use. They are
-bundled at build time, so split the module into as many files as you like and
-`import` freely; the default export is the module contract. Changes are picked
-up by the `nativeblade:dev` rebuild like any other shell component. Scaffold
-one with `php artisan nativeblade:component`.
+Shell components live in the app's `nativeblade-components/` folder (the same
+`@components` build alias custom shell components use), bundled at build time, so
+split one into as many files as you like and `import` freely. Scaffold it with
+`php artisan nativeblade:component`; `nativeblade:dev` rebuilds it on change.
 
-Besides `ctx.set` / `ctx.emit`, the ctx offers an **optional** positioning
-helper: `ctx.place(el, position, { offset = 10, zIndex = 99999 })` with
-positions `top-left|top-center|top-right|bottom-left|bottom-center|bottom-right|center`
-,  fixed placement, safe-area aware. It only sets what positioning needs;
-apply your own styles after the call to extend or override any of it (or skip
-the helper entirely and position by hand).
+The module is a **setup function** that receives one handle, `nb`. The function
+body IS the mount: state is plain closure variables, reactions register through
+`nb`, and cleanup is automatic.
 
 ```js
-export default {
-    video: null,
+export default (nb) => {
+    const video = nb.element.appendChild(document.createElement('video'));
 
-    mount(ctx, props) {
-        this.video = document.createElement('video');
-        this.video.src = props.url;
-        document.body.appendChild(this.video);
+    nb.php.watch('url',     (url) => video.src = url);                 // <- #[NativeProp] $url
+    nb.php.watch('playing', (on)  => on ? video.play() : video.pause());
+    nb.php.listen('seek',   ([s]) => video.currentTime = s);          // <- $this->shell('seek', 30)
 
-        this.video.addEventListener('timeupdate', () => {
-            ctx.set('position', Math.floor(this.video.currentTime));  // shell-owned prop
-        });
-        this.video.addEventListener('ended', () => ctx.emit('ended'));
-    },
-
-    update(props) {
-        // PARTIAL patch: only the props that CHANGED since the last flush.
-        // Absence means "unchanged", never "false", always guard with `in`.
-        if ('url' in props && this.video.src !== props.url) this.video.src = props.url;
-        if ('playing' in props) props.playing ? this.video.play() : this.video.pause();
-    },
-
-    command(name, args) {                 // $this->shell('seek', 30)
-        if (name === 'seek') this.video.currentTime = args[0];
-    },
-
-    destroy() {
-        this.video?.remove();
-        this.video = null;
-    },
+    video.ontimeupdate = () => nb.php.set('position', Math.floor(video.currentTime));
+    video.onended      = () => nb.php.emit('ended');
 };
+```
+
+### The `nb` handle
+
+| Member | What it does |
+|---|---|
+| `nb.element` | Your root `<div id="nb-{name}">`. Created on first access, appended for you, removed on destroy. |
+| `nb.php.watch(prop, fn)` | React to a PHP-owned `#[NativeProp]`. `fn(value)` runs with the initial value on mount and again on every change (partial patch, changed props only). |
+| `nb.php.listen(name, fn)` | React to `$this->shell(name, ...args)`. `fn(args)` gets the args array. |
+| `nb.php.set(key, value)` | Write a `#[NativeProp(from: SHELL)]` prop (bound only). |
+| `nb.php.emit(event, data)` | Fire `#[On('nb:shell:{name}:event')]` on any component. |
+| `nb.php.props` | Read-only snapshot of the last props PHP pushed. |
+| `nb.context.place(el, pos, opts)` | Optional safe-area positioning: `top-left\|top-center\|top-right\|bottom-left\|bottom-center\|bottom-right\|center`, `{ offset = 10, zIndex = 99999 }`. Sets only what positioning needs; style the rest yourself. |
+| `nb.context.id` / `nb.context.shell` | The instance id and the shell name. |
+| `nb.onCleanup(fn)` | Teardown for anything you made yourself (a `setInterval`, a `window` listener). What `nb` gave you (element, watchers, listeners) is torn down automatically. |
+
+::: callout warning "`nb.php` is not `$this`, and it is not RPC"
+`nb.php` is an async MESSAGE bridge to your bound Livewire component, not the
+live `$this` (a PHP object rebuilt per request inside the iframe, unreachable
+from the shell). So it is verbs only, `emit` / `listen` / `set` / `watch` /
+`props`, never `nb.php.call('SomeService::method')` or reading a component
+property inline. Everything crosses the iframe boundary as a message; nothing
+returns a value synchronously. A host-less (declarative `<x-...>`) component has
+no Livewire behind it, so `listen` and `set` are inert there, while `emit` still
+fires the global event and `props` still reflects the tag attributes.
+:::
+
+### Organize by feature, not by lifecycle
+
+Because `nb` is a value you pass around, split a growing component into helper
+functions (or files) grouped by concern, not by lifecycle phase, one feature no
+longer smears across mount/update/command/destroy:
+
+```js
+export default (nb) => {
+    const video = nb.element.appendChild(document.createElement('video'));
+    playback(nb, video);
+    progress(nb, video);
+};
+
+function playback(nb, video) {
+    nb.php.watch('url',     (url) => video.src = url);
+    nb.php.watch('playing', (on)  => on ? video.play() : video.pause());
+    nb.php.listen('seek',   ([s]) => video.currentTime = s);
+}
+
+function progress(nb, video) {
+    video.ontimeupdate = () => nb.php.set('position', Math.floor(video.currentTime));
+    video.onended      = () => nb.php.emit('ended');
+}
 ```
 
 ## Prop directions, one owner each
 
 | Declaration | Owner | How the other side sees it | Cost |
 |---|---|---|---|
-| `#[NativeProp]` | PHP | module's `update(props)`, a **partial patch** with only the changed props (`mount` gets them all) | rides the response |
-| `#[NativeProp(from: SHELL)]` | shell (`ctx.set`) | injected at hydrate on the **next natural request** | **zero** extra requests |
+| `#[NativeProp]` | PHP | the module's `nb.php.watch(prop, fn)`, fired with the value on mount and again on each change (partial patch) | rides the response |
+| `#[NativeProp(from: SHELL)]` | shell (`nb.php.set`) | injected at hydrate on the **next natural request** | **zero** extra requests |
 | `#[NativeProp(from: SHELL, throttle: 500)]` | shell | hydrate injection **plus** an active Livewire update at most once per 500 ms | one request per push, keep coarse |
 
-Default to ride-along. `ctx.set` at any frequency is safe, 60 writes/s cost
+Default to ride-along. `nb.php.set` at any frequency is safe, 60 writes/s cost
 nothing until PHP happens to run a request. Reach for `throttle` only when PHP
 must *react* to the change (re-render from the value), and never below a few
 hundred ms. To move a value against its direction (PHP adjusting a shell-owned
@@ -157,12 +182,12 @@ position), use a command: `$this->shell('seek', 30)`.
 semantics, not a gap: both hydrate injection and the throttled push assign the
 value directly, so `updatedPosition()` will not run, don't write it by reflex.
 A shell-owned prop is data you *read* inside an action, not an event you react
-to; when PHP must react to a moment, have the module `ctx.emit()` an event and
+to; when PHP must react to a moment, have the module `nb.php.emit()` an event and
 listen with `#[On]`.
 
 ## Events
 
-`ctx.emit('ended', {reason: 'eof'})` is delivered on two names, pick one:
+`nb.php.emit('ended', {reason: 'eof'})` is delivered on two names, pick one:
 
 - `#[On('nb:shell:video-player:ended')]`, generic; payload includes `$id`.
 - `#[On('nb:shell:video-player:{shellId}:ended')]`, instance-scoped, for
@@ -175,17 +200,16 @@ data goes in shell-owned props or a `deliver: 'js'` realtime connection
 
 ## Lifecycle
 
-- Instance is created when the component mounts. The default export may be a
-  plain object (shallow-cloned per instance, so `this` state never leaks
-  across mounts), a factory function, or a class.
+- The instance is created when the component mounts: the setup function runs
+  once, and its closure holds the state for that instance.
 - Non-persistent instances are destroyed on navigation. `$shellPersist = true`
   keeps the module alive across screens; end it explicitly with
   `$this->shellDestroy()` (e.g. "close mini-player") and bring it back with
   `$this->shellMount()` ("reopen mini-player").
 - A **persistent module is a singleton per shell name**: navigating back to
   the screen gives the component a new Livewire id, and the new mount *adopts*
-  the running instance (no second `mount()`, the video keeps playing; current
-  props are applied via `update()`). One persistent instance per `$shell` name.
+  the running instance (the setup does not run again, the video keeps playing;
+  current props flow in through the watchers). One instance per `$shell` name.
 - **A persistent shell has ONE owner component.** Adoption is the semantics of
   *the same owner coming back to its screen*, if two different components
   declare the same `$shell`, the second one adopts the instance and its props
@@ -227,10 +251,10 @@ data goes in shell-owned props or a `deliver: 'js'` realtime connection
   `shellCommand`, and the owner derives its props from that source whenever it
   next runs. Shell-owned props (`position`) and transient behavior are fair
   game from anywhere, they have no PHP-owned description to contradict.
-- A remount of the same component id replaces the instance (old `destroy()`
-  runs first).
-- **Keep state on `this`, not at module scope.** Each mount gets its own
-  object, so `this` state resets on destroy → mount, while `$shellPersist`
+- A remount of the same component id replaces the instance (the old one's
+  `onCleanup` runs and its `nb.element` is removed first).
+- **Keep state in the setup closure, not at module scope.** Each mount runs the
+  setup afresh, so closure state resets on destroy → mount, while `$shellPersist`
   adoption keeps it across navigation, both behave as expected. Module-scope
   variables (`let n = 0` above the export) survive even `shellDestroy()`,
   because the loaded code is cached; use them only when you explicitly want

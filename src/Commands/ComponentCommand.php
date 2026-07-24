@@ -63,54 +63,35 @@ class ComponentCommand extends Command
         return <<<JS
 import './{$name}.css';
 
-// NativeBlade shell component. It renders in the SHELL (outside the WebView),
-// so it sits above the app and survives SPA navigations. There is NO Livewire
-// runtime here: `wire:model` / `wire:click` do not work in the shell. You write
-// the reactivity yourself in plain JS, and talk to PHP through `ctx`.
+// NativeBlade shell component. It renders in the SHELL (outside the WebView), so
+// it sits above the app and survives SPA navigations. There is NO Livewire here:
+// `wire:model` / `wire:click` do not work in the shell, it is plain HTML + CSS.
+// You write the JS, and `nb` is your one handle to everything:
 //
-// One file, summoned two ways:
+//   nb.element             your root <div id="nb-{$name}"> (auto-created + removed)
+//   nb.php.watch(p, fn)    react to a PHP-owned #[NativeProp]
+//   nb.php.listen(n, fn)   react to \$this->shell('n', ...args)
+//   nb.php.set(k, v)       write a #[NativeProp(from: SHELL)]  (bound only)
+//   nb.php.emit(e, data)   -> #[On('nb:shell:{$name}:e')] on any component
+//   nb.php.props           the last props PHP pushed (read-only)
+//   nb.context.place(el, 'bottom-center')   optional safe-area positioning
+//   nb.onCleanup(fn)       teardown for anything you created yourself
 //
-//   1. Declarative (chrome, no host):  <x-nativeblade-{$name} message="Hi" />
-//      mount(ctx, props) runs with props from the tag. `ctx.emit` fires a
-//      GLOBAL event any #[On] can catch; `ctx.set` has no host to write to.
+// Summoned two ways, same file:
+//   Declarative:   <x-nativeblade-{$name} message="Hi" />
+//   Bound (state): use HasNativeShell; protected string \$shell = '{$name}';
 //
-//   2. Bound to a Livewire component (stateful, two-way, persistent):
-//        use HasNativeShell;
-//        protected string \$shell = '{$name}';
-//        #[NativeProp] public string \$message = '';                 // PHP -> shell
-//        #[NativeProp(from: NativeProp::SHELL)] public int \$value = 0; // shell -> PHP
-//      Now `ctx.set('value', ...)` lands in PHP, `\$this->shell('cmd', ...)`
-//      reaches command(), and `\$shellPersist = true` keeps it across screens.
-//
-// Fill in what you need; delete command()/destroy() if you do not use them.
-export default {
-    el: null,
+// This is the setup form: the function body IS the mount, state is plain closure
+// variables, cleanup is automatic. Split by feature into helper functions before
+// it grows into one long body. (A plain object with mount/update/command/destroy
+// hooks and `this` state is still supported if you prefer explicit lifecycle.)
+export default (nb) => {
+    nb.php.watch('message', (message) => {
+        nb.element.textContent = message ?? '';
+    });
 
-    mount(ctx, props) {
-        this.el = document.createElement('div');
-        this.el.id = 'nb-{$name}';
-        document.body.appendChild(this.el);
-        this.update(props);
-
-        // ctx.place(this.el, 'bottom-center')  // optional safe-area positioning
-        // ctx.emit('picked', { value })        // -> #[On('nb:shell:{$name}:picked')]
-        // ctx.set('value', 42)                 // -> #[NativeProp(from: SHELL)] (bound only)
-    },
-
-    update(props) {
-        // PARTIAL patch: only CHANGED props are present. Guard with `'key' in props`.
-        if ('message' in props) this.el.textContent = props.message ?? '';
-        this.el.style.display = 'block';
-    },
-
-    command(name, args) {
-        // Handle \$this->shell('name', ...args) from the bound Livewire component.
-    },
-
-    destroy() {
-        this.el?.remove();
-        this.el = null;
-    },
+    // nb.php.listen('do', (args) => { ... });          // <- \$this->shell('do', ...)
+    // nb.element.onclick = () => nb.php.emit('tapped');  // -> #[On('nb:shell:{$name}:tapped')]
 };
 JS;
     }

@@ -1,9 +1,8 @@
 // Native shell modules — JS counterpart of PHP's HasNativeShell trait.
-// Loads `nativeblade-components/{name}/{name}.js` (default export contract:
-// mount(ctx, props) / update(props) / command(name, args) / destroy()) in the
-// shell window, so instances survive SPA navigations. update(props) is a
-// PARTIAL patch — only changed props; guard with `'key' in props`. See
-// NATIVE-SHELL.md.
+// Default export is a setup function `(nb) => {...}` run in the shell window:
+// the call is the mount, state lives in its closure, reactions register through
+// nb (php.watch/listen/set/emit/props, element, context, onCleanup) and tear
+// down automatically. See docs.nativeblade.dev/core/native-shell/.
 
 import { postToApp, onFrameSwap } from '../bridge.js';
 import { importAppComponent } from '../component-registry.js';
@@ -63,7 +62,13 @@ function destroyInstance(id) {
     if (!inst) return;
     instances.delete(id);
     for (const timer of Object.values(inst.timers)) clearTimeout(timer);
-    try { inst.module?.destroy?.(); } catch (e) { console.error(`[NB] shell module '${inst.shell}' destroy failed`, e); }
+    for (const fn of inst.cleanups || []) {
+        try { fn(); } catch (e) { console.error(`[NB] shell module '${inst.shell}' cleanup failed`, e); }
+    }
+    if (inst.el) {
+        try { inst.el.remove(); } catch {}
+        inst.el = null;
+    }
 }
 
 // Optional positioning helper for module elements: fixed placement in one of
@@ -109,7 +114,7 @@ function setShellProp(inst, key, value) {
         const why = inst.hostless
             ? `has no Livewire host to receive it (mounted declaratively via <x-...>) — bind the component with HasNativeShell to sync props back to PHP`
             : `is not declared #[NativeProp(from: 'shell')]`;
-        console.warn(`[NB] shell module '${inst.shell}': ctx.set('${key}') ignored — ${why}`);
+        console.warn(`[NB] shell module '${inst.shell}': nb.php.set('${key}') ignored — ${why}`);
         return;
     }
     inst.state[key] = value;
@@ -128,6 +133,62 @@ function setShellProp(inst, key, value) {
     }
 }
 
+function fireWatchers(inst, props) {
+    for (const key of Object.keys(props)) {
+        const fns = inst.watchers[key];
+        if (!fns) continue;
+        for (const fn of fns) {
+            try { fn(props[key], key); }
+            catch (e) { console.error(`[NB] shell module '${inst.shell}' watch('${key}') failed`, e); }
+        }
+    }
+}
+
+function fireListeners(inst, name, args) {
+    const fns = inst.listeners[name];
+    if (!fns) return;
+    for (const fn of fns) {
+        try { fn(args, name); }
+        catch (e) { console.error(`[NB] shell module '${inst.shell}' listen('${name}') failed`, e); }
+    }
+}
+
+// The `nb` handle passed to a setup module: element (lazy root div, auto-removed),
+// context (shell environment), php (message bridge, events + state, never RPC),
+// onCleanup (teardown for what the module made itself).
+function buildNb(inst, shell) {
+    return {
+        get element() {
+            if (!inst.el) {
+                inst.el = document.createElement('div');
+                inst.el.id = `nb-${shell}`;
+                document.body.appendChild(inst.el);
+            }
+            return inst.el;
+        },
+        context: {
+            place: placeElement,
+            get id() { return inst.id; },
+            get shell() { return shell; },
+        },
+        php: {
+            emit: (event, data = {}) => {
+                // Generic name is global (any #[On] catches it); id-scoped name
+                // addresses one bound instance, skipped when host-less.
+                postToApp(`nativeblade-shell:${shell}:${event}`, { id: inst.id, shell, ...data });
+                if (!inst.hostless) {
+                    postToApp(`nativeblade-shell:${shell}:${inst.id}:${event}`, { id: inst.id, shell, ...data });
+                }
+            },
+            set: (key, value) => setShellProp(inst, key, value),
+            get props() { return { ...inst.lastProps }; },
+            watch: (prop, fn) => { (inst.watchers[prop] ??= []).push(fn); },
+            listen: (name, fn) => { (inst.listeners[name] ??= []).push(fn); },
+        },
+        onCleanup: (fn) => { inst.cleanups.push(fn); },
+    };
+}
+
 export async function shell_module_mount(payload, ctx) {
     const { shell, id, owner = '', props = {}, shellProps = [], persist = false, hostless = false } = payload || {};
     if (!shell || !id) return;
@@ -137,10 +198,8 @@ export async function shell_module_mount(payload, ctx) {
     const specs = {};
     for (const spec of shellProps) specs[spec.name] = spec.throttle ?? null;
 
-    // A persistent module is a singleton per shell name: navigating back gives
-    // the component a NEW Livewire id, so match by name and rebind the running
-    // instance to it instead of stacking a second mount. Props are applied by
-    // the update action that follows in the same envelope.
+    // A persistent module is a singleton per shell name: navigating back gives a
+    // NEW Livewire id, so rebind the running instance instead of stacking a mount.
     if (persist) {
         const existing = [...instances.values()].find(i => i.shell === shell && i.persist);
         if (existing) {
@@ -149,7 +208,7 @@ export async function shell_module_mount(payload, ctx) {
                     `[NB] shell module '${shell}' is persistent and already owned by ${existing.owner}, `
                     + `but ${owner} also declares it — its props now silently overwrite the previous owner's. `
                     + `A persistent shell must have a SINGLE owner component living above navigation; `
-                    + `other screens should use NativeBlade::shellCommand('${shell}', ...) instead (see NATIVE-SHELL.md).`
+                    + `other screens should use NativeBlade::shellCommand('${shell}', ...) instead.`
                 );
             }
             instances.delete(existing.id);
@@ -166,7 +225,7 @@ export async function shell_module_mount(payload, ctx) {
 
     const inst = {
         id, shell, specs, owner,
-        module: null,
+        ready: false,
         state: {},
         persist: !!persist,
         hostless: !!hostless,
@@ -174,6 +233,12 @@ export async function shell_module_mount(payload, ctx) {
         timers: {},
         lastPush: {},
         pending: [],
+        watchers: {},    // nb.php.watch:  prop -> [fn]
+        listeners: {},   // nb.php.listen: name -> [fn]
+        cleanups: [],    // nb.onCleanup
+        lastProps: {},   // nb.php.props
+        el: null,        // nb.element
+        nb: null,
     };
     instances.set(id, inst);
 
@@ -187,39 +252,21 @@ export async function shell_module_mount(payload, ctx) {
     }
     if (instances.get(id) !== inst) return;
 
-    // The export is shared between instances — give each its own object so
-    // `this` state (elements, timers) never leaks across mounts. Only real
-    // classes get `new`: plain functions also have .prototype, so detect via
-    // source text (classes throw if called without new; factories may rely on
-    // being called without it).
-    const isClass = typeof exported === 'function'
-        && /^class\b/.test(Function.prototype.toString.call(exported));
-    inst.module = typeof exported === 'function'
-        ? (isClass ? new exported() : exported())
-        : { ...exported };
+    Object.assign(inst.lastProps, props);
 
-    const moduleCtx = {
-        shell,
-        get id() { return inst.id; },
-        place: placeElement,
-        set: (key, value) => setShellProp(inst, key, value),
-        emit: (event, data = {}) => {
-            // Generic name is GLOBAL: any #[On('nb:shell:{shell}:{event}')] catches
-            // it, host or not. It is the only channel a host-less (declarative)
-            // component has back to PHP.
-            postToApp(`nativeblade-shell:${shell}:${event}`, { id: inst.id, shell, ...data });
-            // Id-scoped name addresses ONE bound instance
-            // (#[On('nb:shell:{shell}:{id}:{event}')]); a host-less component has no
-            // such addressee, so there is nothing to scope to.
-            if (!inst.hostless) {
-                postToApp(`nativeblade-shell:${shell}:${inst.id}:${event}`, { id: inst.id, shell, ...data });
-            }
-        },
-    };
+    if (typeof exported !== 'function') {
+        console.error(`[NB] shell component '${shell}' must export a setup function: export default (nb) => {...}`);
+        if (instances.get(id) === inst) instances.delete(id);
+        return;
+    }
 
-    try { await inst.module?.mount?.(moduleCtx, props); }
-    catch (e) { console.error(`[NB] shell module '${shell}' mount failed`, e); }
+    // The call IS the mount: registers reactions through nb, state in its closure.
+    inst.nb = buildNb(inst, shell);
+    try { exported(inst.nb); }
+    catch (e) { console.error(`[NB] shell component '${shell}' setup failed`, e); }
+    inst.ready = true;
 
+    fireWatchers(inst, props);   // initial props through nb.php.watch
     for (const run of inst.pending.splice(0)) run();
 }
 
@@ -227,10 +274,11 @@ export function shell_module_update(payload) {
     const inst = instances.get(payload?.id);
     if (!inst) return;
     const run = () => {
-        try { inst.module?.update?.(payload.props || {}); }
-        catch (e) { console.error(`[NB] shell module '${inst.shell}' update failed`, e); }
+        const props = payload.props || {};
+        Object.assign(inst.lastProps, props);
+        fireWatchers(inst, props);
     };
-    inst.module ? run() : inst.pending.push(run);
+    inst.ready ? run() : inst.pending.push(run);
 }
 
 export function shell_module_command(payload) {
@@ -245,11 +293,8 @@ export function shell_module_command(payload) {
         }
     }
     if (!inst) return;
-    const run = () => {
-        try { inst.module?.command?.(payload.command, payload.args || []); }
-        catch (e) { console.error(`[NB] shell module '${inst.shell}' command '${payload.command}' failed`, e); }
-    };
-    inst.module ? run() : inst.pending.push(run);
+    const run = () => fireListeners(inst, payload.command, payload.args || []);
+    inst.ready ? run() : inst.pending.push(run);
 }
 
 export function shell_module_destroy(payload) {
@@ -257,14 +302,10 @@ export function shell_module_destroy(payload) {
 }
 
 // ---- Declarative summon (no HasNativeShell host) --------------------------
-// A shell component dropped as `<x-nativeblade-{name}>` reaches here through the
-// component registry, driven by the page's component config instead of a
-// Livewire host. It runs the SAME module contract (mount/update/command/destroy
-// + ctx), keyed by NAME (one instance per name), and is host-less: `ctx.emit`
-// fires only the generic (global) event, `ctx.set` has nowhere to land. The
-// page config owns its lifecycle — present in the render => mount/update,
-// absent => destroy — so it is mounted persist:true to opt out of the
-// navigation GC (the registry, not a frame swap, decides when it goes).
+// A `<x-nativeblade-{name}>` reaches here from the component registry, keyed by
+// NAME and host-less. The page config owns its lifecycle (present => mount/
+// update, absent => destroy), so it mounts persist:true to opt out of the
+// navigation GC and let the registry decide when it goes.
 
 const declarativeIds = new Map(); // shell name -> synthetic instance id
 
