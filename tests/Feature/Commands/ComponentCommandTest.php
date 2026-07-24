@@ -8,19 +8,15 @@ use NativeBlade\Tests\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * nativeblade:component — scaffolds a new component into
- * base_path/nativeblade-components/{name}/ based on answers to interactive
- * questions. Each test uses a clean tempdir for base_path.
+ * nativeblade:component — scaffolds a single shell component into
+ * base_path/nativeblade-components/{name}/. There is one component type: a
+ * shell component with the full module contract, usable declaratively
+ * (<x-nativeblade-{name}>) or bound to a Livewire component via HasNativeShell.
+ * Each test uses a clean tempdir for base_path.
  */
 final class ComponentCommandTest extends TestCase
 {
     use WithTempBasePath;
-
-    private const TYPE_CHOICES = [
-        'shell' => 'Shell (outside WebView — header, nav, toast, dialog)',
-        'embedded' => 'Embedded (inside WebView — modal, card, form)',
-        'module' => 'Shell module (stateful, bound to a Livewire component via HasNativeShell)',
-    ];
 
     protected function setUp(): void
     {
@@ -35,14 +31,9 @@ final class ComponentCommandTest extends TestCase
     }
 
     #[Test]
-    public function shell_component_scaffolds_four_files(): void
+    public function it_scaffolds_four_files_with_no_prompt(): void
     {
         $this->artisan('nativeblade:component', ['name' => 'toast-banner'])
-            ->expectsChoice(
-                'Where does this component render?',
-                'shell',
-                self::TYPE_CHOICES
-            )
             ->assertExitCode(0);
 
         $dir = base_path('nativeblade-components/toast-banner');
@@ -53,14 +44,9 @@ final class ComponentCommandTest extends TestCase
     }
 
     #[Test]
-    public function shell_component_php_class_has_correct_namespace_and_class(): void
+    public function php_class_has_correct_namespace_and_class(): void
     {
         $this->artisan('nativeblade:component', ['name' => 'status-badge'])
-            ->expectsChoice(
-                'Where does this component render?',
-                'shell',
-                self::TYPE_CHOICES
-            )
             ->assertExitCode(0);
 
         $php = file_get_contents(base_path('nativeblade-components/status-badge/StatusBadge.php'));
@@ -71,32 +57,9 @@ final class ComponentCommandTest extends TestCase
     }
 
     #[Test]
-    public function embedded_component_scaffolds_two_files_only(): void
-    {
-        $this->artisan('nativeblade:component', ['name' => 'info-card'])
-            ->expectsChoice(
-                'Where does this component render?',
-                'embedded',
-                self::TYPE_CHOICES
-            )
-            ->assertExitCode(0);
-
-        $dir = base_path('nativeblade-components/info-card');
-        self::assertFileExists($dir . '/InfoCard.php');
-        self::assertFileExists($dir . '/info-card.blade.php');
-        self::assertFileDoesNotExist($dir . '/info-card.js');
-        self::assertFileDoesNotExist($dir . '/info-card.css');
-    }
-
-    #[Test]
     public function name_is_normalized_to_kebab_case(): void
     {
         $this->artisan('nativeblade:component', ['name' => 'FancyButton'])
-            ->expectsChoice(
-                'Where does this component render?',
-                'shell',
-                self::TYPE_CHOICES
-            )
             ->assertExitCode(0);
 
         self::assertDirectoryExists(base_path('nativeblade-components/fancy-button'));
@@ -104,69 +67,48 @@ final class ComponentCommandTest extends TestCase
     }
 
     #[Test]
-    public function shell_js_file_references_its_css_sibling(): void
+    public function js_file_references_its_css_sibling_and_shell_id(): void
     {
         $this->artisan('nativeblade:component', ['name' => 'loader'])
-            ->expectsChoice(
-                'Where does this component render?',
-                'shell',
-                self::TYPE_CHOICES
-            )
             ->assertExitCode(0);
 
         $js = file_get_contents(base_path('nativeblade-components/loader/loader.js'));
         self::assertStringContainsString("import './loader.css';", $js);
-        self::assertStringContainsString('id = \'nb-loader\'', $js);
+        self::assertStringContainsString('nb-loader', $js);
     }
 
     #[Test]
-    public function module_component_scaffolds_js_and_css_only(): void
+    public function js_stub_uses_the_nb_setup_form(): void
     {
         $this->artisan('nativeblade:component', ['name' => 'mini-player'])
-            ->expectsChoice(
-                'Where does this component render?',
-                'module',
-                self::TYPE_CHOICES
-            )
-            ->assertExitCode(0);
-
-        $dir = base_path('nativeblade-components/mini-player');
-        self::assertFileExists($dir . '/mini-player.js');
-        self::assertFileExists($dir . '/mini-player.css');
-        self::assertFileDoesNotExist($dir . '/MiniPlayer.php');
-        self::assertFileDoesNotExist($dir . '/mini-player.blade.php');
-    }
-
-    #[Test]
-    public function module_js_stub_has_the_default_export_contract(): void
-    {
-        $this->artisan('nativeblade:component', ['name' => 'mini-player'])
-            ->expectsChoice(
-                'Where does this component render?',
-                'module',
-                self::TYPE_CHOICES
-            )
             ->assertExitCode(0);
 
         $js = file_get_contents(base_path('nativeblade-components/mini-player/mini-player.js'));
 
         self::assertStringContainsString("import './mini-player.css';", $js);
-        self::assertStringContainsString('export default {', $js);
-        foreach (['mount(ctx, props)', 'update(props)', 'command(name, args)', 'destroy()'] as $hook) {
-            self::assertStringContainsString($hook, $js);
+        self::assertStringContainsString('export default (nb) => {', $js);
+        foreach (['nb.element', 'nb.php.watch', 'nb.php.emit'] as $api) {
+            self::assertStringContainsString($api, $js);
         }
-        self::assertStringContainsString('ctx.place(this.el', $js);
+    }
+
+    #[Test]
+    public function js_stub_documents_both_summon_styles(): void
+    {
+        $this->artisan('nativeblade:component', ['name' => 'side-panel'])
+            ->assertExitCode(0);
+
+        $js = file_get_contents(base_path('nativeblade-components/side-panel/side-panel.js'));
+
+        self::assertStringContainsString('<x-nativeblade-side-panel', $js);
+        self::assertStringContainsString('HasNativeShell', $js);
+        self::assertStringContainsString("protected string \$shell = 'side-panel';", $js);
     }
 
     #[Test]
     public function blade_stub_renders_slot_and_message_data_attrs(): void
     {
         $this->artisan('nativeblade:component', ['name' => 'banner'])
-            ->expectsChoice(
-                'Where does this component render?',
-                'shell',
-                self::TYPE_CHOICES
-            )
             ->assertExitCode(0);
 
         $blade = file_get_contents(base_path('nativeblade-components/banner/banner.blade.php'));

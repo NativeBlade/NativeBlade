@@ -130,18 +130,27 @@ screen is faking persistence: it flickers, loses state, and every screen pays
 for it. Persistent things live in the **shell** (the parent window, above
 navigation), and there are two shapes, picked by whether they carry state:
 
-- **Stateless / config-driven chrome** (bottom nav, top bar, toast, splash
-  accents): a classic shell component — `php artisan nativeblade:component`
-  (type: shell) → `nativeblade-components/{name}/`, rendered from its Blade
-  `data-nb` config. See [COMPONENTS.md](COMPONENTS.md).
-- **Stateful, owned by a Livewire component** (video/audio mini-player,
-  tab-bar with live unread count, anything a screen controls and reads back):
-  a **native shell module** — `use HasNativeShell` + `#[NativeProp]`, with
-  `$shellPersist = true` when it must outlive its screen. See
-  [NATIVE-SHELL.md](NATIVE-SHELL.md) — including the single-owner rule: a
-  persistent shell is declared by ONE component living above navigation;
-  other screens command it by name with `NativeBlade::shellCommand()`, never
-  redeclare the same `$shell`.
+- **Config-driven chrome** (bottom nav, top bar, toast, splash accents):
+  summon it **declaratively**, `<x-nativeblade-{name}>` in a view. Props flow in
+  from the tag; nothing comes back.
+- **Stateful, owned by a Livewire component** (video/audio mini-player, tab-bar
+  with live unread count, anything a screen controls and reads back): **bind**
+  it — `use HasNativeShell` + `#[NativeProp]`, with `$shellPersist = true` when
+  it must outlive its screen. Single-owner rule: a persistent shell is declared
+  by ONE component living above navigation; other screens command it by name
+  with `NativeBlade::shellCommand()`, never redeclare the same `$shell`.
+
+Both are the **same** component, scaffolded by `php artisan nativeblade:component`
+into `nativeblade-components/{name}/`. Declarative or bound is a decision you make
+when you use it, not when you scaffold it. See the Native Shell Modules guide
+(https://docs.nativeblade.dev/core/native-shell/).
+
+The shell has **no Livewire runtime** — it is the parent document, and the
+Livewire client lives inside the app iframe and never reaches it. So a shell
+component is plain HTML and CSS: `wire:model` / `wire:click` do not work there,
+and the JS `nb.php` bridge is async messaging to the bound component
+(`emit`/`listen`/`set`/`watch`), never the live `$this` and never RPC. UI that
+needs `wire:` reactivity belongs in-app, inside the iframe.
 
 Rule of thumb: if you catch yourself re-mounting the "same" element on every
 screen, syncing its state through `getState()` calls at mount, or animating it
@@ -949,7 +958,7 @@ These are bugs in disguise. The MCP architecture tool will flag any of these.
 
 12. **A monolithic script in `public/js/` — or `import`/`export` in one.** Custom front-end code is split by responsibility (model / logic / rendering) into small classic-script files grouped in a feature folder, wired through one namespace global with one `<script>` tag per file in dependency order. Scripts are INLINED at render time and `type="module"` is stripped, so an `import` statement is a guaranteed first-line SyntaxError.
 
-13. **Cross-screen UI faked inside pages.** An element re-rendered on every screen to look persistent (mini-player, badge bar, toast host, global timer) is a shell component: config-driven chrome → `nativeblade-components/` shell component; stateful and screen-controlled → a native shell module (`HasNativeShell`, NATIVE-SHELL.md). Pages die on navigation; the shell doesn't.
+13. **Cross-screen UI faked inside pages.** An element re-rendered on every screen to look persistent (mini-player, badge bar, toast host, global timer) is a shell component: config-driven chrome → `nativeblade-components/` shell component; stateful and screen-controlled → bind it with `HasNativeShell` (see https://docs.nativeblade.dev/core/native-shell/). Pages die on navigation; the shell doesn't. Either way the shell has no Livewire runtime, so no `wire:` directives there — it is plain HTML/CSS plus the `nb.php` message bridge.
 
 ## Worked example: a complete feature
 
