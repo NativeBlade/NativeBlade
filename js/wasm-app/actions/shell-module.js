@@ -37,12 +37,18 @@ function ensureFrameSwapGc() {
     });
 }
 
+// Test seam: supplies a module's default export directly, bypassing the
+// importAppComponent bundle/wasm-FS path (which needs a built app). Unit tests
+// only — no production caller sets it.
+let testModuleLoader = null;
+
 async function loadModule(name) {
     if (moduleCache.has(name)) return moduleCache.get(name);
     const promise = (async () => {
         if (!/^[a-z0-9_-]+$/i.test(name)) {
             throw new Error(`invalid shell module name '${name}'`);
         }
+        if (testModuleLoader) return testModuleLoader(name);
         const mod = await importAppComponent(name);
         if (!mod.default) throw new Error(`shell module '${name}' has no default export`);
         return mod.default;
@@ -100,7 +106,10 @@ function pushProp(inst, key) {
 
 function setShellProp(inst, key, value) {
     if (!(key in inst.specs)) {
-        console.warn(`[NB] shell module '${inst.shell}': '${key}' is not declared #[NativeProp(from: 'shell')] — ignored`);
+        const why = inst.hostless
+            ? `has no Livewire host to receive it (mounted declaratively via <x-...>) — bind the component with HasNativeShell to sync props back to PHP`
+            : `is not declared #[NativeProp(from: 'shell')]`;
+        console.warn(`[NB] shell module '${inst.shell}': ctx.set('${key}') ignored — ${why}`);
         return;
     }
     inst.state[key] = value;
@@ -120,7 +129,7 @@ function setShellProp(inst, key, value) {
 }
 
 export async function shell_module_mount(payload, ctx) {
-    const { shell, id, owner = '', props = {}, shellProps = [], persist = false } = payload || {};
+    const { shell, id, owner = '', props = {}, shellProps = [], persist = false, hostless = false } = payload || {};
     if (!shell || !id) return;
 
     ensureFrameSwapGc();
@@ -160,6 +169,7 @@ export async function shell_module_mount(payload, ctx) {
         module: null,
         state: {},
         persist: !!persist,
+        hostless: !!hostless,
         win: ctx?.replyWindow || ctx?.appFrame?.contentWindow || null,
         timers: {},
         lastPush: {},
@@ -194,8 +204,16 @@ export async function shell_module_mount(payload, ctx) {
         place: placeElement,
         set: (key, value) => setShellProp(inst, key, value),
         emit: (event, data = {}) => {
+            // Generic name is GLOBAL: any #[On('nb:shell:{shell}:{event}')] catches
+            // it, host or not. It is the only channel a host-less (declarative)
+            // component has back to PHP.
             postToApp(`nativeblade-shell:${shell}:${event}`, { id: inst.id, shell, ...data });
-            postToApp(`nativeblade-shell:${shell}:${inst.id}:${event}`, { id: inst.id, shell, ...data });
+            // Id-scoped name addresses ONE bound instance
+            // (#[On('nb:shell:{shell}:{id}:{event}')]); a host-less component has no
+            // such addressee, so there is nothing to scope to.
+            if (!inst.hostless) {
+                postToApp(`nativeblade-shell:${shell}:${inst.id}:${event}`, { id: inst.id, shell, ...data });
+            }
         },
     };
 
@@ -236,4 +254,55 @@ export function shell_module_command(payload) {
 
 export function shell_module_destroy(payload) {
     if (payload?.id) destroyInstance(payload.id);
+}
+
+// ---- Declarative summon (no HasNativeShell host) --------------------------
+// A shell component dropped as `<x-nativeblade-{name}>` reaches here through the
+// component registry, driven by the page's component config instead of a
+// Livewire host. It runs the SAME module contract (mount/update/command/destroy
+// + ctx), keyed by NAME (one instance per name), and is host-less: `ctx.emit`
+// fires only the generic (global) event, `ctx.set` has nowhere to land. The
+// page config owns its lifecycle — present in the render => mount/update,
+// absent => destroy — so it is mounted persist:true to opt out of the
+// navigation GC (the registry, not a frame swap, decides when it goes).
+
+const declarativeIds = new Map(); // shell name -> synthetic instance id
+
+export async function shell_component_render(name, props) {
+    if (props == null) {
+        shell_component_destroy(name);
+        return;
+    }
+
+    const existing = declarativeIds.get(name);
+    if (existing && instances.has(existing)) {
+        shell_module_update({ id: existing, props });
+        return;
+    }
+
+    const id = `__decl:${name}`;
+    declarativeIds.set(name, id);
+    await shell_module_mount({ shell: name, id, props, persist: true, hostless: true });
+}
+
+export function shell_component_destroy(name) {
+    const id = declarativeIds.get(name);
+    if (!id) return;
+    declarativeIds.delete(name);
+    destroyInstance(id);
+}
+
+// ---- Test seams -----------------------------------------------------------
+// Unit tests only. __setModuleLoaderForTest injects module implementations;
+// __resetForTest tears down all live instances and caches between tests.
+export function __setModuleLoaderForTest(fn) {
+    testModuleLoader = fn;
+}
+
+export function __resetForTest() {
+    for (const id of [...instances.keys()]) destroyInstance(id);
+    instances.clear();
+    moduleCache.clear();
+    declarativeIds.clear();
+    testModuleLoader = null;
 }

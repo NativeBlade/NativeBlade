@@ -5,7 +5,7 @@ description: "Stateful native UI bound to a Livewire component with HasNativeShe
 
 # Native Shell Modules (prototype)
 
-Bind a Livewire component to a JS module that lives in the webview **shell** , 
+A shell component is a JS module that lives in the webview **shell** , 
 the parent window, outside the app iframe. Because the shell survives SPA
 navigations, a shell module can keep playing audio/video across screens
 (mini-player), hold a canvas, or wrap any long-lived JS the page lifecycle
@@ -14,6 +14,43 @@ would otherwise kill.
 The state bridge is attribute-driven: mark component props with `#[NativeProp]`
 and the framework keeps the two sides in sync over pipes that already exist , 
 no new request types, and never a request-per-frame.
+
+## Two ways to summon it
+
+One file in `nativeblade-components/{name}/`, summoned either way. You pick per
+use, not per scaffold.
+
+**Declarative (chrome, no host).** Drop the Blade tag in any view:
+
+```blade
+<x-nativeblade-status-bar message="Saving..." />
+```
+
+The module's `mount(ctx, props)` runs with the tag's attributes as `props` and
+is torn down when a screen stops rendering it. No Livewire component sits behind
+it, so `ctx.set` has nowhere to land (ignored with a warning) and `ctx.emit`
+fires only the **generic global** event, which any
+`#[On('nb:shell:status-bar:{event}')]` on any component can catch. Use it for a
+nav bar, toast, or dialog that carries no server state.
+
+**Bound (stateful, two-way).** `use HasNativeShell` on a Livewire component (the
+rest of this page). `#[NativeProp]` props then sync both directions,
+`$this->shell(...)` sends commands, and `$shellPersist` keeps the module across
+navigation.
+
+Same JS file both ways. Start declarative and add `HasNativeShell` the day you
+need server state, without rewriting the module.
+
+::: callout warning "The shell has no Livewire, so no wire: directives"
+A shell component's markup lives in the shell document; the Livewire client
+runtime lives inside the app iframe and never reaches it. So `wire:model`,
+`wire:click`, `wire:submit`, and every other `wire:` directive are **dead** in a
+shell component, it is plain HTML and CSS (even your app's Tailwind classes do
+not cross the iframe boundary). You write the reactivity yourself in the
+module's JS, and the way back to PHP is the `ctx` bridge (`ctx.emit` for events,
+`ctx.set` for shell-owned props), never a directive. If a piece of UI truly
+needs `wire:`, it belongs **in-app**, inside the iframe, not in the shell.
+:::
 
 ## PHP side
 
@@ -60,7 +97,7 @@ place (and `@components` build alias) custom shell components use. They are
 bundled at build time, so split the module into as many files as you like and
 `import` freely; the default export is the module contract. Changes are picked
 up by the `nativeblade:dev` rebuild like any other shell component. Scaffold
-one with `php artisan nativeblade:component` (type: **module**).
+one with `php artisan nativeblade:component`.
 
 Besides `ctx.set` / `ctx.emit`, the ctx offers an **optional** positioning
 helper: `ctx.place(el, position, { offset = 10, zIndex = 99999 })` with
