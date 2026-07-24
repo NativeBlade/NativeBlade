@@ -5,14 +5,14 @@ description: "Stateful native UI bound to a Livewire component with HasNativeShe
 
 # Native Shell Modules (prototype)
 
-A shell component is a JS module that lives in the webview **shell** , 
+A shell component is a JS module that lives in the webview **shell**,
 the parent window, outside the app iframe. Because the shell survives SPA
 navigations, a shell module can keep playing audio/video across screens
 (mini-player), hold a canvas, or wrap any long-lived JS the page lifecycle
 would otherwise kill.
 
 The state bridge is attribute-driven: mark component props with `#[NativeProp]`
-and the framework keeps the two sides in sync over pipes that already exist , 
+and the framework keeps the two sides in sync over pipes that already exist,
 no new request types, and never a request-per-frame.
 
 ## Two ways to summon it

@@ -45,11 +45,11 @@ async function loadModule(name) {
     if (moduleCache.has(name)) return moduleCache.get(name);
     const promise = (async () => {
         if (!/^[a-z0-9_-]+$/i.test(name)) {
-            throw new Error(`invalid shell module name '${name}'`);
+            throw new Error(`invalid shell component name '${name}'`);
         }
         if (testModuleLoader) return testModuleLoader(name);
         const mod = await importAppComponent(name);
-        if (!mod.default) throw new Error(`shell module '${name}' has no default export`);
+        if (!mod.default) throw new Error(`shell component '${name}' has no default export`);
         return mod.default;
     })();
     moduleCache.set(name, promise);
@@ -63,7 +63,7 @@ function destroyInstance(id) {
     instances.delete(id);
     for (const timer of Object.values(inst.timers)) clearTimeout(timer);
     for (const fn of inst.cleanups || []) {
-        try { fn(); } catch (e) { console.error(`[NB] shell module '${inst.shell}' cleanup failed`, e); }
+        try { fn(); } catch (e) { console.error(`[NB] shell component '${inst.shell}' cleanup failed`, e); }
     }
     if (inst.el) {
         try { inst.el.remove(); } catch {}
@@ -114,7 +114,7 @@ function setShellProp(inst, key, value) {
         const why = inst.hostless
             ? `has no Livewire host to receive it (mounted declaratively via <x-...>) — bind the component with HasNativeShell to sync props back to PHP`
             : `is not declared #[NativeProp(from: 'shell')]`;
-        console.warn(`[NB] shell module '${inst.shell}': nb.php.set('${key}') ignored — ${why}`);
+        console.warn(`[NB] shell component '${inst.shell}': nb.php.set('${key}') ignored — ${why}`);
         return;
     }
     inst.state[key] = value;
@@ -139,7 +139,7 @@ function fireWatchers(inst, props) {
         if (!fns) continue;
         for (const fn of fns) {
             try { fn(props[key], key); }
-            catch (e) { console.error(`[NB] shell module '${inst.shell}' watch('${key}') failed`, e); }
+            catch (e) { console.error(`[NB] shell component '${inst.shell}' watch('${key}') failed`, e); }
         }
     }
 }
@@ -149,7 +149,7 @@ function fireListeners(inst, name, args) {
     if (!fns) return;
     for (const fn of fns) {
         try { fn(args, name); }
-        catch (e) { console.error(`[NB] shell module '${inst.shell}' listen('${name}') failed`, e); }
+        catch (e) { console.error(`[NB] shell component '${inst.shell}' listen('${name}') failed`, e); }
     }
 }
 
@@ -205,7 +205,7 @@ export async function shell_module_mount(payload, ctx) {
         if (existing) {
             if (owner && existing.owner && existing.owner !== owner) {
                 console.warn(
-                    `[NB] shell module '${shell}' is persistent and already owned by ${existing.owner}, `
+                    `[NB] shell component '${shell}' is persistent and already owned by ${existing.owner}, `
                     + `but ${owner} also declares it — its props now silently overwrite the previous owner's. `
                     + `A persistent shell must have a SINGLE owner component living above navigation; `
                     + `other screens should use NativeBlade::shellCommand('${shell}', ...) instead.`
@@ -246,7 +246,7 @@ export async function shell_module_mount(payload, ctx) {
     try {
         exported = await loadModule(shell);
     } catch (e) {
-        console.error(`[NB] shell module '${shell}' failed to load`, e);
+        console.error(`[NB] shell component '${shell}' failed to load`, e);
         if (instances.get(id) === inst) instances.delete(id);
         return;
     }

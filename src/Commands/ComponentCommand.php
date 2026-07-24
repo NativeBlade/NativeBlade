@@ -81,10 +81,9 @@ import './{$name}.css';
 //   Declarative:   <x-nativeblade-{$name} message="Hi" />
 //   Bound (state): use HasNativeShell; protected string \$shell = '{$name}';
 //
-// This is the setup form: the function body IS the mount, state is plain closure
-// variables, cleanup is automatic. Split by feature into helper functions before
-// it grows into one long body. (A plain object with mount/update/command/destroy
-// hooks and `this` state is still supported if you prefer explicit lifecycle.)
+// The function body IS the mount: state is plain closure variables, cleanup is
+// automatic. Split by feature into helper functions before it grows into one
+// long body.
 export default (nb) => {
     nb.php.watch('message', (message) => {
         nb.element.textContent = message ?? '';
