@@ -61,8 +61,29 @@ export async function importAppComponent(name) {
 
 async function tryLoadCustom(name) {
     try {
-        registry[name] = await importAppComponent(name);
+        registry[name] = adaptComponent(name, await importAppComponent(name));
     } catch {}
+}
+
+// A custom component is one of two shapes: a classic render(data)/hide()
+// component, or a shell module (default export = a setup function). Wrap the
+// module so renderAll drives it through the same render(data) call it uses for
+// everything else (data => mount/update, null => destroy) via the host-less path
+// in shell-module.js. Classic components pass through untouched.
+export function adaptComponent(name, mod) {
+    if (!mod || typeof mod.render === 'function' || !mod.default) {
+        return mod;
+    }
+    return {
+        __shellModule: true,
+        render: (data) => {
+            import('./actions/shell-module.js')
+                .then(m => data == null
+                    ? m.shell_component_destroy(name)
+                    : m.shell_component_render(name, data))
+                .catch(e => console.error(`[NB] shell component '${name}' failed`, e));
+        },
+    };
 }
 
 export function getComponent(name) {
