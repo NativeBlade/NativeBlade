@@ -73,21 +73,28 @@ pub async fn open_window(app: AppHandle, config: WindowConfig) -> Result<(), Str
     // enters satellite mode instead of booting a second php-wasm.
     let id_json = serde_json::to_string(&config.id).unwrap_or_else(|_| "\"\"".into());
     let init_script = format!("window.__NB_SATELLITE__ = {id};", id = id_json);
+
+    #[allow(unused_mut)]
     let mut builder = WebviewWindowBuilder::new(&app, lbl.as_str(), url)
         .initialization_script(&init_script)
         .title(config.id.as_str())
-        .resizable(config.resizable.unwrap_or(true))
-        .decorations(!config.frameless.unwrap_or(false))
-        .always_on_top(config.always_on_top.unwrap_or(false));
+        .resizable(config.resizable.unwrap_or(true));
 
-    if let (Some(w), Some(h)) = (config.width, config.height) {
-        builder = builder.inner_size(w, h);
-    }
-    if let (Some(w), Some(h)) = (config.min_width, config.min_height) {
-        builder = builder.min_inner_size(w, h);
-    }
-    if let (Some(x), Some(y)) = (config.x, config.y) {
-        builder = builder.position(x, y);
+    #[cfg(desktop)]
+    {
+        builder = builder
+            .decorations(!config.frameless.unwrap_or(false))
+            .always_on_top(config.always_on_top.unwrap_or(false));
+
+        if let (Some(w), Some(h)) = (config.width, config.height) {
+            builder = builder.inner_size(w, h);
+        }
+        if let (Some(w), Some(h)) = (config.min_width, config.min_height) {
+            builder = builder.min_inner_size(w, h);
+        }
+        if let (Some(x), Some(y)) = (config.x, config.y) {
+            builder = builder.position(x, y);
+        }
     }
 
     builder.build().map_err(|e| e.to_string())?;
