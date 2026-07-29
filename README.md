@@ -7,7 +7,8 @@
 </p>
 
 <p align="center">
-  <a href="https://docs.nativeblade.dev"><img src="https://img.shields.io/badge/Docs-docs.nativeblade.dev-ff5151" alt="Documentation"></a>
+  <a href="https://nativeblade.dev"><img src="https://img.shields.io/badge/Website-nativeblade.dev-ff5151" alt="Website"></a>
+  <a href="https://docs.nativeblade.dev"><img src="https://img.shields.io/badge/Docs-docs.nativeblade.dev-2b2b2b" alt="Documentation"></a>
   <a href="https://github.com/NativeBlade/NativeBlade/actions/workflows/tests.yml"><img src="https://github.com/NativeBlade/NativeBlade/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
   <a href="https://discord.gg/Vzpach5J2h"><img src="https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
 </p>
