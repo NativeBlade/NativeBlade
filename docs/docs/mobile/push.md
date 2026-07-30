@@ -7,7 +7,65 @@ description: "Send and handle push notifications on mobile."
 
 Server-pushed notifications on Android (FCM) and iOS (APNS) that can wake the app even when it's closed. Receiving is handled by the NativeBlade plugin; sending is done from your own backend using whatever library you prefer.
 
-The same plugin powers `NativeBlade::notification(...)`, local, scheduled, and remote notifications share one native code path (WorkManager on Android, `UNUserNotificationCenter` on iOS). See [Notifications](/mobile/push/) for the local / scheduled side. The plugin is enabled by declaring `Plugin::PUSH` in your `NativeBladeConfig::plugins([...])`, it covers both push *and* local.
+The same plugin powers `NativeBlade::notification(...)`, local, scheduled, and remote notifications share one native code path (WorkManager on Android, `UNUserNotificationCenter` on iOS). The local and scheduled side is covered in the [next section](#local-and-scheduled-notifications). The plugin is enabled by declaring `Plugin::PUSH` in your `NativeBladeConfig::plugins([...])`, it covers both push *and* local.
+
+---
+
+## Local and scheduled notifications
+
+`NativeBlade::notification()` posts a notification from PHP right now, and `NativeBlade::scheduleNotification()` posts one later, on the same native path as push. Every builder method is chainable, and you dispatch with `->toResponse()` from a Livewire action.
+
+Fire one immediately:
+
+```php
+use NativeBlade\Plugins\Notification;
+
+return NativeBlade::notification(fn (Notification $n) => $n
+    ->title('Saved')
+    ->body('Your changes are safe.')
+    ->channel('app'))
+    ->toResponse();
+```
+
+Schedule it for a specific moment with `at()`:
+
+```php
+return NativeBlade::scheduleNotification(fn (Notification $n) => $n
+    ->id('trial-ending')                 // give it an id so you can cancel later
+    ->title('Your trial ends tomorrow')
+    ->body('Upgrade to keep your builds running.')
+    ->at(now()->addDay()))
+    ->toResponse();
+```
+
+Or make it repeat, `dailyAt('HH:MM')` for a time of day, `every()` for an interval:
+
+```php
+// Every day at 09:00
+NativeBlade::scheduleNotification(fn (Notification $n) => $n
+    ->id('daily-standup')
+    ->title('Standup in 5 minutes')
+    ->dailyAt('09:00'));
+
+// Every 2 hours
+NativeBlade::scheduleNotification(fn (Notification $n) => $n
+    ->id('hydrate')
+    ->title('Time for water')
+    ->every('hour', 2));
+```
+
+`every()` kinds are `minute`, `hour`, `day`, `week`, `month` (with an optional count, default `1`).
+
+Cancel a scheduled notification by its id, or clear them all:
+
+```php
+NativeBlade::cancelNotification('trial-ending')->toResponse();
+NativeBlade::cancelAllNotifications()->toResponse();
+```
+
+::: callout note "Exact timing on Android"
+`scheduleNotification()` asks for exact delivery so the notification fires on time even in Doze. Android needs `Permission::EXACT_ALARM` declared for that, without it the delivery degrades to inexact and may fire late. iOS is always exact.
+:::
 
 ---
 
