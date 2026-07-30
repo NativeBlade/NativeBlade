@@ -5,7 +5,7 @@ description: "Vibration and haptic feedback."
 
 # Haptics
 
-Backed by [`tauri-plugin-haptics`](https://v2.tauri.app/plugin/haptics/). Mobile only (desktop is a no-op).
+Backed by [`tauri-plugin-haptics`](https://v2.tauri.app/plugin/haptics/). Mobile only (desktop is a no-op). Requires `Plugin::HAPTICS`.
 
 ### Attribute shortcut (preferred for buttons)
 

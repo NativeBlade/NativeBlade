@@ -5,7 +5,7 @@ description: "GPS and network location."
 
 # Geolocation
 
-Backed by [`tauri-plugin-geolocation`](https://v2.tauri.app/plugin/geolocation/). Automatically requests permission on first use.
+Backed by [`tauri-plugin-geolocation`](https://v2.tauri.app/plugin/geolocation/). Automatically requests permission on first use. Requires `Plugin::GEOLOCATION`.
 
 **Blade (simple):**
 ```blade

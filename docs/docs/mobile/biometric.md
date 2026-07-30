@@ -5,7 +5,7 @@ description: "Face ID, Touch ID, and fingerprint authentication."
 
 # Biometric
 
-Backed by [`tauri-plugin-biometric`](https://v2.tauri.app/plugin/biometric/). Mobile only, on desktop the action posts back `success: false, error: 'Biometric not available'` so your `nb:biometric` handler can show a fallback (typically a password form).
+Backed by [`tauri-plugin-biometric`](https://v2.tauri.app/plugin/biometric/). Mobile only, on desktop the action posts back `success: false, error: 'Biometric not available'` so your `nb:biometric` handler can show a fallback (typically a password form). Requires `Plugin::BIOMETRIC`.
 
 **Setup (`app/Providers/AppServiceProvider.php`):**
 
