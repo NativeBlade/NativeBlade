@@ -5,7 +5,7 @@ description: "Platform, version, and device metadata."
 
 # OS Info
 
-Backed by [`tauri-plugin-os`](https://v2.tauri.app/plugin/os-info/). Returns platform, version, architecture, and locale. Requires `Plugin::OS`.
+Backed by [`tauri-plugin-os`](https://v2.tauri.app/plugin/os-info/). Returns platform, version, architecture, and locale. Always available, no plugin declaration needed.
 
 **Blade:**
 ```blade

@@ -5,7 +5,7 @@ description: "Open URLs and files in their default app."
 
 # Opener
 
-Backed by [`tauri-plugin-opener`](https://v2.tauri.app/plugin/opener/). Opens URLs or files with the system default handler. Requires `Plugin::OPENER`.
+Backed by [`tauri-plugin-opener`](https://v2.tauri.app/plugin/opener/). Opens URLs or files with the system default handler. Always available, no plugin declaration needed.
 
 **Blade:**
 ```blade
