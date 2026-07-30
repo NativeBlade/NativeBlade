@@ -5,7 +5,7 @@ description: "Scan QR codes and barcodes with the camera."
 
 # Barcode Scanner
 
-Backed by [`tauri-plugin-barcode-scanner`](https://v2.tauri.app/plugin/barcode-scanner/). Mobile only.
+Backed by [`tauri-plugin-barcode-scanner`](https://v2.tauri.app/plugin/barcode-scanner/). Mobile only. Requires `Plugin::BARCODE_SCANNER`.
 
 **Blade:**
 ```blade

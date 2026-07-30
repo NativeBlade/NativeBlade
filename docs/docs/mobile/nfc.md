@@ -5,7 +5,7 @@ description: "Read NFC tags."
 
 # NFC
 
-Backed by [`tauri-plugin-nfc`](https://v2.tauri.app/plugin/nfc/). Mobile only.
+Backed by [`tauri-plugin-nfc`](https://v2.tauri.app/plugin/nfc/). Mobile only. Requires `Plugin::NFC`.
 
 **Blade:**
 ```blade

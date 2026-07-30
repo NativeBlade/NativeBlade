@@ -5,7 +5,7 @@ description: "Native alert, confirm, and file pickers."
 
 # Dialogs
 
-Backed by [`tauri-plugin-dialog`](https://v2.tauri.app/plugin/dialog/).
+Backed by [`tauri-plugin-dialog`](https://v2.tauri.app/plugin/dialog/). Requires `Plugin::DIALOG`.
 
 Both `alert` and `confirm` are configured through the same `Dialog` builder passed as a closure. This keeps all dialog-specific options (title, message, kind, button labels) together and out of the generic modifier chain.
 

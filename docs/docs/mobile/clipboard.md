@@ -5,7 +5,7 @@ description: "Read and write the system clipboard."
 
 # Clipboard
 
-Backed by [`tauri-plugin-clipboard-manager`](https://v2.tauri.app/plugin/clipboard/).
+Backed by [`tauri-plugin-clipboard-manager`](https://v2.tauri.app/plugin/clipboard/). Requires `Plugin::CLIPBOARD`.
 
 ### Write
 

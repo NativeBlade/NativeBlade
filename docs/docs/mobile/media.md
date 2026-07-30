@@ -7,7 +7,7 @@ description: "Camera, gallery, and media capture."
 
 Native camera capture, gallery picker, and video picker with on-device resize. Replaces the JS canvas approach with platform pickers, much lower memory pressure on mobile WebViews.
 
-A single Tauri plugin (`nativeblade-media`) backs all three sources. Picks are dispatched like every other NativeBlade native action: from PHP via a `NativeResponse` builder, returned to a Livewire component via the `nb:media-result` event. Use `->id()` on the builder when a single component triggers multiple pickers (e.g. avatar + document + product gallery).
+A single Tauri plugin (`nativeblade-media`) backs all three sources. Picks are dispatched like every other NativeBlade native action: from PHP via a `NativeResponse` builder, returned to a Livewire component via the `nb:media-result` event. Use `->id()` on the builder when a single component triggers multiple pickers (e.g. avatar + document + product gallery). Mobile only. Requires `Plugin::MEDIA`.
 
 ---
 
