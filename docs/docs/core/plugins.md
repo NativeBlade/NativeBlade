@@ -96,6 +96,14 @@ their own page under Desktop: [Menus & Tray](/desktop/menus-tray/),
 
 > **Behavior when missing:** if a Livewire action calls `NativeBlade::camera()` without declaring `Plugin::MEDIA`, the build fails with a Cargo error pointing at the missing permission. This is intentional, fail at build time, not at runtime.
 
+### Always-on plugins
+
+A small core set is **always included**, whether or not you list it, so the framework's own primitives keep working:
+
+`Plugin::DIALOG`, `Plugin::OS`, `Plugin::PROCESS`, `Plugin::STORE`, `Plugin::FS`, `Plugin::OPENER`.
+
+You never need to declare these. In particular, `NativeBlade::setState()` / `getState()` are backed by `Plugin::STORE` (a key-value store persisted across launches), so they work out of the box with no plugin declaration. Listing one of them in `plugins([...])` is harmless, just redundant, it is deduplicated.
+
 ### Skipping declaration
 
 If you don't call `NativeBladeConfig::plugins([...])`, all plugins are included by default. Useful while prototyping; switch to explicit declaration before shipping.

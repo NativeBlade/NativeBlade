@@ -5,6 +5,10 @@ description: "Show Google AdMob ads in a mobile app."
 
 # AdMob
 
+::: callout warning "Not available through the NativeBlade Portal"
+AdMob cannot be used when you build your app on the [NativeBlade Portal](https://app.nativeblade.dev). The Portal build does not include the AdMob plugin, so `Plugin::ADMOB` calls fail at runtime with a `not allowed by ACL` error. To ship ads, build the app yourself with `php artisan nativeblade:build` (locally or in your own CI), where you control the AdMob setup.
+:::
+
 Native mobile ads through the Google Mobile Ads SDK. Three formats are covered: **rewarded** (the opt-in "watch for a reward" flow), **interstitial** (with frequency capping baked in) and **banner** (an adaptive banner anchored below the WebView). The required consent layer (Google UMP on both platforms, App Tracking Transparency on iOS) is included. Requires `Plugin::ADMOB`.
 
 Native (in-content) ads are out of scope, they are embedded views composited with the WebView, a harder problem for a later version. The banner works because it never overlaps the page: it is pinned to the bottom edge and the WebView shrinks to make room.
