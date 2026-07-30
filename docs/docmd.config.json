@@ -31,6 +31,7 @@
     "customCss": ["/assets/css/branding.css"]
   },
   "minify": true,
+  "customJs": ["/assets/js/branding.js"],
   "autoTitleFromH1": true,
   "copyCode": true,
   "pageNavigation": true,
