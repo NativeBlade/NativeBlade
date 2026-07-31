@@ -14,7 +14,7 @@ SDK is a few steps.
 1. **Bump the package** to the new SDK line:
 
    ```bash
-   composer require nativeblade/nativeblade:^38
+   composer require nativeblade/nativeblade:^37
    ```
 
 2. **Sync your project** with the installed version:
