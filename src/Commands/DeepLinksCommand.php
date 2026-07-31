@@ -23,8 +23,8 @@ class DeepLinksCommand extends Command
             return self::FAILURE;
         }
 
-        $androidPackage = $configs['android']['identifier'] ?? 'com.example.app';
-        $iosBundle = $configs['ios']['identifier'] ?? 'com.example.app';
+        $androidPackage = $configs['android']['identifier'] ?? 'com.example.application';
+        $iosBundle = $configs['ios']['identifier'] ?? 'com.example.application';
         $team = $this->option('team') ?: 'YOUR_TEAM_ID';
         $fingerprint = $this->option('fingerprint') ?: 'REPLACE_WITH_YOUR_SHA256_FINGERPRINT';
 

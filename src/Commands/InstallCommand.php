@@ -33,7 +33,7 @@ class InstallCommand extends Command
         }
 
         $this->appName = $this->option('name') ?: $this->ask('App name', config('app.name', 'MyApp'));
-        $this->identifier = $this->option('id') ?: $this->ask('Identifier (com.example.app)', $this->guessIdentifier());
+        $this->identifier = $this->option('id') ?: $this->ask('Identifier (com.example.application)', $this->guessIdentifier());
         $this->template = $template ?: $this->choice(
             'Which starter template?',
             ['demo', 'blank'],
@@ -663,6 +663,6 @@ PHP;
         if ($name === '' || ctype_digit($name[0])) {
             $name = 'app' . $name;
         }
-        return "com.{$name}.app";
+        return "com.{$name}.application";
     }
 }
