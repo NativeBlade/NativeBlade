@@ -9,7 +9,7 @@ NativeBlade has two complementary update mechanisms:
 
 | | Shell Update | Bundle Push |
 |---|---|---|
-| **What updates** | The native binary (Rust, plugins, Tauri shell) | Just the Laravel bundle (PHP, Blade, Livewire, CSS, JS) |
+| **What updates** | The native binary (Rust, plugins, Tauri shell) | The Laravel bundle (PHP, Blade, Livewire, CSS, JS, and shell components) |
 | **Size** | 50–200MB | 5–15MB |
 | **Desktop** | Tauri updater downloads + restarts | Downloaded on boot (splash held), applied same session |
 | **Mobile** | Modal → redirect to store | Downloaded on boot (splash held), applied same session |
@@ -129,6 +129,25 @@ This generates a `.sig` file, include the signature content in the `platforms.*.
 ## Bundle Push
 
 Push Laravel updates to all installed apps without rebuilding the native shell or going through the App Store / Play Store. The shell stays the same; only `laravel-bundle.json.gz` is replaced.
+
+### What ships in the bundle
+
+The bundle is everything that runs on the Laravel side of the app:
+
+- **PHP**: `app/`, `routes/`, `config/`, `bootstrap/`, `database/migrations/`, and `vendor/`.
+- **Views and assets**: `resources/views/` (Blade), `lang/`, and everything in `public/`, which is your compiled CSS and JS, images, and fonts.
+- **Shell components**: the `nativeblade-components/` folder. Pure JS/CSS shell components are pre-compiled into the bundle, so a component fix ships over the air like any other Laravel change.
+
+What is **not** in the bundle, and therefore needs a Shell Update (a store release or a Portal rebuild):
+
+- The native binary: Rust, Tauri plugins, and any change to the `plugins([...])` declaration or native plugin code.
+- The framework's own shell runtime (the NativeBlade JavaScript compiled into the shell) and the php-wasm binary itself.
+
+The rule of thumb: if it is your Laravel app code (PHP, Blade, CSS, public JS, components, translations), Bundle Push ships it. If it touches the native binary, it needs a Shell Update.
+
+::: callout warning "2MB per-file limit"
+Individual files larger than 2MB are skipped when the bundle is built. Keep bundled assets (compiled JS/CSS, images, fonts in `public/`) under that limit, or host large media on a URL the app fetches at runtime instead of shipping it in the bundle.
+:::
 
 ### Configuration
 
