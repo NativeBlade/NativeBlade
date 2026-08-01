@@ -149,6 +149,10 @@ The rule of thumb: if it is your Laravel app code (PHP, Blade, CSS, public JS, c
 Individual files larger than 2MB are skipped when the bundle is built. Keep bundled assets (compiled JS/CSS, images, fonts in `public/`) under that limit, or host large media on a URL the app fetches at runtime instead of shipping it in the bundle.
 :::
 
+::: callout warning "The bundle is client-visible, including your .env"
+The bundle carries your app's `.env`, and it has to: Laravel reads it at boot on the device. Like all on-device PHP, the bundle is client-side, so treat everything in it as public. Never put server-only secrets (third-party API keys, signing keys) in a NativeBlade app's `.env`. Keep those on a backend the app calls over `Http::`, and read per-user tokens from secure storage, not the bundle. Hosting the bundle on a public CDN does not change this: it was already on every user's device.
+:::
+
 ### Configuration
 
 ```php
@@ -264,6 +268,18 @@ php artisan nativeblade:bundle --tag=1.0.5
 ```
 
 `nativeblade:bundle` skips the native build entirely, it only runs `composer install --no-dev` + the bundle script. Typical run is 10-30 seconds vs minutes for a full `nativeblade:build`.
+
+#### Targeting a minimum shell with `--shell`
+
+Pass `--shell` to set the bundle's `minShellVersion`:
+
+```bash
+php artisan nativeblade:bundle --tag=1.2.0 --shell=1.1.0
+```
+
+It defaults to `1.0.0`, which every installed shell satisfies, so a pure-PHP bundle reaches all of your users regardless of which store build they are on. That is what you want for the roughly 99% of updates that only touch PHP, Blade, CSS, or JS.
+
+Raise `--shell` to a version already in the stores only when the bundle calls into a native capability (a plugin or a facade method) added in a newer shell. Devices on an older shell then report `shell-too-old` and keep their current bundle instead of downloading code that would crash. The key point: `minShellVersion` is about what the bundle **requires** to run, not which shell it was built alongside. Those differ only when the code uses newer native code, so leave it at the default unless that is the case, otherwise you needlessly cut off users who are still on an older store build from a fix that would run fine for them.
 
 ### Recommendations
 
