@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "tauri-plugin-nativeblade-analytics",
     platforms: [
-        .iOS(.v14),
+        .iOS(.v15),
         .macOS(.v10_15),
     ],
     products: [

@@ -86,6 +86,6 @@ class AppServiceProvider extends ServiceProvider
             Plugin::DEEP_LINK,
         ]);
 
-        NativeBladeConfig::transition('slide');
+        NativeBladeConfig::transition('fade');
     }
 }

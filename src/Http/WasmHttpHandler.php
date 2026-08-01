@@ -53,8 +53,7 @@ class WasmHttpHandler
         }
         $body = (string) $request->getBody();
 
-        ksort($headers);
-        $key = md5($method . '|' . $url . '|' . json_encode($headers) . '|' . $body . '|' . self::$requestIndex);
+        $key = md5($method . '|' . $url . '|' . self::$requestIndex);
         self::$requestIndex++;
         $cachePath = self::CACHE_DIR . '/' . $key . '.json';
 

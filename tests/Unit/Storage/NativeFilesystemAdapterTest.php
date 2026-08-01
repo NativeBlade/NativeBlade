@@ -22,6 +22,7 @@ use ReflectionClass;
  *   - Cache-hit paths for every bridge op: exists, write, read, delete, stat,
  *     list, copy, move, mkdir, delete_dir
  *   - readStream wrapping read()
+ *   - The cache key is content-independent (see the write regression test)
  *
  * The exit(0) fallback isn't testable without subprocess isolation.
  */
@@ -56,10 +57,16 @@ final class NativeFilesystemAdapterTest extends TestCase
         }
     }
 
-    /** Mirror NativeFilesystemAdapter::bridge() key generation exactly. */
-    private function keyFor(string $op, string $baseDir, string $path, string $extra, int $index): string
+    /**
+     * Mirror NativeFilesystemAdapter::bridge() key generation exactly. The key
+     * is deterministic and content-independent: op + baseDir + path + opIndex.
+     * The operation's `extra` (write contents, copy/move destination, list deep
+     * flag) travels in the pending payload but is intentionally NOT hashed, so a
+     * write with dynamic contents keeps a stable key across re-executions.
+     */
+    private function keyFor(string $op, string $baseDir, string $path, int $index): string
     {
-        return md5($op . '|' . $baseDir . '|' . $path . '|' . $extra . '|' . $index);
+        return md5($op . '|' . $baseDir . '|' . $path . '|' . $index);
     }
 
     private function seed(string $key, mixed $result): void
@@ -178,7 +185,7 @@ final class NativeFilesystemAdapterTest extends TestCase
     #[Test]
     public function file_exists_returns_cached_boolean(): void
     {
-        $this->seed($this->keyFor('exists', 'app', 'foo.txt', '', 0), true);
+        $this->seed($this->keyFor('exists', 'app', 'foo.txt', 0), true);
         $adapter = new NativeFilesystemAdapter();
         self::assertTrue($adapter->fileExists('foo.txt'));
     }
@@ -186,23 +193,28 @@ final class NativeFilesystemAdapterTest extends TestCase
     #[Test]
     public function directory_exists_returns_cached_boolean(): void
     {
-        $this->seed($this->keyFor('dir_exists', 'app', 'some/dir', '', 0), false);
+        $this->seed($this->keyFor('dir_exists', 'app', 'some/dir', 0), false);
         $adapter = new NativeFilesystemAdapter();
         self::assertFalse($adapter->directoryExists('some/dir'));
     }
 
     #[Test]
-    public function write_base64_encodes_contents_in_extra_param(): void
+    public function write_resolves_from_cache_regardless_of_contents(): void
     {
-        $payload = 'hello world';
-        $b64 = base64_encode($payload);
-
-        $this->seed($this->keyFor('write', 'app', 'out.txt', $b64, 0), true);
+        $this->seed($this->keyFor('write', 'app', 'out.txt', 0), true);
 
         $adapter = new NativeFilesystemAdapter();
-        // Returns void; if cache miss, we'd exit(0). Reaching the next line
-        // implies the cache hit fired.
-        $adapter->write('out.txt', $payload, new Config());
+        $adapter->write('out.txt', 'hello world', new Config());
+        self::assertTrue(true);
+    }
+
+    #[Test]
+    public function write_cache_key_ignores_dynamic_contents(): void
+    {
+        $this->seed($this->keyFor('write', 'app', 'log.txt', 0), true);
+
+        $adapter = new NativeFilesystemAdapter();
+        $adapter->write('log.txt', 'written at ' . microtime(true) . ' ' . random_int(0, PHP_INT_MAX), new Config());
         self::assertTrue(true);
     }
 
@@ -214,10 +226,7 @@ final class NativeFilesystemAdapterTest extends TestCase
         fwrite($stream, $payload);
         rewind($stream);
 
-        $this->seed(
-            $this->keyFor('write', 'app', 'chunk.bin', base64_encode($payload), 0),
-            true,
-        );
+        $this->seed($this->keyFor('write', 'app', 'chunk.bin', 0), true);
 
         $adapter = new NativeFilesystemAdapter();
         $adapter->writeStream('chunk.bin', $stream, new Config());
@@ -228,7 +237,7 @@ final class NativeFilesystemAdapterTest extends TestCase
     public function read_base64_decodes_cached_payload(): void
     {
         $payload = "line1\nline2";
-        $this->seed($this->keyFor('read', 'app', 'src.txt', '', 0), base64_encode($payload));
+        $this->seed($this->keyFor('read', 'app', 'src.txt', 0), base64_encode($payload));
 
         $adapter = new NativeFilesystemAdapter();
         self::assertSame($payload, $adapter->read('src.txt'));
@@ -238,7 +247,7 @@ final class NativeFilesystemAdapterTest extends TestCase
     public function read_stream_returns_rewindable_stream_with_contents(): void
     {
         $payload = "stream contents";
-        $this->seed($this->keyFor('read', 'app', 'stream.txt', '', 0), base64_encode($payload));
+        $this->seed($this->keyFor('read', 'app', 'stream.txt', 0), base64_encode($payload));
 
         $adapter = new NativeFilesystemAdapter();
         $stream = $adapter->readStream('stream.txt');
@@ -247,9 +256,9 @@ final class NativeFilesystemAdapterTest extends TestCase
     }
 
     #[Test]
-    public function delete_bridges_with_empty_extra(): void
+    public function delete_bridges_with_delete_op(): void
     {
-        $this->seed($this->keyFor('delete', 'app', 'gone.txt', '', 0), true);
+        $this->seed($this->keyFor('delete', 'app', 'gone.txt', 0), true);
 
         $adapter = new NativeFilesystemAdapter();
         $adapter->delete('gone.txt');
@@ -259,7 +268,7 @@ final class NativeFilesystemAdapterTest extends TestCase
     #[Test]
     public function delete_directory_bridges_with_delete_dir_op(): void
     {
-        $this->seed($this->keyFor('delete_dir', 'app', 'stale/', '', 0), true);
+        $this->seed($this->keyFor('delete_dir', 'app', 'stale/', 0), true);
 
         $adapter = new NativeFilesystemAdapter();
         $adapter->deleteDirectory('stale/');
@@ -269,7 +278,7 @@ final class NativeFilesystemAdapterTest extends TestCase
     #[Test]
     public function create_directory_bridges_with_mkdir_op(): void
     {
-        $this->seed($this->keyFor('mkdir', 'app', 'new/dir', '', 0), true);
+        $this->seed($this->keyFor('mkdir', 'app', 'new/dir', 0), true);
 
         $adapter = new NativeFilesystemAdapter();
         $adapter->createDirectory('new/dir', new Config());
@@ -280,7 +289,7 @@ final class NativeFilesystemAdapterTest extends TestCase
     public function last_modified_returns_cached_timestamp(): void
     {
         $ts = 1713340800;
-        $this->seed($this->keyFor('stat', 'app', 'file.txt', '', 0), ['lastModified' => $ts]);
+        $this->seed($this->keyFor('stat', 'app', 'file.txt', 0), ['lastModified' => $ts]);
 
         $attrs = (new NativeFilesystemAdapter())->lastModified('file.txt');
 
@@ -291,7 +300,7 @@ final class NativeFilesystemAdapterTest extends TestCase
     #[Test]
     public function file_size_returns_cached_size(): void
     {
-        $this->seed($this->keyFor('stat', 'app', 'data.bin', '', 0), ['size' => 4096]);
+        $this->seed($this->keyFor('stat', 'app', 'data.bin', 0), ['size' => 4096]);
 
         $attrs = (new NativeFilesystemAdapter())->fileSize('data.bin');
         self::assertSame(4096, $attrs->fileSize());
@@ -300,7 +309,7 @@ final class NativeFilesystemAdapterTest extends TestCase
     #[Test]
     public function list_contents_emits_file_and_directory_attributes(): void
     {
-        $this->seed($this->keyFor('list', 'app', 'folder', '0', 0), [
+        $this->seed($this->keyFor('list', 'app', 'folder', 0), [
             ['path' => 'folder/a.txt', 'size' => 10, 'lastModified' => 100, 'isDirectory' => false],
             ['path' => 'folder/sub',   'isDirectory' => true],
             ['path' => 'folder/b.bin', 'size' => 20, 'lastModified' => 200, 'isDirectory' => false],
@@ -323,10 +332,9 @@ final class NativeFilesystemAdapterTest extends TestCase
     }
 
     #[Test]
-    public function list_contents_deep_flag_flips_the_extra_param(): void
+    public function list_contents_deep_reads_from_cache(): void
     {
-        // When deep=true the extra param is '1' instead of '0' → distinct cache key.
-        $this->seed($this->keyFor('list', 'app', 'f', '1', 0), []);
+        $this->seed($this->keyFor('list', 'app', 'f', 0), []);
 
         $adapter = new NativeFilesystemAdapter();
         $items = iterator_to_array($adapter->listContents('f', true));
@@ -337,16 +345,16 @@ final class NativeFilesystemAdapterTest extends TestCase
     public function list_contents_returns_empty_when_result_is_not_array(): void
     {
         // Tauri returns null on error; adapter must yield [].
-        $this->seed($this->keyFor('list', 'app', 'missing', '0', 0), null);
+        $this->seed($this->keyFor('list', 'app', 'missing', 0), null);
 
         $items = iterator_to_array((new NativeFilesystemAdapter())->listContents('missing', false));
         self::assertSame([], $items);
     }
 
     #[Test]
-    public function copy_bridges_with_destination_as_extra(): void
+    public function copy_bridges_with_copy_op(): void
     {
-        $this->seed($this->keyFor('copy', 'app', 'src.txt', 'dst.txt', 0), true);
+        $this->seed($this->keyFor('copy', 'app', 'src.txt', 0), true);
 
         $adapter = new NativeFilesystemAdapter();
         $adapter->copy('src.txt', 'dst.txt', new Config());
@@ -354,9 +362,9 @@ final class NativeFilesystemAdapterTest extends TestCase
     }
 
     #[Test]
-    public function move_bridges_with_destination_as_extra(): void
+    public function move_bridges_with_move_op(): void
     {
-        $this->seed($this->keyFor('move', 'app', 'old.txt', 'new.txt', 0), true);
+        $this->seed($this->keyFor('move', 'app', 'old.txt', 0), true);
 
         $adapter = new NativeFilesystemAdapter();
         $adapter->move('old.txt', 'new.txt', new Config());
@@ -367,7 +375,7 @@ final class NativeFilesystemAdapterTest extends TestCase
     public function nb_prefix_in_path_routes_to_custom_baseDir(): void
     {
         // __nb:cache:key.bin → path='key.bin', baseDir='cache'
-        $this->seed($this->keyFor('exists', 'cache', 'key.bin', '', 0), true);
+        $this->seed($this->keyFor('exists', 'cache', 'key.bin', 0), true);
 
         $adapter = new NativeFilesystemAdapter();
         self::assertTrue($adapter->fileExists('__nb:cache:key.bin'));
@@ -376,9 +384,9 @@ final class NativeFilesystemAdapterTest extends TestCase
     #[Test]
     public function opIndex_monotonically_increases_across_ops(): void
     {
-        $this->seed($this->keyFor('exists', 'app', 'a', '', 0), true);
-        $this->seed($this->keyFor('exists', 'app', 'b', '', 1), false);
-        $this->seed($this->keyFor('exists', 'app', 'c', '', 2), true);
+        $this->seed($this->keyFor('exists', 'app', 'a', 0), true);
+        $this->seed($this->keyFor('exists', 'app', 'b', 1), false);
+        $this->seed($this->keyFor('exists', 'app', 'c', 2), true);
 
         $adapter = new NativeFilesystemAdapter();
         self::assertTrue($adapter->fileExists('a'));

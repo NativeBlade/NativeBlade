@@ -63,19 +63,12 @@ final class WasmHttpHandlerTest extends TestCase
 
     /**
      * Reproduce the exact key the handler will compute for a request at the
-     * current $requestIndex. Mirrors __invoke() line by line.
+     * current $requestIndex. Mirrors __invoke(): method + url + requestIndex.
+     * Headers and body are intentionally NOT part of the key.
      */
     private function keyFor(Request $request, int $index): string
     {
-        $url = (string) $request->getUri();
-        $method = $request->getMethod();
-        $headers = [];
-        foreach ($request->getHeaders() as $name => $values) {
-            $headers[$name] = implode(', ', $values);
-        }
-        $body = (string) $request->getBody();
-        ksort($headers);
-        return md5($method . '|' . $url . '|' . json_encode($headers) . '|' . $body . '|' . $index);
+        return md5($request->getMethod() . '|' . (string) $request->getUri() . '|' . $index);
     }
 
     private function seedCache(string $key, array $payload): string
@@ -215,26 +208,23 @@ final class WasmHttpHandlerTest extends TestCase
     }
 
     #[Test]
-    public function headers_are_sorted_when_building_cache_key(): void
+    public function headers_and_body_are_excluded_from_the_cache_key(): void
     {
         $handler = new WasmHttpHandler();
 
-        // Two requests with same semantic headers in different Guzzle insertion order.
-        $r1 = new Request('GET', 'https://a.test/x', ['Z-Last' => 'z', 'A-First' => 'a']);
+        $bare = new Request('POST', 'https://a.test/x');
+        $this->seedCache($this->keyFor($bare, 0), ['body' => 'cached']);
 
-        // Seed with explicit header order matching what ksort produces
-        $key = $this->keyFor($r1, 0);
+        $withExtras = new Request(
+            'POST',
+            'https://a.test/x',
+            ['Idempotency-Key' => 'random-' . uniqid('', true)],
+            'token=' . bin2hex(random_bytes(8)),
+        );
 
-        // Manually compute independently: if ksort works, then
-        //   headers = ['A-First' => 'a', 'Host' => 'a.test', 'Z-Last' => 'z']
-        $expectedHeaders = [
-            'A-First' => 'a',
-            'Host' => 'a.test',
-            'Z-Last' => 'z',
-        ];
-        $expectedKey = md5('GET|https://a.test/x|' . json_encode($expectedHeaders) . '||0');
-
-        self::assertSame($expectedKey, $key);
+        /** @var Response $resp */
+        $resp = $handler($withExtras, [])->wait();
+        self::assertSame('cached', (string) $resp->getBody());
     }
 
     #[Test]

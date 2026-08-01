@@ -44,15 +44,21 @@ setTimeout(() => {
 
     console.log(`\n  Starting Tauri Android Dev...\n`);
 
+    const missing = ['ANDROID_HOME', 'NDK_HOME', 'JAVA_HOME'].filter((k) => !process.env[k]);
+    if (missing.length) {
+        console.error(`\n  Missing env var(s): ${missing.join(', ')}`);
+        console.error('  Point them at your local Android SDK / NDK / JDK before running mobile dev:');
+        console.error('    ANDROID_HOME=<path to Android/Sdk>');
+        console.error('    NDK_HOME=<path to Android/Sdk/ndk/<version>>   (r28+ for 16 KB page-size)');
+        console.error('    JAVA_HOME=<path to a JDK 17+>\n');
+        vite.kill();
+        process.exit(1);
+    }
+
     const tauri = spawn('npx', ['tauri', 'android', 'dev', '--config', tauriConfig], {
         stdio: 'inherit',
         shell: true,
-        env: {
-            ...process.env,
-            ANDROID_HOME: process.env.ANDROID_HOME || 'C:\\Users\\siste\\AppData\\Local\\Android\\Sdk',
-            NDK_HOME: process.env.NDK_HOME || 'C:\\Users\\siste\\AppData\\Local\\Android\\Sdk\\ndk\\30.0.14904198',
-            JAVA_HOME: process.env.JAVA_HOME || 'C:\\grandle\\jdk-21.0.9',
-        }
+        env: { ...process.env }
     });
 
     tauri.on('close', () => {

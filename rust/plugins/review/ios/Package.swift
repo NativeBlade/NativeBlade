@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "tauri-plugin-nativeblade-review",
     platforms: [
-        .iOS(.v14),
+        .iOS(.v15),
     ],
     products: [
         .library(
