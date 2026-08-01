@@ -31,7 +31,7 @@ NativeBladeConfig::android(function (AndroidConfig $config) {
     $config->identifier('com.myapp.app')
         ->version('1.0.0', 1)
         ->minSdk(28)
-        ->targetSdk(35)
+        ->targetSdk(36)
         ->orientation('portrait')
         ->statusBar(style: 'dark')
         ->splashBackground('#0a0a0a')

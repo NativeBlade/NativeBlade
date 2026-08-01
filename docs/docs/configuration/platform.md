@@ -50,7 +50,7 @@ The desktop menu bar and system tray have their own page: [Menus & Tray](/deskto
 | `identifier(string)` | Package name |
 | `version(string, int)` | versionName + versionCode |
 | `minSdk(int)` | Minimum Android SDK (default: 28) |
-| `targetSdk(int)` | Target Android SDK (default: 35) |
+| `targetSdk(int)` | Target Android SDK (default: 36, required by Google Play) |
 | `orientation(string)` | `portrait`, `landscape`, or `auto` |
 | `statusBar(style)` | Status bar icon style (`'dark'` or `'light'`). Navigation bar matches automatically. Edge-to-edge is enforced, so the background under both system bars comes from your WebView content (paint via CSS with `env(safe-area-inset-top)`), not from a theme color. |
 | `fullscreen(bool)` | Hide status bar and navigation bar |

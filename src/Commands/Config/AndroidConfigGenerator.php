@@ -940,14 +940,13 @@ XML;
             $changed = true;
         }
 
-        if (isset($config['targetSdk'])) {
-            $gradle = preg_replace('/targetSdk\s*=\s*\d+/', 'targetSdk = ' . $config['targetSdk'], $gradle);
-            $changed = true;
-        }
+        $targetSdk = $config['targetSdk'] ?? 36;
+        $gradle = preg_replace('/targetSdk\s*=\s*\d+/', 'targetSdk = ' . $targetSdk, $gradle);
+        $changed = true;
 
         if ($changed) {
             file_put_contents($gradlePath, $gradle);
-            $this->cmd->line("  <fg=green>✓</> Android SDK: min=" . ($config['minSdk'] ?? '?') . " target=" . ($config['targetSdk'] ?? '?'));
+            $this->cmd->line("  <fg=green>✓</> Android SDK: min=" . ($config['minSdk'] ?? '?') . " target=" . $targetSdk);
         }
     }
 
