@@ -70,8 +70,17 @@ export function inlineAssets(html, php) {
         /<link([^>]*)\shref="(?:https?:\/\/[^"\/]*)?\/([^"]+\.css)"([^>]*)\/?>/g,
         (m, pre, file, post) => {
             if (file.indexOf('build/assets/') === 0 || !/stylesheet/i.test(pre + post)) return m;
-            try { return '<style>' + cssUrls(php.readFileAsText('/app/public/' + file)) + '</style>'; }
-            catch { return m; }
+            try {
+                const css = cssUrls(php.readFileAsText('/app/public/' + file));
+                if (/wire:nb-asset/.test(pre + post)) {
+                    const bytes = new TextEncoder().encode(css);
+                    let bin = '';
+                    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+                    const b64 = btoa(bin);
+                    return '<link' + pre + post + ' href="data:text/css;base64,' + b64 + '">';
+                }
+                return '<style>' + css + '</style>';
+            } catch { return m; }
         }
     );
 

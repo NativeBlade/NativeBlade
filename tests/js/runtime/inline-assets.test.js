@@ -41,6 +41,27 @@ describe('inline-assets/inlineAssets', () => {
         assert.match(out, /<style>\.x\{\}<\/style>/);
     });
 
+    it('keeps a wire:nb-asset stylesheet as a <link> with a data: URL', () => {
+        // Assets inside a Livewire component are re-rendered on every update;
+        // wire:nb-asset must survive the inline as a stable <link> tag so the
+        // nb-asset directive (wire:ignore.self) can persist it through morphs.
+        const css = 'body{color:red}';
+        const php = makePhp({ '/app/public/css/ds.css': css });
+        const out = inlineAssets('<link wire:nb-asset rel="stylesheet" href="http://localhost/css/ds.css">', php);
+        assert.match(out, /^<link/);
+        assert.doesNotMatch(out, /<style>/);
+        assert.match(out, /wire:nb-asset/);
+        const b64 = Buffer.from(css, 'utf8').toString('base64');
+        assert.ok(out.includes('data:text/css;base64,' + b64), out);
+    });
+
+    it('still inlines an unmarked stylesheet to <style>', () => {
+        const php = makePhp({ '/app/public/css/ds.css': 'body{color:red}' });
+        const out = inlineAssets('<link rel="stylesheet" href="http://localhost/css/ds.css">', php);
+        assert.match(out, /<style>body\{color:red\}<\/style>/);
+        assert.doesNotMatch(out, /data:text\/css/);
+    });
+
     it('leaves a <link> without rel="stylesheet" untouched', () => {
         const php = makePhp({ '/app/public/css/app.css': 'body{}' });
         const input = '<link href="/css/app.css">';

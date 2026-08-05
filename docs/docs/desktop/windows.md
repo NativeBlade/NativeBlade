@@ -177,6 +177,28 @@ automatically, including files in subdirectories and `url(...)` references insid
 your CSS. You do not need to inline anything by hand. This applies to files in the
 bundle; a truly external URL (a CDN) is left as-is and still needs a network.
 
+### Assets inside a component: mark them with `wire:nb-asset`
+
+Inlining happens on the initial render. A Livewire **update** returns JSON that
+skips it, so if an asset tag lives inside your component (not in the `<head>`), the
+morph re-inserts the original network `<link>` / `<script>` and it fails with
+`ERR_CONNECTION_REFUSED` after the first interaction. In a window the component is
+the whole page, so its stylesheets and scripts sit in the body and hit exactly
+this.
+
+Mark those tags with `wire:nb-asset`. The inlined asset then persists across
+updates instead of reverting to a network request, and the original tag still
+travels as a few bytes, so nothing bloats your per-update payload:
+
+```blade
+<link wire:nb-asset rel="stylesheet" href="{{ asset('css/ds.css') }}">
+<script wire:nb-asset src="{{ asset('js/panel.js') }}"></script>
+```
+
+You only need this for assets rendered inside a component. In the main window,
+stylesheets in the layout `<head>` are outside every component and are never
+re-morphed, so they do not need the marker.
+
 ## How it works
 
 The extra window loads the same frontend but boots in **relay mode**. It renders
