@@ -158,6 +158,25 @@ window.addEventListener('nb:js:map-center', (e) => centerMap(e.detail.lat, e.det
 `wire:ignore` keeps Livewire from wiping the JS-managed element on morph. Each
 window loads its own copy of the script.
 
+### Local assets are inlined for you
+
+A window runs in an origin-null iframe with no file server, so a `<link>` or
+`<script>` pointing at a real URL would fail. NativeBlade inlines your local
+`public/` assets into the page before the window renders it, exactly as it does
+for the main window. Both forms resolve to the bundled file:
+
+```blade
+<link rel="stylesheet" href="/css/panel.css">
+<link rel="stylesheet" href="{{ asset('css/panel.css') }}">
+<script src="/js/panel.js"></script>
+<script src="{{ asset('js/panel.js') }}"></script>
+```
+
+Stylesheets (`rel="stylesheet"`), scripts, and `<img>` under `public/` are inlined
+automatically, including files in subdirectories and `url(...)` references inside
+your CSS. You do not need to inline anything by hand. This applies to files in the
+bundle; a truly external URL (a CDN) is left as-is and still needs a network.
+
 ## How it works
 
 The extra window loads the same frontend but boots in **relay mode**. It renders
