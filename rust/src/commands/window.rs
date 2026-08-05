@@ -80,7 +80,7 @@ pub async fn open_window(app: AppHandle, config: WindowConfig) -> Result<(), Str
         .title(config.id.as_str())
         .resizable(config.resizable.unwrap_or(true));
 
-    #[cfg(desktop)]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         builder = builder
             .decorations(!config.frameless.unwrap_or(false))

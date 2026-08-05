@@ -1,13 +1,13 @@
 use serde::Serialize;
 use std::collections::HashMap;
-#[cfg(not(mobile))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use std::path::PathBuf;
 
-#[cfg(mobile)]
+#[cfg(any(target_os = "android", target_os = "ios"))]
 const EMBEDDED_ENV: &str = include_str!("../../../.env");
-#[cfg(mobile)]
+#[cfg(any(target_os = "android", target_os = "ios"))]
 const EMBEDDED_LANG_PT_BR: &str = include_str!("../../../lang/pt_BR.json");
-#[cfg(mobile)]
+#[cfg(any(target_os = "android", target_os = "ios"))]
 const EMBEDDED_LANG_EN: &str = include_str!("../../../lang/en.json");
 
 #[derive(Serialize)]
@@ -23,7 +23,7 @@ pub struct AppConfig {
 }
 
 fn is_mobile() -> bool {
-    cfg!(mobile)
+    cfg!(any(target_os = "android", target_os = "ios"))
 }
 
 fn load_env_from_string(content: &str) -> HashMap<String, String> {
@@ -41,12 +41,12 @@ fn load_env_from_string(content: &str) -> HashMap<String, String> {
 }
 
 fn load_env() -> HashMap<String, String> {
-    #[cfg(mobile)]
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     {
         load_env_from_string(EMBEDDED_ENV)
     }
 
-    #[cfg(not(mobile))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let candidates = vec![
             std::env::current_exe()
@@ -67,7 +67,7 @@ fn load_env() -> HashMap<String, String> {
 }
 
 fn load_translations(locale: &str) -> HashMap<String, String> {
-    #[cfg(mobile)]
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     {
         let content = match locale {
             "pt_BR" => EMBEDDED_LANG_PT_BR,
@@ -76,7 +76,7 @@ fn load_translations(locale: &str) -> HashMap<String, String> {
         serde_json::from_str(content).unwrap_or_default()
     }
 
-    #[cfg(not(mobile))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let filename = format!("{}.json", locale);
         let candidates = vec![
@@ -229,9 +229,7 @@ mod tests {
 
     #[test]
     fn is_mobile_returns_false_in_desktop_test_context() {
-        // Tests run on the host (desktop). cfg!(mobile) is controlled by the
-        // `mobile` custom cfg set by tauri's platform-specific builds, which
-        // is not active in our test target.
+        // Tests run on the host (desktop), so target_os is never android/ios.
         assert!(!is_mobile());
     }
 }
