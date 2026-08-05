@@ -96,4 +96,7 @@ enum Plugin: string
 
     /** Execute shell commands (desktop only). Powers `NativeBlade::shell()`. */
     case SHELL = 'shell';
+
+    /** System-wide keyboard shortcuts (desktop only). Declared via `NativeBladeConfig::globalShortcuts([...])`; each press fires the `nb:shortcut` Livewire event. */
+    case GLOBAL_SHORTCUT = 'global_shortcut';
 }

@@ -78,7 +78,8 @@
         { "title": "Windows", "path": "/desktop/windows/" },
         { "title": "Shell Commands", "path": "/desktop/shell/" },
         { "title": "Process & Window", "path": "/desktop/process/" },
-        { "title": "Menus & Tray", "path": "/desktop/menus-tray/" }
+        { "title": "Menus & Tray", "path": "/desktop/menus-tray/" },
+        { "title": "Global Shortcuts", "path": "/desktop/global-shortcuts/" }
       ]
     },
     {
