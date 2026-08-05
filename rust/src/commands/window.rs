@@ -36,6 +36,8 @@ pub struct WindowConfig {
     pub frameless: Option<bool>,
     #[serde(default)]
     pub resizable: Option<bool>,
+    #[serde(default)]
+    pub transparent: Option<bool>,
 }
 
 /// The Tauri window label. Prefixed so a future capability can grant satellite
@@ -72,7 +74,24 @@ pub async fn open_window(app: AppHandle, config: WindowConfig) -> Result<(), Str
     // Runs before the app bundle, so the JS boot sees the id synchronously and
     // enters satellite mode instead of booting a second php-wasm.
     let id_json = serde_json::to_string(&config.id).unwrap_or_else(|_| "\"\"".into());
-    let init_script = format!("window.__NB_SATELLITE__ = {id};", id = id_json);
+    // A transparent window also needs the document itself to be transparent, or
+    // index.html's opaque body would cover it. Injected here (before paint) so the
+    // component's own background is the only thing that shows.
+    let extra_css = if config.transparent.unwrap_or(false) {
+        "html,body{background:transparent!important}"
+    } else {
+        ""
+    };
+    let init_script = format!(
+        r#"window.__NB_SATELLITE__ = {id};
+try {{
+    var s = document.createElement('style');
+    s.textContent = '#splash{{display:none!important}}{extra}';
+    (document.head || document.documentElement).appendChild(s);
+}} catch (e) {{}}"#,
+        id = id_json,
+        extra = extra_css
+    );
 
     #[allow(unused_mut)]
     let mut builder = WebviewWindowBuilder::new(&app, lbl.as_str(), url)
@@ -84,7 +103,8 @@ pub async fn open_window(app: AppHandle, config: WindowConfig) -> Result<(), Str
     {
         builder = builder
             .decorations(!config.frameless.unwrap_or(false))
-            .always_on_top(config.always_on_top.unwrap_or(false));
+            .always_on_top(config.always_on_top.unwrap_or(false))
+            .transparent(config.transparent.unwrap_or(false));
 
         if let (Some(w), Some(h)) = (config.width, config.height) {
             builder = builder.inner_size(w, h);
