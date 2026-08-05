@@ -53,6 +53,27 @@ final class NativeResponseToResponseTest extends TestCase
     }
 
     #[Test]
+    public function runtime_global_shortcut_methods_queue_their_actions(): void
+    {
+        $payload = (new NativeResponse())
+            ->registerShortcut('CmdOrCtrl+J', 'jump')
+            ->unregisterShortcut('CmdOrCtrl+K')
+            ->unregisterAllShortcuts()
+            ->toResponse()
+            ->getData(true);
+
+        self::assertSame('register_shortcut', $payload['actions'][0]['action']);
+        self::assertSame(
+            ['accelerator' => 'CmdOrCtrl+J', 'name' => 'jump'],
+            $payload['actions'][0]['data']
+        );
+        self::assertSame('unregister_shortcut', $payload['actions'][1]['action']);
+        self::assertSame(['accelerator' => 'CmdOrCtrl+K'], $payload['actions'][1]['data']);
+        self::assertSame('unregister_all_shortcuts', $payload['actions'][2]['action']);
+        self::assertSame([], $payload['actions'][2]['data']);
+    }
+
+    #[Test]
     public function json_branch_preserves_modifier_data(): void
     {
         $response = (new NativeResponse())

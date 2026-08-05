@@ -64,6 +64,9 @@ use Illuminate\Support\Facades\Facade;
  * @method static \NativeBlade\NativeResponse task(\Closure $callback)
  * @method static \NativeBlade\NativeResponse getTaskOnQueue(string $name)
  * @method static \NativeBlade\NativeResponse sensors(\Closure $callback)
+ * @method static \NativeBlade\NativeResponse registerShortcut(string $accelerator, string $name) Register a system-wide keyboard shortcut at runtime (desktop only). Each press fires the `nb:shortcut` event with `$name`. Requires `Plugin::GLOBAL_SHORTCUT`.
+ * @method static \NativeBlade\NativeResponse unregisterShortcut(string $accelerator) Unregister a global shortcut by its accelerator (desktop only).
+ * @method static \NativeBlade\NativeResponse unregisterAllShortcuts() Unregister every global shortcut, declared and runtime (desktop only).
  * @method static \NativeBlade\NativeResponse clearTaskOnQueue(string $name, ?string $id = null)
  *
  * OS info.

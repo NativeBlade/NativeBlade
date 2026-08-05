@@ -106,6 +106,29 @@ public function onShortcut(string $name)
 What the shortcut does is entirely up to you: open a satellite window, navigate,
 toggle a panel, run a command. The framework only delivers the event.
 
+## Change them at runtime
+
+The declared set is registered at boot, but you can add or remove shortcuts on
+demand from a component, returned as a native action:
+
+```php
+use NativeBlade\Facades\NativeBlade;
+
+// Add one (re-registering the same accelerator replaces its binding)
+return NativeBlade::registerShortcut('CmdOrCtrl+J', 'jump')->toResponse();
+
+// Remove one
+return NativeBlade::unregisterShortcut('CmdOrCtrl+J')->toResponse();
+
+// Remove all of them (declared and runtime)
+return NativeBlade::unregisterAllShortcuts()->toResponse();
+```
+
+Runtime shortcuts fire the same `nb:shortcut` event with their `name`, so your
+`#[On('nb:shortcut')]` handler treats them identically. They are registered with
+the OS (not the page), so they persist across navigation until you unregister
+them. Desktop only, same `Plugin::GLOBAL_SHORTCUT` requirement, a no-op on mobile.
+
 ## How it works
 
 On boot, the desktop shell reads your shortcut map and registers each accelerator

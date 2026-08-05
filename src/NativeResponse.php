@@ -1142,6 +1142,38 @@ class NativeResponse
     }
 
     // ------------------------------------------------------------------
+    // Global shortcuts (desktop)
+    // ------------------------------------------------------------------
+
+    /**
+     * Register a system-wide keyboard shortcut at runtime. Each press fires the
+     * `nb:shortcut` Livewire event with `$name`, exactly like the declarative
+     * `NativeBladeConfig::globalShortcuts([...])` set. Re-registering the same
+     * accelerator replaces its binding. Desktop only; requires
+     * `Plugin::GLOBAL_SHORTCUT`. No-op on mobile.
+     *
+     * ```php
+     * return NativeBlade::registerShortcut('CmdOrCtrl+J', 'jump')->toResponse();
+     * ```
+     */
+    public function registerShortcut(string $accelerator, string $name): static
+    {
+        return $this->push('register_shortcut', ['accelerator' => $accelerator, 'name' => $name]);
+    }
+
+    /** Unregister a global shortcut by its accelerator. Desktop only. */
+    public function unregisterShortcut(string $accelerator): static
+    {
+        return $this->push('unregister_shortcut', ['accelerator' => $accelerator]);
+    }
+
+    /** Unregister every global shortcut, declared and runtime alike. Desktop only. */
+    public function unregisterAllShortcuts(): static
+    {
+        return $this->push('unregister_all_shortcuts', []);
+    }
+
+    // ------------------------------------------------------------------
     // Page JS
     // ------------------------------------------------------------------
 
