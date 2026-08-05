@@ -124,6 +124,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \NativeBlade\NativeResponse toggleMaximize()
  * @method static \NativeBlade\NativeResponse hide()
  * @method static \NativeBlade\NativeResponse show()
+ * @method static \NativeBlade\NativeResponse focus() Bring the app window to the front (unminimize + show + focus). The "summon the app" combo, e.g. from a global shortcut. Desktop only.
  *
  * Bundle updates (OTA).
  *

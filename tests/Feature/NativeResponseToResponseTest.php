@@ -74,6 +74,18 @@ final class NativeResponseToResponseTest extends TestCase
     }
 
     #[Test]
+    public function focus_queues_a_focus_action(): void
+    {
+        $payload = (new NativeResponse())
+            ->focus()
+            ->toResponse()
+            ->getData(true);
+
+        self::assertSame('focus', $payload['actions'][0]['action']);
+        self::assertSame([], $payload['actions'][0]['data']);
+    }
+
+    #[Test]
     public function json_branch_preserves_modifier_data(): void
     {
         $response = (new NativeResponse())

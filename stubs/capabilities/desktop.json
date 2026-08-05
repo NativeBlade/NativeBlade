@@ -13,6 +13,13 @@
         "notification:default",
         "notification:allow-is-permission-granted",
         "notification:allow-request-permission",
-        "notification:allow-notify"
+        "notification:allow-notify",
+        "core:window:allow-set-focus",
+        "core:window:allow-show",
+        "core:window:allow-hide",
+        "core:window:allow-minimize",
+        "core:window:allow-unminimize",
+        "core:window:allow-maximize",
+        "core:window:allow-unmaximize"
     ]
 }

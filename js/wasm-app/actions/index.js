@@ -116,6 +116,7 @@ export const actions = {
     toggle_maximize: system.toggle_maximize,
     hide: system.hide,
     show: system.show,
+    focus: system.focus,
 
     // generic tauri invoke (for third-party Tauri plugins)
     tauri_invoke: tauri.tauri_invoke,

@@ -362,10 +362,17 @@ class PluginsConfigGenerator
             'notification:allow-is-permission-granted',
             'notification:allow-request-permission',
             'notification:allow-notify',
+            'core:window:allow-set-focus',
+            'core:window:allow-show',
+            'core:window:allow-hide',
+            'core:window:allow-minimize',
+            'core:window:allow-unminimize',
+            'core:window:allow-maximize',
+            'core:window:allow-unmaximize',
         ];
         $mobilePerms = [];
         $allowedPrefixes = ['core', 'fs'];
-        $allowedDesktopPrefixes = ['notification'];
+        $allowedDesktopPrefixes = ['notification', 'core'];
         $allowedMobilePrefixes = [];
 
         foreach ($descriptors as $d) {

@@ -1268,6 +1268,16 @@ class NativeResponse
         return $this->push('show', []);
     }
 
+    /**
+     * Bring the app window to the front: restore it if minimized, make it
+     * visible, and give it keyboard focus. The "summon the app" combo, e.g.
+     * from a global shortcut. Desktop only.
+     */
+    public function focus(): static
+    {
+        return $this->push('focus', []);
+    }
+
     // ------------------------------------------------------------------
     // Modifiers — attach extra data to the last pushed action
     // ------------------------------------------------------------------

@@ -136,4 +136,51 @@ final class GlobalShortcutDesktopOnlyTest extends TestCase
         $default = file_get_contents(base_path('src-tauri/capabilities/default.json'));
         self::assertStringNotContainsString('global-shortcut', $default);
     }
+
+    /**
+     * NativeBlade ships window-control actions (minimize/maximize/hide/show/
+     * focus) that call core window mutators, which `core:default` does not
+     * grant. The generator must add them to desktop.json by default so the
+     * actions work without the developer hand-editing capabilities.
+     */
+    #[Test]
+    public function grants_window_controls_in_desktop_json_by_default(): void
+    {
+        // No plugins: the window controls are baseline, not plugin-driven.
+        $this->generator->generate([]);
+
+        $desktop = file_get_contents(base_path('src-tauri/capabilities/desktop.json'));
+        self::assertStringContainsString('core:window:allow-set-focus', $desktop);
+        self::assertStringContainsString('core:window:allow-show', $desktop);
+        self::assertStringContainsString('core:window:allow-unminimize', $desktop);
+
+        // Desktop-only: they must not leak into the cross-platform default.
+        $default = file_get_contents(base_path('src-tauri/capabilities/default.json'));
+        self::assertStringNotContainsString('core:window:allow-set-focus', $default);
+    }
+
+    /**
+     * Regression: regeneration used to strip any scoped core permission a
+     * developer added to desktop.json (its `core` prefix was not allowed),
+     * silently breaking window focus. Scoped-object core permissions must now
+     * survive `nativeblade:config`, alongside the framework's own baseline.
+     */
+    #[Test]
+    public function preserves_developer_core_permissions_on_regeneration(): void
+    {
+        $this->writeFixture('src-tauri/capabilities/desktop.json', <<<JSON
+        {
+            "permissions": [
+                { "identifier": "core:webview:allow-set-webview-focus" }
+            ]
+        }
+        JSON);
+
+        $this->generator->generate([]);
+
+        $desktop = file_get_contents(base_path('src-tauri/capabilities/desktop.json'));
+        self::assertStringContainsString('core:webview:allow-set-webview-focus', $desktop);
+        // And the framework baseline is still present alongside it.
+        self::assertStringContainsString('core:window:allow-set-focus', $desktop);
+    }
 }
