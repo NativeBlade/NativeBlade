@@ -54,6 +54,7 @@
         { "title": "Native Shell Modules", "path": "/core/native-shell/" },
         { "title": "Animations", "path": "/core/animations/" },
         { "title": "Navigation", "path": "/core/navigation/" },
+        { "title": "Authentication", "path": "/core/authentication/" },
         { "title": "Lifecycle", "path": "/core/lifecycle/" },
         { "title": "Directives", "path": "/core/directives/" },
         { "title": "State Management", "path": "/core/state/" },
