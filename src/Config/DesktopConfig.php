@@ -178,6 +178,17 @@ class DesktopConfig
         return $this;
     }
 
+    /**
+     * Drop the OS window shadow. On by default; pass `false` for a frameless or
+     * transparent window so the square window shadow does not show around
+     * rounded HTML corners. Windows and macOS; ignored on Linux.
+     */
+    public function shadow(bool $value = true): static
+    {
+        $this->config['shadow'] = $value;
+        return $this;
+    }
+
     /** Keep the window above all other windows. Useful for widgets, overlays, or POS kiosks. */
     public function alwaysOnTop(bool $value = true): static
     {
