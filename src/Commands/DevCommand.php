@@ -3,6 +3,7 @@
 namespace NativeBlade\Commands;
 
 use Illuminate\Console\Command;
+use NativeBlade\Commands\Concerns\RefreshesNativeBuild;
 use NativeBlade\Commands\Concerns\SyncsPackageComponents;
 use NativeBlade\Config\PluginRegistry;
 use NativeBlade\NativeBladeServiceProvider;
@@ -11,13 +12,15 @@ use Symfony\Component\Process\Process;
 
 class DevCommand extends Command
 {
+    use RefreshesNativeBuild;
     use SyncsPackageComponents;
 
     protected $signature = 'nativeblade:dev
         {--platform=desktop : Platform to run (desktop, android, ios, portal, browser)}
         {--host= : IP address for mobile dev (auto-detected if empty)}
         {--port=1420 : Vite dev server port}
-        {--build : Use built assets instead of Vite dev server (no HMR)}';
+        {--build : Use built assets instead of Vite dev server (no HMR)}
+        {--no-css : Disable the Tailwind/Vite CSS hot reload (on by default in dev)}';
 
     protected $description = 'Start NativeBlade development server with hot reload';
 
@@ -34,6 +37,7 @@ class DevCommand extends Command
         // rewrites Cargo/tauri files) and no @tauri-apps/cli requirement.
         if ($platform !== 'browser') {
             $this->call('nativeblade:config');
+            $this->refreshNativeBuildIfChanged();
         }
 
         if (!$this->ensureNpmDeps(requireTauri: $platform !== 'browser')) {
@@ -50,6 +54,18 @@ class DevCommand extends Command
         }
 
         $this->syncPackageComponents();
+
+        // The app layout uses @vite, so the Vite manifest must already exist when
+        // the bundle is built and the app first renders. On a fresh project nothing
+        // has built it yet, and the CSS watcher below builds asynchronously — so a
+        // one-time blocking build here keeps the first run from hitting
+        // ViteManifestNotFoundException. Later runs skip it (the manifest is on disk)
+        // and the watcher keeps it fresh.
+        $cssConfig = $this->viteBuildConfig();
+        if (!$build && $cssConfig !== null && !file_exists(base_path('public/build/manifest.json'))) {
+            $this->info('Building frontend assets (first run)...');
+            $this->exec('npx vite build --config ' . escapeshellarg($cssConfig));
+        }
 
         $this->info('Building Laravel bundle...');
         $bundleScript = NativeBladeServiceProvider::packagePath('js/scripts/bundle-laravel.js');
@@ -68,6 +84,14 @@ class DevCommand extends Command
             $watcher = $this->background('node ' . escapeshellarg($watchScript) . ' ' . escapeshellarg(base_path()));
         }
 
+        $cssWatcher = null;
+        if (!$build && !$this->option('no-css') && $cssConfig !== null) {
+            putenv('NATIVEBLADE_CSS_HOT=1');
+            $_ENV['NATIVEBLADE_CSS_HOT'] = '1';
+            $this->info("CSS hot reload on ({$cssConfig}) — use --no-css to disable.");
+            $cssWatcher = $this->background('npx vite build --watch --config ' . escapeshellarg($cssConfig));
+        }
+
         try {
             match ($platform) {
                 'desktop' => $build ? $this->runBuiltDesktop() : $this->runDesktop($port),
@@ -79,6 +103,7 @@ class DevCommand extends Command
             };
         } finally {
             if ($watcher) $watcher->stop(0);
+            if ($cssWatcher) $cssWatcher->stop(0);
         }
 
         return self::SUCCESS;
@@ -109,6 +134,7 @@ class DevCommand extends Command
         $missingLabel = $requireTauri ? 'Tauri CLI' : 'Vite';
 
         if (file_exists($marker)) {
+            $this->installMissingNpmDeps();
             return true;
         }
 
@@ -133,6 +159,64 @@ class DevCommand extends Command
 
         $this->info('npm dependencies installed.');
         return true;
+    }
+
+    /**
+     * Install any package.json dependency missing from node_modules. Catches the
+     * case where declaring a new plugin added its npm package to package.json (via
+     * nativeblade:config) but node_modules was never refreshed — so its JS import
+     * would fail. A no-op (a quick directory scan) when everything is present, so a
+     * plain `nativeblade:dev` restart picks up a new plugin end to end.
+     */
+    private function installMissingNpmDeps(): void
+    {
+        $pkgPath = base_path('package.json');
+        if (!file_exists($pkgPath)) {
+            return;
+        }
+
+        $pkg = json_decode(file_get_contents($pkgPath), true);
+        if (!is_array($pkg)) {
+            return;
+        }
+
+        $deps = array_merge(
+            array_keys($pkg['dependencies'] ?? []),
+            array_keys($pkg['devDependencies'] ?? [])
+        );
+
+        $missing = [];
+        foreach ($deps as $name) {
+            if (!is_dir(base_path('node_modules/' . $name))) {
+                $missing[] = $name;
+            }
+        }
+
+        if (empty($missing)) {
+            return;
+        }
+
+        $shown = implode(', ', array_slice($missing, 0, 6)) . (count($missing) > 6 ? ', ...' : '');
+        $this->warn("  New npm deps to install: {$shown}");
+        passthru('cd ' . escapeshellarg(base_path()) . ' && npm install 2>&1', $code);
+        if ($code !== 0) {
+            $this->warn('  npm install failed — run it manually if a plugin does not load.');
+        }
+    }
+
+    /**
+     * The project's Laravel Vite config (separate from vite.wasm.config.js), or
+     * null if the project has no standard Vite build. Used to decide whether the
+     * CSS hot-reload build watcher has anything to watch.
+     */
+    private function viteBuildConfig(): ?string
+    {
+        foreach (['vite.config.js', 'vite.config.ts', 'vite.config.mjs', 'vite.config.cjs'] as $file) {
+            if (file_exists(base_path($file))) {
+                return $file;
+            }
+        }
+        return null;
     }
 
     private function runBuiltDesktop(): void

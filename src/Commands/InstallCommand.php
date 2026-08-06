@@ -58,17 +58,38 @@ class InstallCommand extends Command
         $this->call('nativeblade:icon');
         $this->runConfigInFreshProcess();
 
-        $this->info('');
-        $this->info('  ✓ NativeBlade installed successfully!');
-        $this->info('');
-        $this->info('  Next steps:');
-        $this->info('    1. Review generated config in app/Providers/AppServiceProvider.php');
-        $this->info('    2. npm run build');
-        $this->info('    3. Optional mobile: php artisan nativeblade:add android');
-        $this->info('    4. php artisan nativeblade:dev');
-        $this->info('');
+        $this->printNextSteps();
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Closing guidance, grouped by path so desktop and mobile never blur together:
+     * desktop is the immediate one-command run, mobile is a clearly separate opt-in,
+     * and release builds are their own block.
+     */
+    private function printNextSteps(): void
+    {
+        $this->newLine();
+        $this->line("  <fg=green;options=bold>✓ {$this->appName} is ready.</>");
+        $this->newLine();
+
+        $this->line('  <options=bold>Run it (desktop)</>');
+        $this->line('    <fg=cyan>php artisan nativeblade:dev</>');
+        $this->newLine();
+
+        $this->line('  <options=bold>Add a mobile target</> <fg=gray>(optional)</>');
+        $this->line('    <fg=cyan>php artisan nativeblade:add android</>   <fg=gray># or: ios</>');
+        $this->line('    <fg=cyan>php artisan nativeblade:dev --platform=android</>');
+        $this->newLine();
+
+        $this->line('  <options=bold>Build a release</> <fg=gray>(when you are ready to ship)</>');
+        $this->line('    <fg=cyan>php artisan nativeblade:build windows</>   <fg=gray># or: macos, linux, android, ios</>');
+        $this->newLine();
+
+        $this->line('  <fg=gray>Your plugins and app config live in app/Providers/AppServiceProvider.php.</>');
+        $this->line('  <fg=gray>Docs: https://docs.nativeblade.dev</>');
+        $this->newLine();
     }
 
     /**

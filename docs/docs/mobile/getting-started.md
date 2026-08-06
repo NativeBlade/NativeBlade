@@ -20,14 +20,23 @@ php artisan nativeblade:add ios
 ## Run on a device or emulator
 
 ```bash
-php artisan nativeblade:dev --platform=android --host=<your-ip>
-php artisan nativeblade:dev --platform=ios --host=<your-ip>
+php artisan nativeblade:dev --platform=android
+php artisan nativeblade:dev --platform=ios
 ```
 
-Mobile needs `--host=<your-local-ip>` so the device can reach the Vite dev
-server running on your machine. Replace `<your-ip>` with your computer's LAN IP
-(find it with `ipconfig` on Windows, or `ifconfig` / `ip addr` on macOS and
-Linux). `localhost` does not work, because the phone cannot reach your machine
+Just like desktop, this builds the bundle and hot-reloads Blade, PHP, and CSS as
+you edit, on the device, with no separate `npm run build`.
+
+The phone reaches the Vite dev server on your machine over the LAN, so the two
+must be on the same Wi-Fi. NativeBlade auto-detects your LAN IP; if it picks the
+wrong interface (a VPN, several adapters), pass it explicitly:
+
+```bash
+php artisan nativeblade:dev --platform=android --host=192.168.1.11
+```
+
+Find your IP with `ipconfig` on Windows, or `ifconfig` / `ip addr` on macOS and
+Linux. `localhost` does not work, because the phone cannot reach your machine
 through it.
 
 ## Easiest way: the Portal app
@@ -41,7 +50,7 @@ or Xcode build. Install it once:
 Then run:
 
 ```bash
-php artisan nativeblade:dev --platform=portal --host=<your-ip>
+php artisan nativeblade:dev --platform=portal
 ```
 
 Open the Portal app on your phone, scan the QR shown in your terminal (or paste

@@ -32,12 +32,12 @@ SDK is a few steps.
 3. **Rebuild:**
 
    ```bash
-   npm run build
    php artisan nativeblade:dev
    ```
 
-   The first run after an SDK bump recompiles the Rust binary, which takes a few
-   minutes. Later runs are fast.
+   `nativeblade:dev` rebuilds the bundle and, when the SDK's native sources
+   changed, recompiles the Rust crate automatically (no manual `cargo clean`). The
+   first run after an SDK bump takes a few minutes; later runs are fast.
 
 For mobile, rebuild per platform:
 

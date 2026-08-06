@@ -26,8 +26,7 @@ cd my-app
 composer require nativeblade/nativeblade
 php artisan nativeblade:install
 
-# 3. Build the frontend and launch the desktop app
-npm run build
+# 3. Launch the desktop app (builds the frontend for you)
 php artisan nativeblade:dev
 ```
 
