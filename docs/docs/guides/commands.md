@@ -17,7 +17,7 @@ php artisan nativeblade:install
 ```
 
 ### `nativeblade:update`
-Sync the project with the installed NativeBlade version after a `composer update`. Bumps the NativeBlade-managed `package.json` deps (the `@php-wasm` and `@tauri-apps` families, Vite, Tailwind) to the versions this release ships, adds any new ones, re-publishes `vite.wasm.config.js` from the current stub (so bundler/asset fixes propagate, the previous file is kept as `.bak`), regenerates the platform config, and runs `npm install`. Your own dependencies and the chosen `@php-wasm/web-<php>` variant are preserved; the framework runtime itself comes from the Composer package, so nothing is copied into your repo.
+Sync the project with the installed NativeBlade version after a `composer update`. Bumps the NativeBlade-managed `package.json` deps (the `@php-wasm` and `@tauri-apps` families, Vite, Tailwind) to the versions this release ships, adds any new ones, re-publishes `vite.wasm.config.js` from the current stub (so bundler/asset fixes propagate, the previous file is kept as `.bak`), regenerates the platform config, and runs `npm install`. Your own dependencies and the chosen `@php-wasm/web-<php>` variant are preserved; the framework runtime itself comes from the Composer package, so nothing is copied into your repo. When the release changed the native sources, the next build recompiles the Rust crate automatically (no manual `cargo clean`).
 
 ```bash
 composer update nativeblade/nativeblade
@@ -49,8 +49,10 @@ php artisan nativeblade:icon resources/icon.png --bg=#0a0a0a
 
 ## Develop
 
-### `nativeblade:dev {--platform=} {--host=} {--port=} {--build}`
+### `nativeblade:dev {--platform=} {--host=} {--port=} {--build} {--no-css}`
 Start the dev server with hot reload. `--platform` is `desktop` (default), `android`, `ios`, `portal`, or `browser`. `--host` overrides the auto-detected LAN IP for mobile; `--port` is the Vite port (default `1420`); `--build` runs against built assets instead of the Vite server (no HMR).
+
+It builds the Laravel bundle for you and hot-reloads Blade, PHP, and CSS as you edit, so there is no separate `npm run build` step. CSS is hot by default: files under `public/css` and your Tailwind build (`resources/css` → `public/build`) both update live. Pass `--no-css` to turn off the Tailwind build watcher. Changing your declared plugins is picked up on the next `nativeblade:dev` — it regenerates config, installs any new npm deps, and recompiles the native crate automatically (no manual `nativeblade:config`, `npm install`, or `cargo clean`).
 
 `browser` skips Tauri and Rust entirely, it builds the WASM bundle and opens the app in your default browser. Native plugin actions are silent no-ops outside Tauri, so use it to iterate on UI/Livewire behavior, not native features.
 
