@@ -27,6 +27,7 @@ description: "Per-platform build options for desktop, Android, and iOS."
 | `fullscreen(bool)` | Start in fullscreen (default `false`) |
 | `decorations(bool)` | Show native title bar and window chrome (default `true`). Set to `false` for a frameless / custom-chrome look |
 | `transparent(bool)` | Transparent window background (default `false`, requires `decorations(false)`) |
+| `shadow(bool)` | OS window shadow (default `true`). Pass `false` for a frameless/transparent window so the square window shadow does not show around rounded HTML corners. Windows and macOS; ignored on Linux |
 | `alwaysOnTop(bool)` | Window stays above other windows (default `false`) |
 | `maximized(bool)` | Start maximized (default `false`) |
 | `center(bool)` | Center window on screen at launch (default `false`) |

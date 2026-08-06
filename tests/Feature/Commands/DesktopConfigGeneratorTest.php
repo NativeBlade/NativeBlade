@@ -115,6 +115,20 @@ final class DesktopConfigGeneratorTest extends TestCase
     }
 
     #[Test]
+    public function shadow_defaults_on_and_can_be_disabled_with_transparency(): void
+    {
+        $this->generator->generate([]);
+        $win = json_decode(file_get_contents(base_path('src-tauri/tauri.conf.json')), true)['app']['windows'][0];
+        self::assertTrue($win['shadow'], 'shadow is on by default');
+
+        $this->generator->generate(['decorations' => false, 'transparent' => true, 'shadow' => false]);
+        $win = json_decode(file_get_contents(base_path('src-tauri/tauri.conf.json')), true)['app']['windows'][0];
+        self::assertFalse($win['shadow']);
+        self::assertTrue($win['transparent']);
+        self::assertFalse($win['decorations']);
+    }
+
+    #[Test]
     public function exact_position_writes_coordinates_and_forces_center_off(): void
     {
         $this->generator->generate(['x' => 100, 'y' => 80, 'center' => true]);

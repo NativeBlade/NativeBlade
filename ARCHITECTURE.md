@@ -773,6 +773,7 @@ Put third-party libraries and your own front-end scripts in `public/`, and load 
 - Your own front-end code (canvas renderers, chart glue, particle setups) is its own file in `public/js/`, not a `<script>` blob dropped in the middle of a component.
 - Files under `public/` are served from the root: `public/js/pet-renderer.js` → `/js/pet-renderer.js`.
 - Load order matters — put the library tag before the script that uses it.
+- This lane is for code that runs **inside the page**. A library needed by a **shell component** is `import`ed inside that component instead (components are bundled via `@components`, so `import` works), never dropped in `public/js/`.
 
 Why: inlining libraries and ad-hoc scripts bloats every render, defeats browser caching, can't be reused across screens, and turns the view into an unreadable wall. One tag per asset keeps the shell clean and the files cacheable.
 

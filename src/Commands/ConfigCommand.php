@@ -68,6 +68,9 @@ class ConfigCommand extends Command
         if (!empty($configs['realtime'])) {
             $runtime['realtime'] = $configs['realtime'];
         }
+        if (!empty($configs['globalShortcuts'])) {
+            $runtime['globalShortcuts'] = $configs['globalShortcuts'];
+        }
 
         $path = base_path('public/nativeblade-config.json');
         if (empty($runtime)) {

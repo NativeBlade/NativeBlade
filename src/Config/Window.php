@@ -76,6 +76,29 @@ class Window
         return $this;
     }
 
+    /**
+     * Make the window background transparent so only what the component paints is
+     * visible (no boot flash, rounded corners show through). The satellite's body
+     * is made transparent to match, so give your component its own background.
+     * On macOS this needs `app.macOSPrivateApi: true` in `tauri.conf.json`.
+     */
+    public function transparent(bool $value = true): static
+    {
+        $this->config['transparent'] = $value;
+        return $this;
+    }
+
+    /**
+     * Drop the OS window shadow. On by default; disable it for a frameless or
+     * transparent overlay whose square window shadow would otherwise show around
+     * the component's rounded corners. Windows and macOS; ignored on Linux.
+     */
+    public function shadow(bool $value = true): static
+    {
+        $this->config['shadow'] = $value;
+        return $this;
+    }
+
     /** Allow the user to resize the window. Enabled by default. */
     public function resizable(bool $value = true): static
     {

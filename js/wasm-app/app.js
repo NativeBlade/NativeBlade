@@ -19,6 +19,7 @@ import { init as initPaymentsBoot } from './payments-boot.js';
 import { init as initNetworkBoot } from './network-boot.js';
 import { init as initTasksBoot } from './tasks-boot.js';
 import { init as initSensorsBoot } from './sensors-boot.js';
+import { init as initGlobalShortcutsBoot } from './global-shortcuts-boot.js';
 import { init as initMedia } from './media.js';
 import { init as initViewport } from './viewport.js';
 import { checkAndDownload as checkBundlePush } from '../runtime/bundle-push.js';
@@ -137,6 +138,7 @@ async function main() {
         await initNetworkBoot();
         await initTasksBoot();
         await initSensorsBoot();
+        await initGlobalShortcutsBoot();
         await initMedia();
         initHotReload(navigate, getCurrentPath);
         startAutoSync();

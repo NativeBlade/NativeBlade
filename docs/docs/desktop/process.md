@@ -38,6 +38,7 @@ return NativeBlade::unmaximize()->toResponse();
 return NativeBlade::toggleMaximize()->toResponse();
 return NativeBlade::hide()->toResponse();
 return NativeBlade::show()->toResponse();
+return NativeBlade::focus()->toResponse();
 ```
 
 | Method | Description |
@@ -48,6 +49,7 @@ return NativeBlade::show()->toResponse();
 | `toggleMaximize()` | Toggle between maximized and restored |
 | `hide()` | Hide the window without quitting (process keeps running). Useful with tray + `Tray::hideOnClose()` |
 | `show()` | Re-show a hidden window. Typical pair to `hide()` from a tray menu item |
+| `focus()` | Bring the window to the front: restores it if minimized, un-hides it from the tray, and gives it keyboard focus. The "summon the app" combo |
 
 Chain with other actions when you want a side-effect after work completes:
 
@@ -74,6 +76,20 @@ NativeBladeConfig::desktop(function ($config) {
           ->hideOnClose();
     });
 });
+```
+
+Where `show()` only un-hides the window, `focus()` also restores it from a minimized state and pulls it to the foreground with keyboard focus. It is the one call that brings the app back from anywhere: minimized, hidden in the tray, or just behind another window. That makes it the natural response to a [global shortcut](/desktop/global-shortcuts/), so a hotkey can summon the app even while it sits in the tray:
+
+```php
+use Livewire\Attributes\On;
+
+#[On('nb:shortcut')]
+public function onShortcut(string $name)
+{
+    if ($name === 'summon') {
+        return NativeBlade::focus()->toResponse();
+    }
+}
 ```
 
 On mobile (Android / iOS) all window-control actions are no-ops with a console warning. Hide your window-chrome buttons on mobile via `NativeBlade::isDesktop()`.

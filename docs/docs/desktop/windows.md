@@ -77,6 +77,12 @@ normal screen.
 | `alwaysOnTop(bool = true)` | Keep the window above others. |
 | `resizable(bool = true)` | Allow resizing. Defaults to true. |
 | `frameless(bool = true)` | Remove the OS title bar and borders. Default is a normal decorated window. |
+| `transparent(bool = true)` | Make the window background transparent so only what the component paints shows. The satellite's document is made transparent to match, so give your component its own background. On macOS this needs `app.macOSPrivateApi: true` in `tauri.conf.json`. |
+| `shadow(bool = true)` | OS window shadow. On by default; pass `false` for a frameless/transparent overlay so the square window shadow does not show around the component's rounded corners. Windows and macOS; ignored on Linux. |
+
+A satellite never shows the app's boot splash: it has no runtime to wait for, so
+the window opens straight into its component. Pair `frameless()` + `transparent()`
+for an overlay or bar that appears with no chrome and no flash.
 
 ## Command a window
 
@@ -157,6 +163,47 @@ window.addEventListener('nb:js:map-center', (e) => centerMap(e.detail.lat, e.det
 
 `wire:ignore` keeps Livewire from wiping the JS-managed element on morph. Each
 window loads its own copy of the script.
+
+### Local assets are inlined for you
+
+A window runs in an origin-null iframe with no file server, so a `<link>` or
+`<script>` pointing at a real URL would fail. NativeBlade inlines your local
+`public/` assets into the page before the window renders it, exactly as it does
+for the main window. Both forms resolve to the bundled file:
+
+```blade
+<link rel="stylesheet" href="/css/panel.css">
+<link rel="stylesheet" href="{{ asset('css/panel.css') }}">
+<script src="/js/panel.js"></script>
+<script src="{{ asset('js/panel.js') }}"></script>
+```
+
+Stylesheets (`rel="stylesheet"`), scripts, and `<img>` under `public/` are inlined
+automatically, including files in subdirectories and `url(...)` references inside
+your CSS. You do not need to inline anything by hand. This applies to files in the
+bundle; a truly external URL (a CDN) is left as-is and still needs a network.
+
+### Assets inside a component: mark them with `wire:nb-asset`
+
+Inlining happens on the initial render. A Livewire **update** returns JSON that
+skips it, so if an asset tag lives inside your component (not in the `<head>`), the
+morph re-inserts the original network `<link>` / `<script>` and it fails with
+`ERR_CONNECTION_REFUSED` after the first interaction. In a window the component is
+the whole page, so its stylesheets and scripts sit in the body and hit exactly
+this.
+
+Mark those tags with `wire:nb-asset`. The inlined asset then persists across
+updates instead of reverting to a network request, and the original tag still
+travels as a few bytes, so nothing bloats your per-update payload:
+
+```blade
+<link wire:nb-asset rel="stylesheet" href="{{ asset('css/ds.css') }}">
+<script wire:nb-asset src="{{ asset('js/panel.js') }}"></script>
+```
+
+You only need this for assets rendered inside a component. In the main window,
+stylesheets in the layout `<head>` are outside every component and are never
+re-morphed, so they do not need the marker.
 
 ## How it works
 

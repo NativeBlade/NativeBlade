@@ -207,6 +207,33 @@ class ShellConfig
     }
 
     /**
+     * Desktop-only system-wide keyboard shortcuts. Map an accelerator to a
+     * name; each press fires the `nb:shortcut` Livewire event with that name,
+     * so you react with `#[On('nb:shortcut')] onShortcut($name)`. Requires
+     * `Plugin::GLOBAL_SHORTCUT`. No-op on mobile.
+     *
+     * ```php
+     * NativeBladeConfig::globalShortcuts([
+     *     'CmdOrCtrl+Shift+K' => 'search',
+     *     'CmdOrCtrl+Shift+P' => 'palette',
+     * ]);
+     * ```
+     *
+     * @param  array<string, string>  $shortcuts  accelerator => name
+     */
+    public function globalShortcuts(array $shortcuts): void
+    {
+        $clean = [];
+        foreach ($shortcuts as $accelerator => $name) {
+            if (!is_string($accelerator) || $accelerator === '' || !is_string($name) || $name === '') {
+                throw new \InvalidArgumentException('globalShortcuts() expects a map of non-empty "accelerator" => "name" strings.');
+            }
+            $clean[$accelerator] = $name;
+        }
+        static::$appConfigs['globalShortcuts'] = $clean;
+    }
+
+    /**
      * @return \NativeBlade\Config\Plugin[]|null  null when the dev hasn't called plugins()
      */
     public static function getDeclaredPlugins(): ?array
