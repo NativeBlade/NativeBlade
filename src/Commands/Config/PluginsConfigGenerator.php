@@ -303,12 +303,12 @@ class PluginsConfigGenerator
     private function insertAfterSection(string $content, string $header, string $line): string
     {
         $headerQ = preg_quote($header, '/');
-        if (!preg_match('/^' . $headerQ . '[ \t]*$/m', $content)) {
+        if (!preg_match('/^' . $headerQ . '[ \t]*\r?$/m', $content)) {
             return $content;
         }
 
         return preg_replace_callback(
-            '/^(' . $headerQ . ')[ \t]*$/m',
+            '/^(' . $headerQ . ')[ \t]*\r?$/m',
             fn($m) => $m[1] . "\n" . $line,
             $content,
             1

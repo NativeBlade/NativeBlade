@@ -3,6 +3,7 @@
 namespace NativeBlade\Commands;
 
 use Illuminate\Console\Command;
+use NativeBlade\Commands\Concerns\RefreshesNativeBuild;
 use NativeBlade\Commands\Concerns\SyncsPackageComponents;
 use NativeBlade\Config\PluginRegistry;
 use NativeBlade\NativeBladeServiceProvider;
@@ -10,6 +11,7 @@ use NativeBlade\ShellConfig;
 
 class BuildCommand extends Command
 {
+    use RefreshesNativeBuild;
     use SyncsPackageComponents;
 
     protected $signature = 'nativeblade:build
@@ -52,6 +54,7 @@ class BuildCommand extends Command
 
         $this->line('  Applying config...');
         $this->call('nativeblade:config');
+        $this->refreshNativeBuildIfChanged();
 
         $this->syncPackageComponents();
 
@@ -128,6 +131,7 @@ class BuildCommand extends Command
 
         $this->line('  Applying config...');
         $this->call('nativeblade:config');
+        $this->refreshNativeBuildIfChanged();
 
         $override = $this->configArg(json_encode([
             'build' => ['frontendDist' => $url, 'devUrl' => $url],

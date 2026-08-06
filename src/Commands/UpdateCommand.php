@@ -3,10 +3,13 @@
 namespace NativeBlade\Commands;
 
 use Illuminate\Console\Command;
+use NativeBlade\Commands\Concerns\RefreshesNativeBuild;
 use NativeBlade\NativeBladeServiceProvider;
 
 class UpdateCommand extends Command
 {
+    use RefreshesNativeBuild;
+
     protected $signature = 'nativeblade:update';
     protected $description = 'Sync the project with the installed NativeBlade version (package.json deps + regenerate config)';
 
@@ -19,7 +22,7 @@ class UpdateCommand extends Command
         $this->syncPackageJson();
         $this->syncViteConfig();
         $this->syncCargoConfig();
-        $this->refreshNativeRustTimestamps();
+        $this->refreshNativeBuildIfChanged();
 
         $this->line('');
         $this->line('  Regenerating config...');
@@ -107,48 +110,6 @@ class UpdateCommand extends Command
 
         file_put_contents($targetPath, $patched);
         $this->line("  <fg=green>✓</> src-tauri/.cargo/config.toml synced (16 KB page-size alignment for Android)");
-    }
-
-    /**
-     * Bump the mtime of the vendored NativeBlade Rust sources so Cargo recompiles
-     * the `nativeblade-tauri` crate (a path dependency into the Composer package)
-     * after an update. Composer or a sync can land the refreshed files with an
-     * older, preserved timestamp than the previously built .rlib; Cargo's
-     * fingerprint is mtime-based, decides nothing changed, and silently reuses the
-     * stale artifact, so a Rust fix in the release never takes effect. Touching
-     * only the timestamp (never the content) is safe, does not require a Rust
-     * toolchain, and is a no-op for projects without a native build.
-     */
-    private function refreshNativeRustTimestamps(): void
-    {
-        if (!is_dir(base_path('src-tauri'))) {
-            return; // No desktop/mobile platform added; nothing to rebuild.
-        }
-
-        $rustPath = NativeBladeServiceProvider::packagePath('rust');
-        if (!is_dir($rustPath)) {
-            return;
-        }
-
-        $now = time();
-        $count = 0;
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($rustPath, \FilesystemIterator::SKIP_DOTS)
-        );
-        foreach ($iterator as $file) {
-            $path = $file->getPathname();
-            if (str_contains(str_replace('\\', '/', $path), '/target/')) {
-                continue; // Never a build output in the vendored sources, but cheap insurance.
-            }
-            $name = $file->getFilename();
-            if ((str_ends_with($name, '.rs') || $name === 'Cargo.toml') && @touch($path, $now)) {
-                $count++;
-            }
-        }
-
-        $this->line($count > 0
-            ? "  <fg=green>✓</> Refreshed {$count} Rust source timestamps (Cargo will recompile nativeblade-tauri)"
-            : "  <fg=green>✓</> Rust sources already current");
     }
 
     /**

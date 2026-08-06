@@ -3,8 +3,8 @@ import path from 'path';
 import { readdirSync } from 'fs';
 import phpHmrPlugin from './vendor/nativeblade/nativeblade/js/vite-plugin-php-hmr.js';
 
-const projectRoot = path.resolve(__dirname);
-const nativebladeBase = path.resolve(__dirname, 'vendor/nativeblade/nativeblade/js');
+const projectRoot = path.resolve(import.meta.dirname);
+const nativebladeBase = path.resolve(import.meta.dirname, 'vendor/nativeblade/nativeblade/js');
 const nodeModules = path.join(projectRoot, 'node_modules');
 
 const scopedAliases = {};
@@ -65,13 +65,13 @@ function phpWasmAssets() {
 
 export default defineConfig({
     plugins: [phpHmrPlugin(projectRoot), absentTauriPlugins(installedScoped), phpWasmAssets()],
-    root: path.resolve(__dirname, 'resources/js'),
-    publicDir: path.resolve(__dirname, 'public'),
+    root: path.resolve(import.meta.dirname, 'resources/js'),
+    publicDir: path.resolve(import.meta.dirname, 'public'),
     resolve: {
         alias: {
             '@nativeblade': nativebladeBase,
-            '@nativeblade-php-loader': path.resolve(__dirname, 'resources/js/php-loader.js'),
-            '@components': path.resolve(__dirname, 'nativeblade-components'),
+            '@nativeblade-php-loader': path.resolve(import.meta.dirname, 'resources/js/php-loader.js'),
+            '@components': path.resolve(import.meta.dirname, 'nativeblade-components'),
             ...scopedAliases,
         },
     },
@@ -103,7 +103,7 @@ export default defineConfig({
     // trying to bundle the wasm (which fails resolving its WASI imports).
     assetsInclude: [/\.dat$/, /\.wasm$/, /\.so$/, /\.la$/],
     build: {
-        outDir: path.resolve(__dirname, 'dist-wasm'),
+        outDir: path.resolve(import.meta.dirname, 'dist-wasm'),
         emptyOutDir: true,
         chunkSizeWarningLimit: 5000,
         rolldownOptions: {

@@ -17,15 +17,16 @@ composer require nativeblade/nativeblade
 php artisan nativeblade:install
 ```
 
-## Build and run
+## Run
 
 ```bash
-npm run build
 php artisan nativeblade:dev
 ```
 
-This launches the desktop app on Windows, macOS, or Linux. The first run
-compiles the Rust binary and takes a few minutes; later runs are fast.
+This launches the desktop app on Windows, macOS, or Linux. `nativeblade:dev`
+builds the Laravel bundle and your CSS for you and hot-reloads Blade, PHP, and CSS
+as you edit — no separate `npm run build` step. The first run compiles the Rust
+binary and takes a few minutes; later runs are fast.
 
 ## Requirements
 
