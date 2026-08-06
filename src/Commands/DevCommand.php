@@ -55,6 +55,18 @@ class DevCommand extends Command
 
         $this->syncPackageComponents();
 
+        // The app layout uses @vite, so the Vite manifest must already exist when
+        // the bundle is built and the app first renders. On a fresh project nothing
+        // has built it yet, and the CSS watcher below builds asynchronously — so a
+        // one-time blocking build here keeps the first run from hitting
+        // ViteManifestNotFoundException. Later runs skip it (the manifest is on disk)
+        // and the watcher keeps it fresh.
+        $cssConfig = $this->viteBuildConfig();
+        if (!$build && $cssConfig !== null && !file_exists(base_path('public/build/manifest.json'))) {
+            $this->info('Building frontend assets (first run)...');
+            $this->exec('npx vite build --config ' . escapeshellarg($cssConfig));
+        }
+
         $this->info('Building Laravel bundle...');
         $bundleScript = NativeBladeServiceProvider::packagePath('js/scripts/bundle-laravel.js');
         $this->exec('node ' . escapeshellarg($bundleScript) . ' ' . escapeshellarg(base_path()));
@@ -73,7 +85,6 @@ class DevCommand extends Command
         }
 
         $cssWatcher = null;
-        $cssConfig = $this->viteBuildConfig();
         if (!$build && !$this->option('no-css') && $cssConfig !== null) {
             putenv('NATIVEBLADE_CSS_HOT=1');
             $_ENV['NATIVEBLADE_CSS_HOT'] = '1';
