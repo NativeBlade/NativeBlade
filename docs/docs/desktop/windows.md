@@ -78,6 +78,7 @@ normal screen.
 | `resizable(bool = true)` | Allow resizing. Defaults to true. |
 | `frameless(bool = true)` | Remove the OS title bar and borders. Default is a normal decorated window. |
 | `transparent(bool = true)` | Make the window background transparent so only what the component paints shows. The satellite's document is made transparent to match, so give your component its own background. On macOS this needs `app.macOSPrivateApi: true` in `tauri.conf.json`. |
+| `shadow(bool = true)` | OS window shadow. On by default; pass `false` for a frameless/transparent overlay so the square window shadow does not show around the component's rounded corners. Windows and macOS; ignored on Linux. |
 
 A satellite never shows the app's boot splash: it has no runtime to wait for, so
 the window opens straight into its component. Pair `frameless()` + `transparent()`

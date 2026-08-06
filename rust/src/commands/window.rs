@@ -38,6 +38,8 @@ pub struct WindowConfig {
     pub resizable: Option<bool>,
     #[serde(default)]
     pub transparent: Option<bool>,
+    #[serde(default)]
+    pub shadow: Option<bool>,
 }
 
 /// The Tauri window label. Prefixed so a future capability can grant satellite
@@ -114,7 +116,8 @@ pub async fn open_window(app: AppHandle, config: WindowConfig) -> Result<(), Str
         builder = builder
             .decorations(!config.frameless.unwrap_or(false))
             .always_on_top(config.always_on_top.unwrap_or(false))
-            .transparent(config.transparent.unwrap_or(false));
+            .transparent(config.transparent.unwrap_or(false))
+            .shadow(config.shadow.unwrap_or(true));
 
         if let (Some(w), Some(h)) = (config.width, config.height) {
             builder = builder.inner_size(w, h);
