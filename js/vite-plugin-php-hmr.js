@@ -1,5 +1,6 @@
 import { readFileSync } from 'fs';
 import path from 'path';
+import os from 'node:os';
 
 export default function phpHmrPlugin(projectRoot) {
     const changes = [];
@@ -45,10 +46,16 @@ export default function phpHmrPlugin(projectRoot) {
         },
 
         configureServer(server) {
-            const dirs = ['app', 'resources/views', 'routes', 'config', 'lang'];
+            // nativeblade:dev turns this on by default via the env flag (off with
+            // --no-css, or when the project has no Vite build). It makes the watcher
+            // also hot-push the Laravel Vite build output (Tailwind CSS + manifest).
+            const cssHot = !!process.env.NATIVEBLADE_CSS_HOT;
+
+            const dirs = ['app', 'resources/views', 'routes', 'config', 'lang', 'public'];
             for (const dir of dirs) {
                 server.watcher.add(path.join(projectRoot, dir));
             }
+            if (cssHot) server.watcher.add(path.join(projectRoot, 'public/build'));
 
             server.httpServer?.once('listening', () => {
                 const address = server.httpServer.address();
@@ -61,10 +68,29 @@ export default function phpHmrPlugin(projectRoot) {
                 }
             });
 
-            const isWatched = (filePath) => /\.(php|blade\.php|json)$/.test(filePath);
+            // PHP/Blade/JSON in the watched source dirs, plus CSS/JS assets under
+            // public/ — the inliner pulls those into the page, so hot-pushing them
+            // and re-rendering shows the change with no rebuild. Never the generated
+            // bundle or vite's build output.
+            const isWatched = (filePath) => {
+                const rel = path.relative(projectRoot, filePath).replace(/\\/g, '/');
+                if (rel.startsWith('public/')) {
+                    if (rel.startsWith('public/laravel-bundle')) return false;
+                    if (rel.startsWith('public/build/')) {
+                        // Vite/Tailwind build output — only when CSS hot is on (env
+                        // flag). Text assets only (css/js/manifest); binary fonts stay
+                        // in the bundle.
+                        return cssHot && /\.(css|js|json)$/.test(rel);
+                    }
+                    return /\.(css|js)$/.test(rel);
+                }
+                return /\.(php|blade\.php|json)$/.test(filePath);
+            };
 
             const kindFor = (filePath) => {
                 if (/\.blade\.php$/.test(filePath)) return 'blade';
+                if (/\.css$/.test(filePath)) return 'css';
+                if (/\.js$/.test(filePath)) return 'js';
                 if (/\.json$/.test(filePath)) return 'json';
                 return 'php';
             };
@@ -185,7 +211,6 @@ function isUsableLanIp(ip) {
 
 function detectLanIp() {
     try {
-        const os = require('os');
         const interfaces = os.networkInterfaces();
         const candidates = [];
         for (const name of Object.keys(interfaces)) {
