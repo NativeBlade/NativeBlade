@@ -328,9 +328,13 @@ class PluginsConfigGenerator
         $blocks = [];
         foreach ($descriptors as $d) {
             if (!isset($d['rust_init']) || !isset($d['feature'])) continue;
-            $cfg = $d['mobile_only'] ?? false
-                ? "#[cfg(all(any(target_os = \"android\", target_os = \"ios\"), feature = \"{$d['feature']}\"))]"
-                : "#[cfg(feature = \"{$d['feature']}\")]";
+            if ($d['mobile_only'] ?? false) {
+                $cfg = "#[cfg(all(any(target_os = \"android\", target_os = \"ios\"), feature = \"{$d['feature']}\"))]";
+            } elseif ($d['desktop_only'] ?? false) {
+                $cfg = "#[cfg(all(not(any(target_os = \"android\", target_os = \"ios\")), feature = \"{$d['feature']}\"))]";
+            } else {
+                $cfg = "#[cfg(feature = \"{$d['feature']}\")]";
+            }
             $blocks[] = "    {$cfg}\n    let builder = builder.plugin({$d['rust_init']});";
         }
 
@@ -358,10 +362,17 @@ class PluginsConfigGenerator
             'notification:allow-is-permission-granted',
             'notification:allow-request-permission',
             'notification:allow-notify',
+            'core:window:allow-set-focus',
+            'core:window:allow-show',
+            'core:window:allow-hide',
+            'core:window:allow-minimize',
+            'core:window:allow-unminimize',
+            'core:window:allow-maximize',
+            'core:window:allow-unmaximize',
         ];
         $mobilePerms = [];
         $allowedPrefixes = ['core', 'fs'];
-        $allowedDesktopPrefixes = ['notification'];
+        $allowedDesktopPrefixes = ['notification', 'core'];
         $allowedMobilePrefixes = [];
 
         foreach ($descriptors as $d) {
@@ -378,6 +389,14 @@ class PluginsConfigGenerator
                 $prefix = strtok($perm, ':');
                 if ($prefix !== false && !in_array($prefix, $allowedMobilePrefixes, true)) {
                     $allowedMobilePrefixes[] = $prefix;
+                }
+            }
+            foreach ($d['desktop_capabilities'] ?? [] as $perm) {
+                $desktopOnlyPerms[] = $perm;
+                $permId = is_array($perm) ? ($perm['identifier'] ?? '') : $perm;
+                $prefix = strtok($permId, ':');
+                if ($prefix !== false && !in_array($prefix, $allowedDesktopPrefixes, true)) {
+                    $allowedDesktopPrefixes[] = $prefix;
                 }
             }
         }

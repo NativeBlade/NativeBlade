@@ -52,6 +52,16 @@ export async function show() {
     try { await win.show(); } catch (e) { console.warn('[NB] show failed:', e); }
 }
 
+export async function focus() {
+    const win = await getMainWindow();
+    if (!win) return;
+    try {
+        if (win.unminimize) await win.unminimize();
+        if (win.show) await win.show();
+        await win.setFocus();
+    } catch (e) { console.warn('[NB] focus failed:', e); }
+}
+
 export function log(payload) {
     const level = payload.level || 'info';
     const message = payload.message || '';

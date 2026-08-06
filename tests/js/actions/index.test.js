@@ -49,6 +49,7 @@ const EXPECTED_ACTIONS = [
     'toggle_maximize',
     'hide',
     'show',
+    'focus',
     'tauri_invoke',
     'check_update',
     'force_update',
@@ -86,6 +87,9 @@ const EXPECTED_ACTIONS = [
     'open_window',
     'close_window',
     'focus_window',
+    'register_shortcut',
+    'unregister_shortcut',
+    'unregister_all_shortcuts',
 ];
 
 describe('actions/index', () => {

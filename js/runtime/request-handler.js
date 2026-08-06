@@ -3,6 +3,7 @@ import { detectPlatform } from './filesystem.js';
 import * as httpBridge from './http-bridge.js';
 import * as fsBridge from './fs-bridge.js';
 import * as dbBridge from './db-bridge.js';
+import { inlineAssets } from './inline-assets.js';
 
 // The main window's bridge-completion callback (posts responses back to the app
 // iframe). A single global is fine for the main window because Livewire drives
@@ -160,89 +161,4 @@ async function fulfillInBackground(php, originalPath, originalOptions, type = 'h
 
     const cb = onBridge || pendingBridgeCallback;
     if (cb) cb(result);
-}
-
-function inlineAssets(html, php) {
-    let inlineJs = '';
-
-    // Rewrite url(/x.woff2|png|...) inside inlined CSS to base64 (WebView has no file server).
-    const cssMime = { woff2: 'font/woff2', woff: 'font/woff', ttf: 'font/ttf', otf: 'font/otf', eot: 'application/vnd.ms-fontobject', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml' };
-    const cssUrls = (css) => css.replace(/url\(\s*(['"]?)\/([^'")?#]+\.(woff2|woff|ttf|otf|eot|png|jpe?g|gif|svg))[^'")]*\1\s*\)/gi, (m, q, file, ext) => {
-        try {
-            const content = php.readFileAsText('/app/public/' + file);
-            if (content.startsWith('data:')) return "url('" + content + "')";
-            const bytes = php.readFileAsBuffer('/app/public/' + file);
-            let bin = ''; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-            return "url('data:" + (cssMime[ext.toLowerCase()] || 'application/octet-stream') + ";base64," + btoa(bin) + "')";
-        } catch { return m; }
-    });
-
-    html = html.replace(
-        /<link[^>]*href="[^"]*\/build\/assets\/([^"]+\.css)"[^>]*\/?>/g,
-        (m, file) => { try { return '<style>' + cssUrls(php.readFileAsText('/app/public/build/assets/' + file)) + '</style>'; } catch { return ''; } }
-    );
-
-    html = html.replace(/<link[^>]*href="[^"]*\/build\/assets\/([^"]+\.js)"[^>]*\/?>/g, () => '');
-
-    html = html.replace(
-        /<script[^>]*src="[^"]*\/build\/assets\/([^"]+\.js)"[^>]*><\/script>/g,
-        (m, file) => { try { inlineJs += php.readFileAsText('/app/public/build/assets/' + file) + '\n'; } catch {} return ''; }
-    );
-
-    html = html.replace(
-        /<script\s+src="[^"]*livewire[^"]*\.js[^"]*"([^>]*)><\/script>/g,
-        (m, attrs) => {
-            try {
-                let js;
-                try { js = php.readFileAsText('/app/vendor/livewire/livewire/dist/livewire.min.js'); }
-                catch { js = php.readFileAsText('/app/vendor/livewire/livewire/dist/livewire.js'); }
-                attrs = attrs.replace(/data-module-url="[^"]*"/, 'data-module-url=""')
-                    .replace(/data-update-uri="http[s]?:\/\/[^"]*\/livewire/, 'data-update-uri="/livewire');
-                return '<script' + attrs + '>' + js + '</script>';
-            } catch { return ''; }
-        }
-    );
-
-    if (inlineJs) html = html.replace('</body>', '<script>' + inlineJs + '</script></body>');
-
-    // Inline local <script src="/x.js"> / <link href="/x.css"> from the bundle (WebView has no file server).
-    html = html.replace(
-        /<script([^>]*)\ssrc="\/([^"]+\.js)"([^>]*)><\/script>/g,
-        (m, pre, file, post) => {
-            if (file.indexOf('build/assets/') === 0) return m;
-            try {
-                const js = php.readFileAsText('/app/public/' + file).replace(/<\/script>/gi, '<\\/script>');
-                return '<script' + (pre + post).replace(/\stype=("|')module\1/i, '') + '>' + js + '</script>';
-            } catch { return m; }
-        }
-    );
-    html = html.replace(
-        /<link([^>]*)\shref="\/([^"]+\.css)"([^>]*)\/?>/g,
-        (m, pre, file, post) => {
-            if (file.indexOf('build/assets/') === 0 || !/stylesheet/i.test(pre + post)) return m;
-            try { return '<style>' + cssUrls(php.readFileAsText('/app/public/' + file)) + '</style>'; }
-            catch { return m; }
-        }
-    );
-
-    const mimeMap = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml' };
-
-    html = html.replace(
-        /(<img[^>]*src=")(?:https?:\/\/[^"]*)?\/([^"]+\.(png|jpg|jpeg|gif|svg))("[^>]*>)/gi,
-        (m, before, file, ext, after) => {
-            try {
-                const content = php.readFileAsText('/app/public/' + file);
-                if (content.startsWith('data:')) return before + content + after;
-                const mime = mimeMap[ext.toLowerCase()] || 'application/octet-stream';
-                const bytes = php.readFileAsBuffer('/app/public/' + file);
-                let binary = '';
-                for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-                const b64 = btoa(binary);
-                return before + 'data:' + mime + ';base64,' + b64 + after;
-            } catch {}
-            return m;
-        }
-    );
-
-    return html;
 }

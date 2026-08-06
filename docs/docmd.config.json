@@ -54,6 +54,7 @@
         { "title": "Native Shell Modules", "path": "/core/native-shell/" },
         { "title": "Animations", "path": "/core/animations/" },
         { "title": "Navigation", "path": "/core/navigation/" },
+        { "title": "Authentication", "path": "/core/authentication/" },
         { "title": "Lifecycle", "path": "/core/lifecycle/" },
         { "title": "Directives", "path": "/core/directives/" },
         { "title": "State Management", "path": "/core/state/" },
@@ -78,7 +79,8 @@
         { "title": "Windows", "path": "/desktop/windows/" },
         { "title": "Shell Commands", "path": "/desktop/shell/" },
         { "title": "Process & Window", "path": "/desktop/process/" },
-        { "title": "Menus & Tray", "path": "/desktop/menus-tray/" }
+        { "title": "Menus & Tray", "path": "/desktop/menus-tray/" },
+        { "title": "Global Shortcuts", "path": "/desktop/global-shortcuts/" }
       ]
     },
     {

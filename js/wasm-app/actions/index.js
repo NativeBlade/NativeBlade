@@ -37,6 +37,7 @@ import * as realtimeMod from './realtime.js';
 import * as shellModuleMod from './shell-module.js';
 import * as jsEventMod from './js-event.js';
 import * as windowMod from './window.js';
+import * as shortcutsMod from './shortcuts.js';
 
 export const actions = {
     // dialog
@@ -115,6 +116,7 @@ export const actions = {
     toggle_maximize: system.toggle_maximize,
     hide: system.hide,
     show: system.show,
+    focus: system.focus,
 
     // generic tauri invoke (for third-party Tauri plugins)
     tauri_invoke: tauri.tauri_invoke,
@@ -182,4 +184,9 @@ export const actions = {
     open_window: windowMod.open_window,
     close_window: windowMod.close_window,
     focus_window: windowMod.focus_window,
+
+    // runtime global shortcuts (NativeBlade::registerShortcut / unregisterShortcut / unregisterAllShortcuts)
+    register_shortcut: shortcutsMod.register_shortcut,
+    unregister_shortcut: shortcutsMod.unregister_shortcut,
+    unregister_all_shortcuts: shortcutsMod.unregister_all_shortcuts,
 };

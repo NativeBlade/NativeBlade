@@ -179,6 +179,13 @@ public function onBiometric($success, $error = null, $id = null)
 }
 ```
 
+## Route guards (middleware)
+
+Protect route groups with middleware, like any Laravel app, with one rule: a guard
+returns `NativeBlade::navigate(...)->toResponse()`, never Laravel's `redirect()`.
+The full pattern (guards, aliases, route groups, login/logout, and why `redirect()`
+and the session do not work) lives in [Authentication](/core/authentication/).
+
 ## The Android back gesture
 
 The system back gesture (or button) is routed to the NativeBlade router: with
@@ -213,3 +220,5 @@ public function onConfirm($confirmed, $id = null)
 | `<a href="/path">` | Even though the router intercepts clicks on internal anchors, this is implicit behavior with edge cases (external links, fragment jumps, `javascript:`). Use `wire:nb-navigate` for clarity and predictability. |
 | `window.location.href = '/path'` | Causes a hard reload of the WebView, restarting the PHP runtime. Always go through the directive or the facade. |
 | `window.history.pushState(...)` | Bypasses the NativeBlade router entirely. Page swap won't happen. |
+| `return redirect('/login')` in a guard | Laravel's 302 `Location` is not followed by the WebView, the screen goes blank. Return `NativeBlade::navigate('/login')->toResponse()` instead. See [Route guards](#route-guards-middleware). |
+| `auth()->check()` / session-based auth | php-wasm serves each request fresh, so the server session does not persist. Keep auth in `NativeBlade::getState('auth.user')`. |

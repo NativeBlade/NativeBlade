@@ -261,6 +261,23 @@ class PluginRegistry
                 'npm' => ['@tauri-apps/plugin-shell' => '^2'],
             ],
 
+            Plugin::GLOBAL_SHORTCUT => [
+                'feature' => 'global_shortcut',
+                'feature_crate' => 'tauri-plugin-global-shortcut',
+                'rust_init' => 'tauri_plugin_global_shortcut::Builder::new().build()',
+                // Desktop-only: the crate does not exist on Android/iOS. The
+                // generator gates the dep and lib.rs init behind cfg(desktop),
+                // and the permissions land in capabilities/desktop.json.
+                'desktop_only' => true,
+                'desktop_capabilities' => [
+                    'global-shortcut:allow-register',
+                    'global-shortcut:allow-unregister',
+                    'global-shortcut:allow-unregister-all',
+                    'global-shortcut:allow-is-registered',
+                ],
+                'npm' => ['@tauri-apps/plugin-global-shortcut' => '^2'],
+            ],
+
             // Always-on (always compiled in via the framework crate)
             Plugin::DIALOG => [
                 'capabilities' => ['dialog:default'],

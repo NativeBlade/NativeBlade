@@ -59,6 +59,7 @@ class DesktopConfigGenerator
         $conf['app']['windows'][0]['transparent'] = $desktop['transparent'] ?? false;
         $conf['app']['windows'][0]['alwaysOnTop'] = $desktop['alwaysOnTop'] ?? false;
         $conf['app']['windows'][0]['maximized']   = $desktop['maximized']   ?? false;
+        $conf['app']['windows'][0]['shadow']      = $desktop['shadow']      ?? true;
 
         $hasPosition = isset($desktop['x'], $desktop['y']);
         $anchor = $desktop['positionAnchor'] ?? null;
