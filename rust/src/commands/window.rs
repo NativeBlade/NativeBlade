@@ -84,11 +84,21 @@ pub async fn open_window(app: AppHandle, config: WindowConfig) -> Result<(), Str
     };
     let init_script = format!(
         r#"window.__NB_SATELLITE__ = {id};
-try {{
-    var s = document.createElement('style');
-    s.textContent = '#splash{{display:none!important}}{extra}';
-    (document.head || document.documentElement).appendChild(s);
-}} catch (e) {{}}"#,
+(function () {{
+    var css = '#splash{{display:none!important}}{extra}';
+    function inject() {{
+        var root = document.head || document.documentElement;
+        if (!root) return false;
+        var s = document.createElement('style');
+        s.textContent = css;
+        root.appendChild(s);
+        return true;
+    }}
+    if (!inject()) {{
+        var obs = new MutationObserver(function () {{ if (inject()) obs.disconnect(); }});
+        obs.observe(document, {{ childList: true, subtree: true }});
+    }}
+}})();"#,
         id = id_json,
         extra = extra_css
     );
