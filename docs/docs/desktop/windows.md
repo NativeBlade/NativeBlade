@@ -73,7 +73,8 @@ normal screen.
 | `component(class)` | The Livewire component the window renders. Required. |
 | `size(int $w, int $h)` | Initial size in pixels. |
 | `minSize(int $w, int $h)` | Minimum size. |
-| `position(int $x, int $y)` | Top-left position in pixels. |
+| `position(int $x, int $y)` | Top-left position in exact pixels. |
+| `position(string $anchor, margin: int)` | Anchored position the framework resolves against the monitor's work area at open time, so PHP never measures the screen. Anchors: `center`, `top-left`, `top-center`, `top-right`, `bottom-left`, `bottom-center`, `bottom-right`. Needs `size()`; `margin` insets from the anchored edges. |
 | `alwaysOnTop(bool = true)` | Keep the window above others. |
 | `resizable(bool = true)` | Allow resizing. Defaults to true. |
 | `frameless(bool = true)` | Remove the OS title bar and borders. Default is a normal decorated window. |
@@ -83,6 +84,32 @@ normal screen.
 A satellite never shows the app's boot splash: it has no runtime to wait for, so
 the window opens straight into its component. Pair `frameless()` + `transparent()`
 for an overlay or bar that appears with no chrome and no flash.
+
+### Recipe: a centered overlay bar
+
+Everything above composes into the classic "menubar / overlay bar" window: a
+frameless, transparent, shadowless strip anchored to the bottom of the screen.
+The anchor does the screen math for you, so there is nothing to measure in PHP.
+
+```php
+return NativeBlade::window(function (Window $w) {
+    $w->id('overlay')
+      ->component(OverlayBar::class)
+      ->size(620, 60)
+      ->position('bottom-center', margin: 48) // 48px up, clear of the taskbar
+      ->frameless()
+      ->transparent()
+      ->shadow(false)
+      ->alwaysOnTop()
+      ->resizable(false);
+})->toResponse();
+```
+
+Give `OverlayBar`'s root element its own background (a solid color or an `rgba`
+for a see-through bar) since the window itself paints nothing. `alwaysOnTop()`
+keeps the bar above other windows; to pull a satellite forward on demand use
+`NativeBlade::focusWindow('overlay')`, and to summon the main app window (say from
+a [global shortcut](/desktop/global-shortcuts/)) use `NativeBlade::focus()`.
 
 ## Command a window
 
