@@ -24,6 +24,12 @@ class Window
 {
     private array $config = [];
 
+    /** Named positions resolved against the monitor's work area at open time. */
+    private const ANCHORS = [
+        'center', 'top-left', 'top-center', 'top-right',
+        'bottom-left', 'bottom-center', 'bottom-right',
+    ];
+
     /** Unique handle for this window: targets close/focus and scopes its events. */
     public function id(string $id): static
     {
@@ -54,9 +60,36 @@ class Window
         return $this;
     }
 
-    /** Fixed top-left position in pixels from the primary screen's top-left. */
-    public function position(int $x, int $y): static
+    /**
+     * Position the window: either exact pixels from the screen's top-left, or a
+     * named anchor the framework resolves against the monitor's work area when the
+     * window opens. Anchoring frees you from measuring the screen in PHP.
+     *
+     * ```php
+     * $w->position(650, 948);                    // exact pixels
+     * $w->position('bottom-center');             // anchored
+     * $w->position('bottom-center', margin: 12); // 12px in from the anchored edges
+     * ```
+     *
+     * Anchors: `center`, `top-left`, `top-center`, `top-right`, `bottom-left`,
+     * `bottom-center`, `bottom-right`. Anchoring needs `size()`. Desktop only.
+     */
+    public function position(int|string $x, ?int $y = null, int $margin = 0): static
     {
+        if (is_string($x)) {
+            if (!in_array($x, self::ANCHORS, true)) {
+                throw new \InvalidArgumentException(
+                    "Invalid window anchor '{$x}'. Use one of: " . implode(', ', self::ANCHORS)
+                    . ', or position(int $x, int $y).'
+                );
+            }
+            $this->config['positionAnchor'] = $x;
+            if ($margin !== 0) {
+                $this->config['positionMargin'] = $margin;
+            }
+            return $this;
+        }
+
         $this->config['x'] = $x;
         $this->config['y'] = $y;
         return $this;

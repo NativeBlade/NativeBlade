@@ -73,7 +73,8 @@ normal screen.
 | `component(class)` | The Livewire component the window renders. Required. |
 | `size(int $w, int $h)` | Initial size in pixels. |
 | `minSize(int $w, int $h)` | Minimum size. |
-| `position(int $x, int $y)` | Top-left position in pixels. |
+| `position(int $x, int $y)` | Top-left position in exact pixels. |
+| `position(string $anchor, margin: int)` | Anchored position the framework resolves against the monitor's work area at open time, so PHP never measures the screen. Anchors: `center`, `top-left`, `top-center`, `top-right`, `bottom-left`, `bottom-center`, `bottom-right`. Needs `size()`; `margin` insets from the anchored edges. |
 | `alwaysOnTop(bool = true)` | Keep the window above others. |
 | `resizable(bool = true)` | Allow resizing. Defaults to true. |
 | `frameless(bool = true)` | Remove the OS title bar and borders. Default is a normal decorated window. |
