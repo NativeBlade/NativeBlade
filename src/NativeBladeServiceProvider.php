@@ -57,6 +57,7 @@ class NativeBladeServiceProvider extends ServiceProvider
                 Commands\ServeCommand::class,
                 Commands\ComponentCommand::class,
                 Commands\IconCommand::class,
+                Commands\IconsSyncCommand::class,
                 Commands\BuildCommand::class,
                 Commands\BundleCommand::class,
                 Commands\DeepLinksCommand::class,

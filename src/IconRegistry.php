@@ -4567,4 +4567,14 @@ class IconRegistry
     {
         return array_keys(self::$icons);
     }
+
+    /**
+     * The full name => paths map. Source of truth for the shell's JS icon
+     * registry, regenerated into js/wasm-app/components/icons.js by
+     * `php artisan nativeblade:icons:sync`.
+     */
+    public static function entries(): array
+    {
+        return self::$icons;
+    }
 }
