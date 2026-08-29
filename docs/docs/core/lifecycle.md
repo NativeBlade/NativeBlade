@@ -67,6 +67,11 @@ NativeBladeConfig::onBoot(function () {
 });
 ```
 
+`onBoot` runs through the same exit-and-replay bridge, so it re-runs from the top
+on every HTTP call it makes. Keep the calls in a deterministic order and defer
+side effects such as writes and deletes until after the responses are in.
+See [keeping the call sequence deterministic](/core/http/#keep-the-call-sequence-deterministic).
+
 ## Migrations
 
 Standard Laravel migrations in `database/migrations/` run automatically on boot. No `php artisan migrate` needed.
