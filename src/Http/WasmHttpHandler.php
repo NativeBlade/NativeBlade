@@ -84,7 +84,8 @@ class WasmHttpHandler
             'url' => $url,
             'method' => $method,
             'headers' => $headers,
-            'body' => $body ?: null,
+            // base64 so a non-UTF-8 body (a multipart upload) survives json_encode.
+            'body' => $body === '' ? null : base64_encode($body),
         ];
 
         if (self::$poolMode) {

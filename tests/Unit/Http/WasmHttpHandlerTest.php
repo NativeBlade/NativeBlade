@@ -146,7 +146,26 @@ final class WasmHttpHandlerTest extends TestCase
         $pending = $this->readStatic('pendingRequests');
         self::assertCount(3, $pending);
         self::assertSame(['GET', 'POST', 'DELETE'], array_column($pending, 'method'));
-        self::assertSame('payload', $pending[1]['body']);
+        self::assertSame(base64_encode('payload'), $pending[1]['body']);
+    }
+
+    #[Test]
+    public function binary_body_is_base64_encoded_so_json_encode_never_chokes(): void
+    {
+        WasmHttpHandler::enablePool();
+        $handler = new WasmHttpHandler();
+
+        // Bytes that are NOT valid UTF-8. Left raw, json_encode() returns false
+        // and the pending file is written empty, so the request vanishes.
+        $rawBinary = "\x89PNG\xFF\x00\xC3\x28";
+        $handler(new Request('POST', 'https://up.test/x', ['Content-Type' => 'multipart/form-data; boundary=z'], $rawBinary), []);
+
+        $pending = $this->readStatic('pendingRequests');
+        self::assertSame(base64_encode($rawBinary), $pending[0]['body']);
+        // The whole pending list must survive json_encode (the real bridge writes it).
+        self::assertNotFalse(json_encode($pending), 'pending list must be JSON-serializable');
+        // And it round-trips to the exact bytes on the other side.
+        self::assertSame($rawBinary, base64_decode($pending[0]['body']));
     }
 
     #[Test]

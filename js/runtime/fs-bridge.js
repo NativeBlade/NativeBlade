@@ -36,6 +36,10 @@ export async function hasPendingRequest(php, output) {
 
 export async function fulfill(php) {
     if (retryCount >= MAX_RETRIES) {
+        console.warn(
+            `[NativeBlade] filesystem bridge budget exhausted: this PHP request made more than ${MAX_RETRIES} ` +
+            `sequential filesystem operations and was abandoned with no response. Split the work across separate requests.`
+        );
         cleanup(php);
         return false;
     }

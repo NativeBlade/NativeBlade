@@ -59,7 +59,7 @@ describe('http-bridge/fulfill', () => {
     it('fetches every pending request and caches {status, headers, body}', async () => {
         const pending = [
             { key: 'k1', url: 'https://api.a/1', method: 'GET', headers: {}, body: null },
-            { key: 'k2', url: 'https://api.b/2', method: 'POST', headers: { 'X-Auth': 'token' }, body: 'payload' },
+            { key: 'k2', url: 'https://api.b/2', method: 'POST', headers: { 'X-Auth': 'token' }, body: btoa('payload') },
         ];
         const php = makePhp({ [PENDING_PATH]: JSON.stringify(pending) });
 
@@ -84,10 +84,12 @@ describe('http-bridge/fulfill', () => {
         // Headers omitted when map is empty
         assert.ok(!('headers' in opts1));
 
-        // Second call: method + headers + body forwarded
+        // Second call: method + headers + body forwarded. The body arrives
+        // base64-encoded and is decoded into raw bytes before it reaches fetch.
         assert.equal(fetchStub.calls[1][1].method, 'POST');
         assert.deepEqual(fetchStub.calls[1][1].headers, { 'X-Auth': 'token' });
-        assert.equal(fetchStub.calls[1][1].body, 'payload');
+        assert.ok(fetchStub.calls[1][1].body instanceof Uint8Array, 'body must be sent as raw bytes');
+        assert.equal(new TextDecoder().decode(fetchStub.calls[1][1].body), 'payload');
 
         // Cache payloads
         assert.deepEqual(JSON.parse(php.files[`${CACHE_DIR}/k1.json`]), {
@@ -102,6 +104,28 @@ describe('http-bridge/fulfill', () => {
         });
 
         assert.ok(!(PENDING_PATH in php.files), 'pending file should be removed on success');
+    });
+
+    it('decodes a base64 body to raw bytes so a binary upload survives', async () => {
+        // Bytes that are NOT valid UTF-8 — the multipart-upload case that broke
+        // json_encode on the PHP side and made the request vanish. They must
+        // reach fetch byte-for-byte, with no UTF-8 round-trip.
+        const raw = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0xff, 0x00, 0xc3, 0x28]);
+        let bin = '';
+        for (const b of raw) bin += String.fromCharCode(b);
+        const b64 = btoa(bin);
+
+        const php = makePhp({ [PENDING_PATH]: JSON.stringify([
+            { key: 'up', url: 'https://up.test/', method: 'POST', headers: { 'Content-Type': 'multipart/form-data; boundary=z' }, body: b64 },
+        ]) });
+
+        let sentBody = null;
+        __setFetchForTests(async (_url, opts) => { sentBody = opts.body; return makeResponse({ body: 'ok' }); });
+
+        await fulfill(php);
+
+        assert.ok(sentBody instanceof Uint8Array);
+        assert.deepEqual(sentBody, raw, 'the exact bytes must reach fetch unaltered');
     });
 
     it('attaches an AbortSignal that threads into every fetch call', async () => {
@@ -204,6 +228,38 @@ describe('http-bridge/fulfill', () => {
         assert.equal(ok, false);
         assert.equal(fetchStub.callCount, callsBefore,
             'no fetch should fire once MAX_RETRIES is reached');
+    });
+
+    it('warns to the console once when the retry budget is exhausted', async () => {
+        const php = makePhp({});
+        __setFetchForTests(async () => makeResponse({ body: 'x' }));
+
+        // Burn the 10 allowed passes.
+        for (let i = 0; i < 10; i++) {
+            php.files[PENDING_PATH] = JSON.stringify([{
+                key: `k${i}`, url: 'https://x/', method: 'GET', headers: {}, body: null,
+            }]);
+            await fulfill(php);
+        }
+
+        // The 11th pass overflows: it must log an actionable warning instead of
+        // vanishing silently. Capture console.warn just for this pass.
+        const originalWarn = console.warn;
+        const warnSpy = spy();
+        console.warn = warnSpy;
+        try {
+            php.files[PENDING_PATH] = JSON.stringify([{
+                key: 'overflow', url: 'https://x/', method: 'GET', headers: {}, body: null,
+            }]);
+            const ok = await fulfill(php);
+            assert.equal(ok, false);
+        } finally {
+            console.warn = originalWarn;
+        }
+
+        assert.equal(warnSpy.callCount, 1, 'budget exhaustion must warn exactly once');
+        assert.match(warnSpy.calls[0][0], /budget exhausted/i);
+        assert.match(warnSpy.calls[0][0], /pool\(\)/, 'warning should point to NativeBlade::pool()');
     });
 
     it('returns false and cleans up when pending is empty / malformed', async () => {

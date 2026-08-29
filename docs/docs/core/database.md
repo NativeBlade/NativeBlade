@@ -235,6 +235,31 @@ if (rand(0, 1)) {
 }
 ```
 
+### Store timestamps in UTC, not a per-request timezone
+
+An on-device workflow is spread across several requests: each bridge call is its
+own re-execution, and multi-step work is deliberately sliced. Anything that
+mutates global framework config per request then becomes inconsistent between
+those requests, and a value written in one request can be read or compared in
+another under a different setting.
+
+Timezone is the classic trap. Setting `config('app.timezone')` per request (for
+example from a cookie) changes how Eloquent writes every timestamp, so a row
+written in one request and pruned in another can be compared across a several
+hour offset and wrongly treated as stale. The failure is intermittent, since it
+depends on which requests carried the setting.
+
+Keep storage canonical and apply presentation at the edge:
+
+- Store timestamps in UTC. Do not drive `config('app.timezone')` from device
+  state.
+- Keep the device's timezone in explicit state (`NativeBlade::setState`, or your
+  own value object) and read it only where you format for display or decide what
+  counts as "today".
+- `config('app.locale')` is the same trap. NativeBlade sets it once per request
+  from the persisted language (see [Multi-language](/core/multi-language/)); read
+  the device's preference from state rather than mutating global config mid-flow.
+
 ### Transactions
 
 Transactions work within the bridge pattern:

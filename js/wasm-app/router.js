@@ -11,6 +11,7 @@ import { setFrame as setPushFrame } from './push.js';
 import { logScreenIfEnabled } from '../runtime/analytics-screen.js';
 import { nativeNavBegin, nativeNavFinish } from './native-nav.js';
 import { positionDesktopWindow } from './desktop-window.js';
+import { serveFrameRequest, createSerialQueue } from './frame-request.js';
 
 let appFrame = null;
 let bufferFrame = null;
@@ -18,10 +19,12 @@ let splash = null;
 let currentPath = null;
 let historyStack = [];
 let navigationVersion = 0;
-let pendingMessageId = null;
 let transition = 'none';
 let autoUpdateInitialized = false;
-let defaultBridgeCallback = null;
+
+// The reset target that navigation and boot restore after their temporary
+// setOnBridgeComplete overrides. Every request now carries its own completion
+const defaultBridgeCallback = () => {};
 
 // Promise-based request that ALSO awaits bridge (Http/DB/FS) fulfillment, so the
 // caller gets the FINAL result, not a `bridgePending` stub. Used by the window
@@ -30,18 +33,19 @@ let defaultBridgeCallback = null;
 // callback (`done`), so it never clobbers the main window's bridge callback (nor
 // another satellite's). Serialized so two satellite requests can't interleave
 // their re-runs through the shared php-wasm instance.
-let requestFullQueue = Promise.resolve();
+// One shared serial queue for every request+bridge cycle (satellite relay AND
+// main-frame Livewire updates), so no two cycles interleave their re-runs
+// through the shared php-wasm instance.
+const enqueueRequest = createSerialQueue();
 export function requestFull(path, options) {
-    const run = () => new Promise((resolve) => {
+    return enqueueRequest(() => new Promise((resolve) => {
         let settled = false;
         const done = (r) => { if (settled) return; settled = true; resolve(r); };
         request(path, options, done).then(
             (result) => { if (!result || !result.bridgePending) done(result); },
             (err) => done({ text: String(err && err.message || err), httpStatusCode: 500 })
         );
-    });
-    requestFullQueue = requestFullQueue.then(run, run);
-    return requestFullQueue;
+    }));
 }
 
 export function goBack() {
@@ -86,22 +90,6 @@ export function init(frame, splashEl) {
     // exposing the shell body background. Idempotent.
     setupFrameContainer();
 
-    let pendingSource = null;
-
-    defaultBridgeCallback = (result) => {
-        if (pendingMessageId !== null && !result.bridgePending) {
-            try {
-                const target = pendingSource || appFrame.contentWindow;
-                target.postMessage({
-                    type: 'nativeblade-response',
-                    id: pendingMessageId,
-                    result: { text: result.text, httpStatusCode: result.httpStatusCode }
-                }, '*');
-            } catch {}
-            pendingMessageId = null;
-            pendingSource = null;
-        }
-    };
     setOnBridgeComplete(defaultBridgeCallback);
 
     window.addEventListener('message', async (event) => {
@@ -121,24 +109,12 @@ export function init(frame, splashEl) {
 
         if (type === 'nativeblade-request') {
             const { id, path, options } = event.data;
-            try {
-                const result = await request(path, options);
-                if (result.bridgePending) {
-                    pendingMessageId = id;
-                    pendingSource = source;
-                    return;
-                }
-                source.postMessage({
-                    type: 'nativeblade-response', id,
-                    result: { text: result.text, httpStatusCode: result.httpStatusCode }
-                }, '*');
-                if (options.method && options.method !== 'GET') schedulePersist();
-            } catch (err) {
-                source.postMessage({
-                    type: 'nativeblade-response', id,
-                    result: { text: err.message, httpStatusCode: 500 }
-                }, '*');
-            }
+            serveFrameRequest({
+                id, path, options, source,
+                requestFull,
+                schedulePersist,
+                getGeneration: () => navigationVersion,
+            });
         } else if (type === 'nativeblade-navigate') {
             const opts = event.data.transition ? { transition: event.data.transition } : {};
             if (event.data.replace) {
@@ -179,7 +155,6 @@ export async function runBoot() {
 export async function navigate(path, options = {}) {
     if (currentPath === path && !options.force) return;
     abortHttpBridge();
-    pendingMessageId = null;
 
     const goingBack = !options.direction
         && historyStack.length > 0
@@ -201,7 +176,6 @@ export async function navigate(path, options = {}) {
 export async function navigateReplace(path, options = {}) {
     if (currentPath === path && !options.force) return;
     abortHttpBridge();
-    pendingMessageId = null;
     return navigateInternal(path, options);
 }
 

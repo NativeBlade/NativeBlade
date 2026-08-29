@@ -21,7 +21,11 @@ export async function fulfill(php) {
         return false;
     }
     if (retryCount >= MAX_RETRIES) {
-        console.warn('[NativeBlade] db bridge: MAX_RETRIES reached, giving up to avoid infinite loop');
+        console.warn(
+            `[NativeBlade] database bridge budget exhausted: this PHP request made more than ${MAX_RETRIES} ` +
+            `sequential queries and was abandoned with no response. Reduce queries per request (eager-load ` +
+            `relations) or split the work across separate requests.`
+        );
         cleanup(php);
         return false;
     }
