@@ -102,9 +102,11 @@ class NativeBladeServiceProvider extends ServiceProvider
             return;
         }
 
-        \Illuminate\Support\Facades\Http::globalOptions([
-            'handler' => \GuzzleHttp\HandlerStack::create(new Http\WasmHttpHandler()),
-        ]);
+        $stack = \GuzzleHttp\HandlerStack::create(new Http\WasmHttpHandler());
+
+        \Illuminate\Support\Facades\Http::globalMiddleware(
+            fn (callable $next) => fn ($request, array $options) => $stack($request, $options)
+        );
     }
 
     private function isWasmRuntime(): bool
