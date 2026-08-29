@@ -50,7 +50,7 @@ export async function fulfill(php) {
                 options.headers = pending.headers;
             }
             if (pending.body) {
-                options.body = pending.body;
+                options.body = base64ToBytes(pending.body);
             }
 
             const response = await (_fetchOverride ?? nativeFetch)(pending.url, options);
@@ -134,4 +134,13 @@ function clearCache(php) {
             }
         }
     } catch {}
+}
+
+function base64ToBytes(b64) {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
 }
