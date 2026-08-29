@@ -109,6 +109,24 @@ Two traps in particular:
 For several independent calls, `NativeBlade::pool()` resolves them in a single
 re-execution and sidesteps the ordering question entirely.
 
+### The request budget
+
+Because each call costs one re-execution, a single request cannot make an
+unlimited number of them. The bridge caps a request at about ten sequential
+`Http` calls. Past that it is abandoned with no response: the screen stays on its
+old HTML, and a warning is logged to the console.
+
+This rarely affects a normal screen, but it bites long, multi-step work such as a
+full sync that pages through several endpoints. Two ways to stay well under the
+cap:
+
+- **Batch independent calls with `NativeBlade::pool()`.** A pool resolves all of
+  its requests in a single re-execution, so ten parallel calls cost one, not ten.
+- **Slice sequential, paginated work into separate requests.** Do one page (one
+  network call) per request and start the next step when the previous one
+  returns. A progress bar per step is a natural fit, and the cost per request
+  stays flat whether the dataset has three pages or three hundred.
+
 ## Enable the plugin
 
 `HTTP` is opt-in. Declare it in your `AppServiceProvider`:

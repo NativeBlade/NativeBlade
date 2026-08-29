@@ -484,6 +484,36 @@ describe('fs-bridge/fulfill', () => {
         assert.equal(fs.exists.callCount, before,
             'no fs op should fire once MAX_RETRIES is reached');
     });
+
+    it('warns to the console once when the retry budget is exhausted', async () => {
+        const fs = makeFs();
+        __setFsApiForTests(fs);
+        const php = makePhp({});
+
+        for (let i = 0; i < 20; i++) {
+            php.files[PENDING_PATH] = JSON.stringify([
+                { key: `k${i}`, op: 'exists', path: 'x', baseDir: 'app' },
+            ]);
+            await fulfill(php);
+        }
+
+        // The 21st pass overflows: it must warn instead of vanishing silently.
+        const originalWarn = console.warn;
+        const warnSpy = spy();
+        console.warn = warnSpy;
+        try {
+            php.files[PENDING_PATH] = JSON.stringify([
+                { key: 'overflow', op: 'exists', path: 'x', baseDir: 'app' },
+            ]);
+            const ok = await fulfill(php);
+            assert.equal(ok, false);
+        } finally {
+            console.warn = originalWarn;
+        }
+
+        assert.equal(warnSpy.callCount, 1, 'budget exhaustion must warn exactly once');
+        assert.match(warnSpy.calls[0][0], /budget exhausted/i);
+    });
 });
 
 // ---------------------------------------------------------------

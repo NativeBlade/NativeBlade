@@ -145,6 +145,19 @@ The native filesystem uses a bridge pattern (same as HTTP Bridge):
 
 This is transparent, your code uses standard Laravel Storage without any changes.
 
+Each operation triggers one re-execution of PHP, so an action with N filesystem
+operations runs N+1 times. Two things follow from that:
+
+- **Keep the operations in a deterministic order.** Every re-execution must issue
+  the same operations, with the same arguments, in the same sequence. A cached
+  result is matched by call order, so branching differently between re-executions,
+  or a side effect that changes the sequence, breaks the match. This is the same
+  requirement the [database bridge](/core/database/) documents.
+- **There is a per-request budget.** A single request is capped at about twenty
+  sequential filesystem operations. Past that it is abandoned with no response and
+  a warning in the console. Long batch work such as copying or scanning many files
+  should be split across separate requests.
+
 ## Camera Integration
 
 Compress photos before saving with `wire:nb-payload`:

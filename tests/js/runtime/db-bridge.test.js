@@ -209,6 +209,37 @@ describe('db-bridge/fulfill', () => {
             'invoke must not fire on the 21st pass');
     });
 
+    it('warns to the console once when the retry budget is exhausted', async () => {
+        const php = makePhp({});
+        __setInvokeForTests(async () => null);
+
+        for (let i = 0; i < 20; i++) {
+            php.files[PENDING_PATH] = JSON.stringify([{
+                key: `k${i}`, type: 'select', sql: 'x', bindings: [],
+                driver: 'mysql', connection: 'c',
+            }]);
+            await fulfill(php);
+        }
+
+        // The 21st pass overflows: it must warn instead of vanishing silently.
+        const originalWarn = console.warn;
+        const warnSpy = spy();
+        console.warn = warnSpy;
+        try {
+            php.files[PENDING_PATH] = JSON.stringify([{
+                key: 'overflow', type: 'select', sql: 'x', bindings: [],
+                driver: 'mysql', connection: 'c',
+            }]);
+            const ok = await fulfill(php);
+            assert.equal(ok, false);
+        } finally {
+            console.warn = originalWarn;
+        }
+
+        assert.equal(warnSpy.callCount, 1, 'budget exhaustion must warn exactly once');
+        assert.match(warnSpy.calls[0][0], /budget exhausted/i);
+    });
+
     it('creates the cache dir via mkdirTree before writing', async () => {
         const php = makePhp({
             [PENDING_PATH]: JSON.stringify([{

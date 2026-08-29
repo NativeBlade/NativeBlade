@@ -23,6 +23,11 @@ export async function hasPendingRequest(php, output) {
 
 export async function fulfill(php) {
     if (retryCount >= MAX_RETRIES) {
+        console.warn(
+            `[NativeBlade] HTTP bridge budget exhausted: this PHP request made more than ${MAX_RETRIES} ` +
+            `sequential Http calls and was abandoned with no response. Batch independent calls with ` +
+            `NativeBlade::pool(), or slice paginated work into separate requests.`
+        );
         cleanup(php);
         return false;
     }
