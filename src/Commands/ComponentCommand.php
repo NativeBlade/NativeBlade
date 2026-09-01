@@ -69,6 +69,7 @@ import './{$name}.css';
 // You write the JS, and `nb` is your one handle to everything:
 //
 //   nb.element             your root <div id="nb-{$name}"> (auto-created + removed)
+//   nb.animate(sel?).enter/leave('slideInUp')   animate.css in/out (root or a child)
 //   nb.php.watch(p, fn)    react to a PHP-owned #[NativeProp]
 //   nb.php.listen(n, fn)   react to \$this->shell('n', ...args)
 //   nb.php.set(k, v)       write a #[NativeProp(from: SHELL)]  (bound only)

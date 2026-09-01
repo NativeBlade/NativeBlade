@@ -257,4 +257,83 @@ describe('actions/shell-module', () => {
         shell_component_destroy('tab-bar');
         assert.equal(cleaned, true);
     });
+
+    // ---- nb.animate ---------------------------------------------------------
+
+    function fxEl() {
+        return {
+            style: {},
+            classList: {
+                s: new Set(),
+                add(...c) { c.forEach((x) => this.s.add(x)); },
+                remove(...c) { c.forEach((x) => this.s.delete(x)); },
+            },
+            _end: null,
+            addEventListener(evt, fn) { if (evt === 'animationend') this._end = fn; },
+            removeEventListener() {},
+        };
+    }
+
+    it('nb.animate(el).enter adds the animate.css classes and clears them when the animation ends', async () => {
+        let nb;
+        modules['fx'] = (h) => { nb = h; };
+        await shell_module_mount({ shell: 'fx', id: 'c1' });
+
+        const el = fxEl();
+        const p = nb.animate(el).enter('slideInLeft', { speed: 'fast' });
+
+        assert.ok(el.classList.s.has('animate__animated'));
+        assert.ok(el.classList.s.has('animate__slideInLeft'));
+        assert.ok(el.classList.s.has('animate__fast'));
+
+        el._end();
+        await p;
+        assert.ok(!el.classList.s.has('animate__slideInLeft'), 'enter clears its classes when done');
+    });
+
+    it('nb.animate(el).leave hides the element when the exit ends', async () => {
+        let nb;
+        modules['fx'] = (h) => { nb = h; };
+        await shell_module_mount({ shell: 'fx', id: 'c1' });
+
+        const el = fxEl();
+        const p = nb.animate(el).leave('slideOutLeft');
+
+        assert.notEqual(el.style.display, 'none');
+        el._end();
+        await p;
+        assert.equal(el.style.display, 'none', 'leave hides the element on completion');
+    });
+
+    it('nb.animate with an infinite repeat resolves at once and keeps the looping class', async () => {
+        let nb;
+        modules['fx'] = (h) => { nb = h; };
+        await shell_module_mount({ shell: 'fx', id: 'c1' });
+
+        const el = fxEl();
+        await nb.animate(el).enter('pulse', { repeat: 'infinite' });
+
+        assert.ok(el.classList.s.has('animate__infinite'));
+        assert.ok(el.classList.s.has('animate__pulse'), 'looping class stays until you animate it out');
+    });
+
+    it('a new nb.animate on the same element cancels the one in flight', async () => {
+        let nb;
+        modules['fx'] = (h) => { nb = h; };
+        await shell_module_mount({ shell: 'fx', id: 'c1' });
+
+        const el = fxEl();
+        const first = nb.animate(el).enter('slideInLeft');
+        assert.ok(el.classList.s.has('animate__slideInLeft'));
+
+        const second = nb.animate(el).enter('fadeIn');   // supersedes the first
+        await first;                                     // the cancelled promise resolves, never hangs
+
+        assert.ok(!el.classList.s.has('animate__slideInLeft'), 'previous classes are removed');
+        assert.ok(el.classList.s.has('animate__fadeIn'), 'the new animation is applied');
+
+        el._end();
+        await second;
+        assert.ok(!el.classList.s.has('animate__fadeIn'), 'and it cleans up when done');
+    });
 });
