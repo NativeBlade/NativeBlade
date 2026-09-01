@@ -18,6 +18,37 @@ description: "App and component lifecycle hooks."
 8. Auto-update check (3s delay)
 ```
 
+## Holding the splash for an intro animation
+
+By default the splash hides the moment the first screen renders (step 6). To hold
+it longer, for a Lottie intro or any animation, set `window.nbSplash` to a promise.
+The app waits for it before revealing the first screen, capped by a timeout so a
+broken animation can never block the boot.
+
+Inside the splash, play the animation and resolve the promise when it completes:
+
+```html
+<div id="splash">
+    <div id="splash-lottie" style="width:200px;height:200px"></div>
+    <script src="./lottie.min.js"></script>
+    <script>
+        window.nbSplash = new Promise((resolve) => {
+            const el = document.getElementById('splash-lottie');
+            if (!el || !window.lottie) return resolve();
+            const anim = lottie.loadAnimation({ container: el, path: './splash.json', loop: false, autoplay: true });
+            anim.addEventListener('complete', resolve);
+            anim.addEventListener('data_failed', resolve);
+        });
+    </script>
+</div>
+```
+
+The app boots behind the splash, so the first screen is ready the instant the
+animation finishes. The hold is capped at about eight seconds: if the promise
+never resolves, the splash hides anyway, so a missing file or a broken animation
+never bricks the boot. Bundle `lottie.min.js` and the animation JSON as local
+assets, since the app runs offline and a CDN is not an option.
+
 ## onBoot Hook
 
 Run code before the app becomes visible. The splash screen stays up until `onBoot` completes. Use it for license validation, data sync, essential API calls, or any setup that must finish before the user sees the app.
