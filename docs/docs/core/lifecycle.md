@@ -21,33 +21,56 @@ description: "App and component lifecycle hooks."
 ## Holding the splash for an intro animation
 
 By default the splash hides the moment the first screen renders (step 6). To hold
-it longer, for a Lottie intro or any animation, set `window.nbSplash` to a promise.
-The app waits for it before revealing the first screen, capped by a timeout so a
-broken animation can never block the boot.
+it for a boot intro, set `window.nbSplash`. The app waits for it before revealing
+the first screen, capped by a timeout so a broken intro can never block the boot.
 
-Inside the splash, play the animation and resolve the promise when it completes:
+php-wasm has no worker, so it boots on the main thread. An animation running
+during that boot competes with it for frames and stutters partway through. The
+runtime reads `window.nbSplash` at exactly one moment, once the first screen is
+ready, which is also the first moment the thread is free. So set it to a
+**function**: the runtime calls it at that moment, and the animation runs its
+whole length on a free thread.
+
+While the app boots, show a placeholder that stays smooth even while the thread is
+blocked. Opacity is the safe choice, since the compositor keeps it going
+regardless; a transform or a JS animation freezes with the thread.
 
 ```html
 <div id="splash">
-    <div id="splash-lottie" style="width:200px;height:200px"></div>
-    <script src="./lottie.min.js"></script>
-    <script>
-        window.nbSplash = new Promise((resolve) => {
-            const el = document.getElementById('splash-lottie');
-            if (!el || !window.lottie) return resolve();
-            const anim = lottie.loadAnimation({ container: el, path: './splash.json', loop: false, autoplay: true });
-            anim.addEventListener('complete', resolve);
-            anim.addEventListener('data_failed', resolve);
-        });
-    </script>
+    <div class="mark">
+        <div id="intro"></div>
+        <svg id="pulse" width="48" height="48"><!-- your static logo --></svg>
+    </div>
 </div>
+<style>
+    #pulse { animation: nb-pulse 1.6s ease-in-out infinite; }
+    .mark.playing #pulse { opacity: 0; animation: none; }
+    #splash.done { opacity: 0; transform: scale(1.04); transition: opacity .24s, transform .24s; }
+    @keyframes nb-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+</style>
+<script src="./lottie.min.js"></script>
+<script>
+    window.nbSplash = () => new Promise((resolve) => {
+        setTimeout(resolve, 4000);                                    // local cap: a stall costs a beat
+        const el = document.getElementById('intro');
+        if (!el || !window.lottie) return resolve();
+        document.querySelector('.mark').classList.add('playing');     // cross-fade the pulse out
+        const anim = lottie.loadAnimation({ container: el, renderer: 'canvas', loop: false, autoplay: true, path: './splash.json' });
+        anim.addEventListener('data_failed', resolve);
+        anim.addEventListener('complete', () => {
+            document.getElementById('splash').classList.add('done');  // fade out to your background
+            setTimeout(resolve, 240);
+        });
+    });
+</script>
 ```
 
-The app boots behind the splash, so the first screen is ready the instant the
-animation finishes. The hold is capped at about eight seconds: if the promise
-never resolves, the splash hides anyway, so a missing file or a broken animation
-never bricks the boot. Bundle `lottie.min.js` and the animation JSON as local
-assets, since the app runs offline and a CDN is not an option.
+Fading the splash out just before you resolve turns the handoff into a transition
+instead of a hard cut, and the first screen paints onto a calm flat surface. The
+`canvas` renderer keeps the animation off the DOM, which matters when Livewire is
+about to morph the first screen. Bundle `lottie.min.js` and the animation JSON as
+local assets; the app runs offline, so a CDN is not an option. A plain promise
+still works if you do not need the free-thread timing.
 
 ## onBoot Hook
 
