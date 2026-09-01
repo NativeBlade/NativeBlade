@@ -153,18 +153,82 @@ function fireListeners(inst, name, args) {
     }
 }
 
+function rootElement(inst, shell) {
+    if (!inst.el) {
+        inst.el = document.createElement('div');
+        inst.el.id = `nb-${shell}`;
+        document.body.appendChild(inst.el);
+    }
+    return inst.el;
+}
+
+function runAnimation(el, name, opts = {}, isLeave = false) {
+    if (!el || !name) return Promise.resolve();
+
+    if (el.__nbAnimCancel) el.__nbAnimCancel();
+
+    const cls = ['animate__animated', 'animate__' + name];
+    if (opts.speed) cls.push('animate__' + opts.speed);
+    const infinite = opts.repeat === 'infinite';
+    if (infinite) cls.push('animate__infinite');
+    if (!isLeave && el.style.display === 'none') el.style.display = '';
+    if (opts.delay) el.style.animationDelay = String(opts.delay);
+    if (opts.repeat && !infinite) el.style.animationIterationCount = String(opts.repeat);
+
+    return new Promise((resolve) => {
+        let settled = false;
+        let timer = null;
+
+        function strip() {
+            el.classList.remove(...cls);
+            el.style.animationDelay = '';
+            el.style.animationIterationCount = '';
+            if (timer) clearTimeout(timer);
+            el.removeEventListener('animationend', onEnd);
+            if (el.__nbAnimCancel === cancel) el.__nbAnimCancel = null;
+        }
+
+        function finish() {
+            if (settled) return;
+            settled = true;
+            if (isLeave) el.style.display = 'none';
+            strip();
+            resolve();
+        }
+
+        function cancel() {
+            if (settled) return;
+            settled = true;
+            strip();
+            resolve();
+        }
+        function onEnd() { finish(); }
+
+        el.__nbAnimCancel = cancel;
+        el.classList.add(...cls);
+
+        if (infinite) { resolve(); return; }
+
+        timer = setTimeout(finish, 2000);
+        el.addEventListener('animationend', onEnd, { once: true });
+    });
+}
+
 // The `nb` handle passed to a setup module: element (lazy root div, auto-removed),
-// context (shell environment), php (message bridge, events + state, never RPC),
-// onCleanup (teardown for what the module made itself).
+// animate (animate.css enter/leave), context (shell environment), php (message
+// bridge, events + state, never RPC), onCleanup (teardown for what it made).
 function buildNb(inst, shell) {
     return {
-        get element() {
-            if (!inst.el) {
-                inst.el = document.createElement('div');
-                inst.el.id = `nb-${shell}`;
-                document.body.appendChild(inst.el);
-            }
-            return inst.el;
+        get element() { return rootElement(inst, shell); },
+
+        animate(target) {
+            const pick = () => (!target ? rootElement(inst, shell)
+                : typeof target === 'string' ? rootElement(inst, shell).querySelector(target)
+                : target);
+            return {
+                enter: (name, opts) => runAnimation(pick(), name, opts, false),
+                leave: (name, opts) => runAnimation(pick(), name, opts, true),
+            };
         },
         context: {
             place: placeElement,

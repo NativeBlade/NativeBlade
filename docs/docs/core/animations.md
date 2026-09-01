@@ -129,6 +129,44 @@ Beyond Animate.css, these ship with the framework:
 | `revealUp` / `revealDown` | Clip-path reveal. |
 | `blurIn` / `blurOut` | Blur to sharp. |
 
+## Shell component animations
+
+Shell components render in the parent document, outside the page, so the page's
+inline `nb-animation` attributes do not reach them. Animate from the module with
+`nb.animate(target).enter/leave` instead, using the same Animate.css names.
+
+`nb.animate()` targets the shell root (`nb.element`). Pass a selector to scope to
+an element inside the shell, or an element directly:
+
+```js
+export default (nb) => {
+    nb.php.watch('open', (open) => {
+        if (open) nb.animate().enter('slideInLeft');
+        else nb.animate().leave('slideOutLeft');   // hides the element when the exit ends
+    });
+
+    // An isolated element, e.g. a bell that reacts on its own:
+    nb.php.listen('ring', () => nb.animate('#bell').enter('tada'));
+};
+```
+
+`enter(name, opts)` plays an entrance and keeps the element visible. `leave(name,
+opts)` plays an exit and hides the element when it ends, so `await
+nb.animate().leave(...)` returns with it already gone. Both resolve on
+`animationend` (capped by a timeout so a caller never hangs), and take the same
+`{ speed, delay, repeat }` options as `<x-nativeblade-animate>`. `repeat:
+'infinite'` leaves it looping, a pulsing badge for one, until you animate it out.
+
+The shell carries the full Animate.css catalog plus the custom NativeBlade
+animations, the same set the page has, so any name works: `bounceIn`, `flipInX`,
+`rotateIn`, all of them. It costs about 5 KB gzipped in the parent bundle.
+
+Starting a new animation on an element supersedes the one in flight, so a value
+that toggles fast (open, close, open) never leaves two animations fighting: the
+previous is dropped and the new one takes over. When the component is torn down
+(navigation, its owner gone), its element leaves the DOM, so a looping `repeat:
+'infinite'` stops on its own, with no orphan left pulsing.
+
 ## Haptics
 
 Add `nb-feedback` to any element for selection haptics on tap. It does not
