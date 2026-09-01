@@ -234,10 +234,14 @@ async function renderPage(text, path, options, version) {
     html = inject(html);
 
     const isFirstRender = appFrame.style.display !== 'block';
-    if (isFirstRender && window.nbSplash) {
-        try {
-            await Promise.race([window.nbSplash, new Promise((r) => setTimeout(r, 8000))]);
-        } catch {}
+    if (isFirstRender) {
+        const spec = window.nbSplash;
+        if (spec) {
+            const hold = typeof spec === 'function' ? spec() : spec;
+            try {
+                await Promise.race([Promise.resolve(hold), new Promise((r) => setTimeout(r, 8000))]);
+            } catch {}
+        }
     }
     splash.style.display = 'none';
     appFrame.style.display = 'block';
