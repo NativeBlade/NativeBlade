@@ -11,7 +11,7 @@ import { init as initShell } from './shell.js';
 import { init as initBridge, handleNativeAction } from './bridge.js';
 import { inject } from './interceptor.js';
 import { relayRequest, serveWindowRequests } from './window-relay.js';
-import { init as initRouter, navigate, getCurrentPath, goBack, runBoot, requestFull } from './router.js';
+import { init as initRouter, navigate, getCurrentPath, goBack, runBoot, requestFull, warmup } from './router.js';
 import { init as initHotReload } from './hot-reload.js';
 import { init as initStore, restoreToWasm, startAutoSync } from './state-store.js';
 import { init as initPush } from './push.js';
@@ -166,6 +166,7 @@ async function main() {
 
         status.textContent = t('boot.loading') || 'Loading...';
         await runBoot();
+        await warmup('/');
         await navigate('/');
     } catch (err) {
         status.textContent = 'Error: ' + err.message;
