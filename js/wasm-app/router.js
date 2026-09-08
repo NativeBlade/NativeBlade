@@ -48,6 +48,41 @@ export function requestFull(path, options) {
     }));
 }
 
+// Renders a route (or a few) into the offscreen buffer behind the splash so the
+// first real navigation is already warm. Best-effort and capped.
+export async function warmup(paths = '/', rounds = 2) {
+    if (!bufferFrame) return;
+    const list = (Array.isArray(paths) ? paths : [paths]).filter((p) => typeof p === 'string' && p);
+    if (!list.length) return;
+    const deadline = Date.now() + 6000;
+    for (let r = 0; r < rounds && Date.now() < deadline; r++) {
+        for (const path of list) {
+            if (Date.now() >= deadline) break;
+            try {
+                const result = await Promise.race([
+                    requestFull(path, {}),
+                    new Promise((res) => setTimeout(() => res(null), Math.max(200, deadline - Date.now()))),
+                ]);
+                if (!result || !result.text) continue;
+                const html = inject(result.text);
+                await new Promise((resolve) => {
+                    const budget = Math.max(200, Math.min(3000, deadline - Date.now()));
+                    const timer = setTimeout(resolve, budget);
+                    const onLoad = () => {
+                        bufferFrame.removeEventListener('load', onLoad);
+                        setTimeout(() => { clearTimeout(timer); resolve(); }, 120);
+                    };
+                    bufferFrame.addEventListener('load', onLoad);
+                    bufferFrame.dataset.nbMirror = '1';
+                    bufferFrame.srcdoc = html;
+                });
+            } catch {}
+        }
+    }
+    // Hand the buffer back clean; the first real render repopulates it.
+    try { bufferFrame.srcdoc = ''; } catch {}
+}
+
 export function goBack() {
     // Drop any falsy entries defensively (stacks persisted before the null
     // guard existed, or future regressions) — backing into one 404s.
@@ -179,23 +214,25 @@ export async function navigateReplace(path, options = {}) {
     return navigateInternal(path, options);
 }
 
-async function navigateInternal(path, options = {}) {
+// Navigations run one at a time (serialized) so two fast tab switches can't
+// interleave their frame swaps (blank screen) or their php requests (crash).
+let navChain = Promise.resolve();
+
+function navigateInternal(path, options = {}) {
     abortHttpBridge();
     currentPath = path;
     const version = ++navigationVersion;
-    const response = await request(path, options);
+    const run = navChain.then(() => runNavigation(path, options, version));
+    navChain = run.catch(() => {});
+    return run;
+}
 
+async function runNavigation(path, options, version) {
     if (version !== navigationVersion) return;
 
-    if (response.bridgePending) {
-        setOnBridgeComplete((completedResult) => {
-            setOnBridgeComplete(defaultBridgeCallback);
-            if (!completedResult.bridgePending && completedResult.text) {
-                renderPage(completedResult.text, path, options, version).then(armBackSentinel);
-            }
-        });
-        return;
-    }
+    // requestFull is serialized and awaits bridge completion (final page, no stub).
+    const response = await requestFull(path, options);
+    if (version !== navigationVersion || !response) return;
 
     if (response.nativeblade) {
         for (const action of response.nativeblade) {
@@ -204,8 +241,10 @@ async function navigateInternal(path, options = {}) {
         return;
     }
 
-    await renderPage(response.text, path, options, version);
-    armBackSentinel();
+    if (response.text) {
+        await renderPage(response.text, path, options, version);
+        armBackSentinel();
+    }
 }
 
 // The webview's joint session history gains an entry every time an iframe
