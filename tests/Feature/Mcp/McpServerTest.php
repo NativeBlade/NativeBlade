@@ -56,7 +56,7 @@ class McpServerTest extends TestCase
         $this->assertSame('2025-11-25', $response['result']['protocolVersion']);
     }
 
-    public function test_tools_list_returns_all_six_tools(): void
+    public function test_tools_list_returns_all_nine_tools(): void
     {
         $response = $this->server->handle([
             'jsonrpc' => '2.0',
@@ -74,7 +74,10 @@ class McpServerTest extends TestCase
             'list_docs',
             'list_facade_methods',
             'project_state',
+            'publish_android',
+            'publish_ios',
             'read_doc',
+            'store_listing',
         ], $names);
 
         foreach ($tools as $tool) {

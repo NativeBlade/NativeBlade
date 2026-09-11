@@ -8,6 +8,9 @@ use NativeBlade\Mcp\Tools\ListDocs;
 use NativeBlade\Mcp\Tools\ListFacadeMethods;
 use NativeBlade\Mcp\Tools\ProjectState;
 use NativeBlade\Mcp\Tools\ReadDoc;
+use NativeBlade\Mcp\Tools\PublishAndroid;
+use NativeBlade\Mcp\Tools\PublishIos;
+use NativeBlade\Mcp\Tools\StoreListing;
 use Throwable;
 
 /**
@@ -58,6 +61,9 @@ class Server
             new ListDocs(),
             new ReadDoc(),
             new ArchitectureRecipe(),
+            new PublishAndroid(),
+            new PublishIos(),
+            new StoreListing(),
         ];
 
         foreach ($defaults as $tool) {

@@ -72,7 +72,7 @@ Any client that speaks the standard stdio transport works. Point it at `php arti
 
 ## What the agent gets
 
-Six tools, called on demand. Nothing is loaded into context until the agent decides it needs it.
+Nine tools, called on demand. Nothing is loaded into context until the agent decides it needs it.
 
 ### `list_facade_methods`
 
@@ -111,9 +111,63 @@ Full signature, summary, parameter list, return type, and (where available) a co
 
 Reflection-based, so it works against the exact version of NativeBlade installed in your `vendor/`, not whatever was current when the agent's training data was frozen.
 
+### `publish_android` and `publish_ios`
+
+Guide an AI host through Google Play or App Store publication. Each tool reads the
+configuration loaded by `AppServiceProvider`, resolves the effective plugins
+(including all plugins when no selection is declared), and returns a dated guide,
+official policy links, missing configuration and questions for the developer.
+Always-on core plugins and custom plugin permission declarations are included.
+
+```json
+{"release_type":"first_release","answers":{"account":"Organization account, verified","distribution":"Internal testing"}}
+```
+
+Start without arguments when the release type is unknown. Ask no more than three
+questions per turn, explain choices, then pass confirmed answers by the returned
+question ids to continue. Answers are not stored on the server. Do not pass secrets.
+The host AI uses its project tools to inspect app behavior and its browser to
+recheck official policies. Without browsing it must disclose the bundled review
+date. Plugin inclusion is not a privacy declaration or proof of a user feature.
+
+The tools prepare a publication plan; they do not authenticate, build, upload,
+submit or release an app. See the [Android guide](publish-android.md) and
+[iOS guide](publish-ios.md) for the complete workflow and sources.
+
+### `store_listing`
+
+Prepare one locale at a time, for Android, iOS or both. Supply confirmed product
+facts and release changes. The tool assembles an initial draft; the AI host writes
+the final copy and calls the tool again with `metadata` overrides for validation.
+
+```json
+{
+  "platform": "both",
+  "locale": "pt-BR",
+  "release_type": "update",
+  "name": "Minha Agenda",
+  "summary": "Organize seus compromissos em um só lugar.",
+  "audience": "Pessoas que organizam compromissos pessoais",
+  "features": ["Consulte os compromissos do dia."],
+  "changes": ["Agora você pode editar lembretes."],
+  "metadata": {"ios": {"subtitle": "Seus compromissos organizados", "keywords": "agenda,lembretes,calendário"}}
+}
+```
+
+Results separate product descriptions, release notes and review notes. Validation
+counts Unicode characters for normal fields and UTF-8 bytes for iOS keywords and
+review notes. It flags missing text, excessive length, HTML and long dash
+punctuation. It never silently truncates text. Passing text checks does not mean
+the app is ready for submission. Required URLs, assets and console declarations
+are covered by the publication guides. The guidance asks the AI to use clear
+language and no em dash or en dash.
+
 ### `project_state`
 
-The actual state of the project the agent is editing: which plugins are declared in `AppServiceProvider`, which per-platform configs are set (window size, identifier, permissions, statusbar), the default page transition, and the installed framework version.
+The NativeBlade configuration registered in the running Laravel process by the
+application and package service providers: app name, declared and effective
+plugins, custom plugins, platform configs, permissions, transition and framework
+version. The version comes from Composer's installed package metadata when available.
 
 ```json
 {
@@ -121,14 +175,31 @@ The actual state of the project the agent is editing: which plugins are declared
     "plugins": {
         "declared": ["media", "push", "biometric"],
         "all_available": ["media", "push", "geolocation", "biometric", ...],
-        "mode": "explicit (only declared plugins ship in the binary)"
+        "effective": ["media", "push", "biometric", "dialog", "os", "process", "store", "fs", "opener"],
+        "always_on": ["dialog", "os", "process", "store", "fs", "opener"],
+        "mode": "explicit (declared plugins plus always-on core plugins)"
     },
     "transition": "slide",
     "app_configs": { "android": {...}, "ios": {...}, "desktop": {...} }
 }
 ```
 
-This is the killer tool: an agent that knows you only have `push` and `biometric` declared won't suggest `NativeBlade::scan()` and silently break your build.
+Use `plugins.effective` to decide which built-in capabilities are configured.
+`all_available` is the framework catalog, not the app's selection. A null
+`declared` means all built-in plugins; an empty array means only the always-on
+core set. Third-party plugins are listed separately under `custom_plugins`.
+
+`platform_status` distinguishes an unconfigured platform from a configured one
+with missing version fields. `diagnostics` reports an empty app configuration,
+and `project.base_path` helps identify a client launched in the wrong project.
+Unexpected read or serialization errors return an MCP tool error instead of
+silently becoming null.
+
+This tool does not watch PHP files or verify the compiled binary. After editing
+`AppServiceProvider` or environment values, reconnect the MCP client so Laravel
+boots again. If applicable, clear Laravel's configuration cache first. Provider
+code skipped during console execution will also be skipped by the MCP command.
+`configuration_source` includes these limitations in every result.
 
 ### `list_docs`
 
