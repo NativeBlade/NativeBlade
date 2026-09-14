@@ -171,9 +171,25 @@ class IconCommand extends Command
     <color name="ic_launcher_background">' . $colorHex . '</color>
 </resources>');
 
+        // Splash logo for the Android 12+ SplashScreen API (288dp canvas, art at 66%).
+        $splashDensities = [
+            'drawable-mdpi'    => 288,
+            'drawable-hdpi'    => 432,
+            'drawable-xhdpi'   => 576,
+            'drawable-xxhdpi'  => 864,
+            'drawable-xxxhdpi' => 1152,
+        ];
+
+        foreach ($splashDensities as $folder => $canvas) {
+            $dir = "{$resDir}/{$folder}";
+            if (!is_dir($dir)) mkdir($dir, 0755, true);
+            $this->resizeTransparent($source, "{$dir}/splash_icon.png", $canvas, 0.66);
+        }
+
         $this->line("  <fg=green>✓</> Android adaptive icons (mdpi → xxxhdpi)");
         $this->line("  <fg=green>✓</> Android round icons");
         $this->line("  <fg=green>✓</> Android notification icons");
+        $this->line("  <fg=green>✓</> Android splash logo (288 → 1152)");
     }
 
     private function generateIosIcons($source): void
@@ -242,7 +258,23 @@ class IconCommand extends Command
 
         $this->ensureCFBundleIconName($genDir);
 
+        // Splash logo image set (transparent, @1x/@2x/@3x), centered by the storyboard.
+        $splashSet = "{$genDir}/Assets.xcassets/SplashLogo.imageset";
+        if (!is_dir($splashSet)) mkdir($splashSet, 0755, true);
+        $this->resize($source, "{$splashSet}/splash-logo.png", 200, 200);
+        $this->resize($source, "{$splashSet}/splash-logo@2x.png", 400, 400);
+        $this->resize($source, "{$splashSet}/splash-logo@3x.png", 600, 600);
+        file_put_contents("{$splashSet}/Contents.json", json_encode([
+            'images' => [
+                ['idiom' => 'universal', 'filename' => 'splash-logo.png', 'scale' => '1x'],
+                ['idiom' => 'universal', 'filename' => 'splash-logo@2x.png', 'scale' => '2x'],
+                ['idiom' => 'universal', 'filename' => 'splash-logo@3x.png', 'scale' => '3x'],
+            ],
+            'info' => ['version' => 1, 'author' => 'nativeblade'],
+        ], JSON_PRETTY_PRINT));
+
         $this->line("  <fg=green>✓</> iOS app icons + Contents.json (" . count($images) . " entries)");
+        $this->line("  <fg=green>✓</> iOS splash logo (@1x/@2x/@3x)");
     }
 
     /**
@@ -322,6 +354,23 @@ class IconCommand extends Command
         $offset = (int) (($size - $innerSize) / 2);
 
         imagecopyresampled($dest, $source, $offset, $offset, 0, 0, $innerSize, $innerSize, imagesx($source), imagesy($source));
+        imagepng($dest, $path, 9);
+        imagedestroy($dest);
+    }
+
+    // Source art centered on a transparent square canvas, occupying $artRatio of
+    // it (the rest is transparent margin, clearing Android 12+'s circular mask).
+    private function resizeTransparent($source, string $path, int $canvas, float $artRatio): void
+    {
+        $dest = imagecreatetruecolor($canvas, $canvas);
+        imagealphablending($dest, false);
+        imagesavealpha($dest, true);
+        imagefill($dest, 0, 0, imagecolorallocatealpha($dest, 0, 0, 0, 127));
+
+        $art = max(1, (int) round($canvas * $artRatio));
+        $offset = (int) round(($canvas - $art) / 2);
+        imagecopyresampled($dest, $source, $offset, $offset, 0, 0, $art, $art, imagesx($source), imagesy($source));
+
         imagepng($dest, $path, 9);
         imagedestroy($dest);
     }
