@@ -48,9 +48,17 @@ abstract class PublishGuide implements Tool
                 throw new \InvalidArgumentException('Invalid answer id or value. Use returned question ids and text up to 8000 bytes.');
             }
         }
+
+        if ($release === 'unknown') {
+            $release = $this->normalizeReleaseType($answers['release_type'] ?? '');
+        }
+
         $remaining = [];
         foreach ($questions as $id => $question) {
-            if ($id === 'release_type' && $release !== 'unknown') {
+            if ($id === 'release_type') {
+                if ($release === 'unknown') {
+                    $remaining[] = ['id' => $id] + $question;
+                }
                 continue;
             }
             if (trim($answers[$id] ?? '') === '') {
@@ -81,32 +89,49 @@ abstract class PublishGuide implements Tool
         ]);
     }
 
+    /**
+     * Map a release_type answer to the enum. Accepts the enum value itself or the
+     * option label ("First release" / "Update"). Anything unrecognized stays
+     * 'unknown' so the question keeps being asked.
+     */
+    private function normalizeReleaseType(string $answer): string
+    {
+        $a = mb_strtolower(trim($answer));
+        if ($a === 'first_release' || str_contains($a, 'first')) {
+            return 'first_release';
+        }
+        if ($a === 'update' || str_contains($a, 'updat')) {
+            return 'update';
+        }
+        return 'unknown';
+    }
+
     private function questions(array $project): array
     {
         $questions = [
-            'release_type' => ['question' => 'É a primeira publicação ou uma atualização?', 'options' => ['Primeira publicação', 'Atualização']],
+            'release_type' => ['question' => 'Is this the first release or an update?', 'options' => ['First release', 'Update']],
             'account' => ['question' => $this->platform() === 'android'
-                ? 'A conta é pessoal ou de organização? Quando foi criada e já tem acesso à produção?'
-                : 'A conta Apple Developer está ativa e você tem acesso ao app no App Store Connect?'],
-            'distribution' => ['question' => 'Quem deve receber esta versão?', 'options' => $this->platform() === 'android'
-                ? ['Teste interno para validar o build', 'Teste fechado com pessoas convidadas', 'Produção para o público']
-                : ['TestFlight interno para a equipe', 'TestFlight externo para pessoas convidadas', 'App Store para o público']],
-            'audience' => ['question' => 'Qual é o público, a faixa etária, os países e os idiomas do app? Há conteúdo infantil, de saúde, financeiro ou gerado por usuários?'],
-            'access' => ['question' => 'O app exige login ou permite criar conta? Como a revisão acessa as funções e como o usuário exclui a conta? Não envie senhas aqui.'],
-            'privacy' => ['question' => 'Quais dados o app, o backend e os SDKs coletam ou compartilham? Informe finalidade, retenção, exclusão e URL pública da política de privacidade.'],
-            'monetization' => ['question' => 'Como o app é monetizado?', 'options' => ['Gratuito sem anúncios ou compras', 'Anúncios', 'Compras, assinaturas ou app pago. Explique o que é vendido.']],
-            'assets' => ['question' => 'Já existem ícone, capturas reais, categoria e contato de suporte? Informe o que falta.'],
-            'build' => ['question' => 'O build de produção foi testado em dispositivo real e está assinado? Informe a versão anterior na loja e o ambiente de build, sem enviar chaves.'],
-            'rollout' => ['question' => 'Quando a versão deve ficar disponível após a aprovação?', 'options' => ['Liberar manualmente', 'Liberar automaticamente', 'Definir data ou distribuição gradual quando disponível']],
+                ? 'Is the account personal or an organization? When was it created and does it already have production access?'
+                : 'Is the Apple Developer account active and do you have access to the app in App Store Connect?'],
+            'distribution' => ['question' => 'Who should receive this version?', 'options' => $this->platform() === 'android'
+                ? ['Internal testing to validate the build', 'Closed testing with invited people', 'Production for the public']
+                : ['Internal TestFlight for the team', 'External TestFlight for invited people', 'App Store for the public']],
+            'audience' => ['question' => 'What is the app audience, age range, countries and languages? Is there content for children, health, finance, or user-generated content?'],
+            'access' => ['question' => 'Does the app require login or allow creating an account? How does review access the features and how does a user delete their account? Do not send passwords here.'],
+            'privacy' => ['question' => 'What data do the app, the backend and the SDKs collect or share? State the purpose, retention, deletion and the public privacy policy URL.'],
+            'monetization' => ['question' => 'How is the app monetized?', 'options' => ['Free with no ads or purchases', 'Ads', 'Purchases, subscriptions or a paid app. Explain what is sold.']],
+            'assets' => ['question' => 'Do you already have an icon, real screenshots, category and support contact? State what is missing.'],
+            'build' => ['question' => 'Was the production build tested on a real device and signed? State the previous store version and the build environment, without sending keys.'],
+            'rollout' => ['question' => 'When should the version become available after approval?', 'options' => ['Release manually', 'Release automatically', 'Set a date or a staged rollout when available']],
         ];
         foreach ($project['plugins']['effective'] as $plugin) {
             $prompt = match ($plugin) {
-                'analytics' => 'Quais eventos, identificadores e dados de usuário o Analytics envia? Como o consentimento é tratado?',
-                'admob' => 'Quais formatos de anúncio são exibidos? Há personalização, rastreamento ou público infantil? Como funciona o consentimento?',
-                'payments' => 'O app vende conteúdo digital, serviço físico ou assinatura? Como funcionam restauração e gerenciamento das compras?',
-                'geolocation' => 'A localização é aproximada ou precisa? É acessada em segundo plano, armazenada ou enviada a um servidor?',
-                'media', 'barcode_scanner' => 'Como câmera, fotos ou vídeos são usados? Os arquivos ficam no dispositivo ou são enviados?',
-                'push' => 'Como os tokens de push são armazenados e vinculados a usuários? Há notificações promocionais?',
+                'analytics' => 'What events, identifiers and user data does Analytics send? How is consent handled?',
+                'admob' => 'Which ad formats are shown? Is there personalization, tracking or a child audience? How does consent work?',
+                'payments' => 'Does the app sell digital content, a physical service or a subscription? How do purchase restoration and management work?',
+                'geolocation' => 'Is the location approximate or precise? Is it accessed in the background, stored, or sent to a server?',
+                'media', 'barcode_scanner' => 'How are the camera, photos or videos used? Do the files stay on the device or are they uploaded?',
+                'push' => 'How are push tokens stored and linked to users? Are there promotional notifications?',
                 default => null,
             };
             if ($prompt !== null) {
