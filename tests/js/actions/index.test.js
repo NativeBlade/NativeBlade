@@ -43,6 +43,7 @@ const EXPECTED_ACTIONS = [
     'shell_kill_all',
     'exit',
     'log',
+    'set_background_color',
     'minimize',
     'maximize',
     'unmaximize',

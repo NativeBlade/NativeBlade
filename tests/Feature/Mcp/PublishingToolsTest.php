@@ -109,6 +109,22 @@ class PublishingToolsTest extends TestCase
         $this->assertSame('audience', $data['next_questions'][0]['id']);
     }
 
+    public function test_release_type_answered_as_a_question_is_consumed(): void
+    {
+        $data = $this->callPublishingTool('publish_android', ['answers' => ['release_type' => 'First release']]);
+        $ids = array_column($data['remaining_questions'], 'id');
+        $this->assertSame('first_release', $data['release_type']);
+        $this->assertNotContains('release_type', $ids);
+    }
+
+    public function test_unrecognized_release_type_answer_keeps_the_question(): void
+    {
+        $data = $this->callPublishingTool('publish_android', ['answers' => ['release_type' => 'not sure yet']]);
+        $ids = array_column($data['remaining_questions'], 'id');
+        $this->assertSame('unknown', $data['release_type']);
+        $this->assertContains('release_type', $ids);
+    }
+
     public function test_listing_without_facts_does_not_invent_copy(): void
     {
         $data = $this->callPublishingTool('store_listing');
