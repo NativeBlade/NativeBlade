@@ -137,12 +137,12 @@ class PublishingToolsTest extends TestCase
     public function test_listing_distinguishes_product_copy_and_changes(): void
     {
         $data = $this->callPublishingTool('store_listing', [
-            'name' => 'Agenda', 'summary' => 'Organize seu dia.', 'features' => ['Veja seus compromissos.'],
-            'changes' => ['Agora você pode editar lembretes.'],
-            'metadata' => ['ios' => ['keywords' => 'agenda,lembretes']],
+            'name' => 'Planner', 'summary' => 'Organize your day.', 'features' => ['See your appointments.'],
+            'changes' => ['You can now edit reminders.'],
+            'metadata' => ['ios' => ['keywords' => 'planner,reminders']],
         ]);
-        $this->assertSame("Organize seu dia.\n\nVeja seus compromissos.", $data['draft']['android']['description']);
-        $this->assertSame('Agora você pode editar lembretes.', $data['draft']['ios']['release_notes']);
+        $this->assertSame("Organize your day.\n\nSee your appointments.", $data['draft']['android']['description']);
+        $this->assertSame('You can now edit reminders.', $data['draft']['ios']['release_notes']);
         $this->assertTrue($data['text_checks_passed']);
     }
 
@@ -163,7 +163,7 @@ class PublishingToolsTest extends TestCase
     public function test_long_dashes_html_and_short_ios_names_are_flagged(): void
     {
         $data = $this->callPublishingTool('store_listing', ['metadata' => ['ios' => [
-            'name' => 'A', 'description' => "Agenda\u{2014}organize\u{2013}hoje", 'subtitle' => '<b>Agenda</b>',
+            'name' => 'A', 'description' => "Planner\u{2014}organize\u{2013}today", 'subtitle' => '<b>Planner</b>',
         ]]]);
         $this->assertContains('use_plain_punctuation', $data['validation']['ios']['description']['issues']);
         $this->assertContains('use_plain_text', $data['validation']['ios']['subtitle']['issues']);
@@ -172,7 +172,7 @@ class PublishingToolsTest extends TestCase
 
     public function test_first_release_does_not_require_release_notes(): void
     {
-        $data = $this->callPublishingTool('store_listing', ['platform' => 'ios', 'release_type' => 'first_release', 'name' => 'Agenda', 'summary' => 'Organize seu dia.', 'metadata' => ['ios' => ['keywords' => 'agenda']]]);
+        $data = $this->callPublishingTool('store_listing', ['platform' => 'ios', 'release_type' => 'first_release', 'name' => 'Planner', 'summary' => 'Organize your day.', 'metadata' => ['ios' => ['keywords' => 'planner']]]);
         $this->assertTrue($data['text_checks_passed']);
         $this->assertArrayNotHasKey('android', $data['draft']);
     }
