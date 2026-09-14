@@ -114,5 +114,12 @@ describe('actions/system', () => {
             assert.doesNotThrow(() => set_background_color({ color: '#fff' }, { isTauri: false }));
             assert.equal(document.body.style.backgroundColor, '#fff');
         });
+
+        it('paints the DOM and stays safe on the desktop (Tauri) path', async () => {
+            assert.doesNotThrow(() => set_background_color({ color: '#123456' }, { isTauri: true }));
+            assert.equal(document.body.style.backgroundColor, '#123456');
+            assert.equal(container.style.backgroundColor, '#123456');
+            await new Promise((resolve) => setTimeout(resolve, 10));
+        });
     });
 });
