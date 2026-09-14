@@ -368,6 +368,23 @@ class NativeResponse
     }
 
     // ------------------------------------------------------------------
+    // Appearance
+    // ------------------------------------------------------------------
+
+    /**
+     * Set the shell background color at runtime so it can follow a dark/light
+     * theme switch instead of being fixed at build time. It paints the surfaces
+     * the WebView does not: the safe-area insets (notch / home indicator), the
+     * area behind the page during a navigation transition, and, on desktop, the
+     * OS window background (seen on resize). Accepts any CSS color, for example
+     * '#0a0a0a' or 'rgb(10,10,10)'. Works on every platform.
+     */
+    public function setBackgroundColor(string $color): static
+    {
+        return $this->push('set_background_color', ['color' => $color]);
+    }
+
+    // ------------------------------------------------------------------
     // Analytics
     // ------------------------------------------------------------------
 

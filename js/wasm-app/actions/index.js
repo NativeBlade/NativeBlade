@@ -110,6 +110,7 @@ export const actions = {
     // system
     exit: system.exit,
     log: system.log,
+    set_background_color: system.set_background_color,
     minimize: system.minimize,
     maximize: system.maximize,
     unmaximize: system.unmaximize,
