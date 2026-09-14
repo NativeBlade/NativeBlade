@@ -61,6 +61,9 @@ class DesktopConfigGenerator
         $conf['app']['windows'][0]['maximized']   = $desktop['maximized']   ?? false;
         $conf['app']['windows'][0]['shadow']      = $desktop['shadow']      ?? true;
 
+        $privateApi = $desktop['transparent'] ?? false;
+        $conf['app']['macOSPrivateApi'] = $privateApi;
+
         $hasPosition = isset($desktop['x'], $desktop['y']);
         $anchor = $desktop['positionAnchor'] ?? null;
         if ($hasPosition) {
@@ -82,6 +85,43 @@ class DesktopConfigGenerator
 
         file_put_contents($confPath, json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $this->cmd->line("  <fg=green>✓</> tauri.conf.json updated");
+
+        $this->setRustPrivateApiFeature($privateApi);
+    }
+
+    /**
+     * Wire (or unwire) the Rust `macos-private-api` feature on the
+     * nativeblade-tauri dependency in src-tauri/Cargo.toml. NativeBlade owns this
+     * line so the dev never edits it: a transparent window on macOS needs both
+     * the tauri.conf flag (set above) and this Cargo feature to compile.
+     */
+    private function setRustPrivateApiFeature(bool $enabled): void
+    {
+        $path = base_path('src-tauri/Cargo.toml');
+        if (!file_exists($path)) return;
+
+        $toml = file_get_contents($path);
+        if (!preg_match('/^nativeblade-tauri\s*=\s*\{[^}]*\}/m', $toml, $m)) return;
+
+        $full = $m[0];
+        preg_match('/\{([^}]*)\}/', $full, $im);
+        // Drop any features clause we manage, then re-add it when enabled.
+        $inner = trim(preg_replace('/\s*,?\s*features\s*=\s*\[[^\]]*\]/', '', trim($im[1])));
+        $inner = rtrim($inner, ',');
+        if ($enabled) {
+            $inner .= ', features = ["macos-private-api"]';
+        }
+
+        $new = 'nativeblade-tauri = { ' . $inner . ' }';
+        if ($new === $full) return;
+
+        file_put_contents($path, str_replace($full, $new, $toml));
+        $this->cmd->line($enabled
+            ? "  <fg=green>✓</> src-tauri/Cargo.toml: macos-private-api feature enabled"
+            : "  <fg=green>✓</> src-tauri/Cargo.toml: macos-private-api feature removed");
+        if ($enabled) {
+            $this->cmd->line("  <fg=yellow>→</> macOS transparency uses Apple's private API, which can affect App Store review.");
+        }
     }
 
     private function generateMenu(array $desktop): void

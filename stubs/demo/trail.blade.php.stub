@@ -67,11 +67,16 @@
                 @endif
 
                 @if($active)
-                    <div nb-animation="bounceIn" nb-animation-delay="{{ $i * 100 + 300 }}ms"
-                         class="absolute whitespace-nowrap bg-white text-[#0a0a0a] font-bold text-xs py-1.5 px-3 rounded-lg shadow-lg uppercase z-20"
+                    {{-- Outer wrapper owns the centering transform; the animated
+                         inner only scales (bounceIn), so animate.css's fill-mode
+                         can't wipe the translateX(-50%) and push the label off. --}}
+                    <div class="absolute whitespace-nowrap z-20"
                          style="bottom:{{ $sz + 10 }}px;left:50%;transform:translateX(-50%)">
-                        Start
-                        <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white"></div>
+                        <div nb-animation="bounceIn" nb-animation-delay="{{ $i * 100 + 300 }}ms"
+                             class="relative bg-white text-[#0a0a0a] font-bold text-xs py-1.5 px-3 rounded-lg shadow-lg uppercase">
+                            Start
+                            <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white"></div>
+                        </div>
                     </div>
                     <div nb-animation="pulseGlow" class="absolute inset-0 rounded-full bg-[#c0392b] blur-xl z-0" style="margin:-12px"></div>
                 @endif

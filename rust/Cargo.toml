@@ -15,6 +15,9 @@ crate-type = ["rlib"]
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(mobile)', 'cfg(desktop)', 'cfg(dev)'] }
 
+[features]
+macos-private-api = ["tauri/macos-private-api"]
+
 [dependencies]
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 serde = { version = "1", features = ["derive"] }
