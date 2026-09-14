@@ -116,8 +116,12 @@ pub async fn open_window(app: AppHandle, config: WindowConfig) -> Result<(), Str
         builder = builder
             .decorations(!config.frameless.unwrap_or(false))
             .always_on_top(config.always_on_top.unwrap_or(false))
-            .transparent(config.transparent.unwrap_or(false))
             .shadow(config.shadow.unwrap_or(true));
+
+        #[cfg(any(not(target_os = "macos"), feature = "macos-private-api"))]
+        {
+            builder = builder.transparent(config.transparent.unwrap_or(false));
+        }
 
         if let (Some(w), Some(h)) = (config.width, config.height) {
             builder = builder.inner_size(w, h);
