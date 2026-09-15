@@ -49,6 +49,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \NativeBlade\NativeResponse getSecure(string $key, ?string $id = null)
  * @method static \NativeBlade\NativeResponse forgetSecure(string $key)
  * @method static \NativeBlade\NativeResponse share(?string $text = null, ?string $url = null)
+ * @method static \NativeBlade\NativeResponse setBackgroundColor(string $color) Set the shell background at runtime (safe areas, transition backdrop, desktop window) so it can follow a dark/light theme. Any CSS color.
  * @method static \NativeBlade\NativeResponse analytics(\Closure $callback)
  * @method static \NativeBlade\NativeResponse requestAdConsent(array $testDeviceIds = [])
  * @method static \NativeBlade\NativeResponse rewardedAd(\Closure $callback)

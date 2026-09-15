@@ -635,6 +635,7 @@ RULES;
             }
 
             $xml = file_get_contents($path);
+            $xml = $this->ensureToolsNamespace($xml);
             $xml = $this->upsertThemeItems($xml, $themeName, $items);
             file_put_contents($path, $xml);
         }
@@ -651,6 +652,21 @@ RULES;
      * visible color paint it inside the WebView via CSS using safe-area
      * insets, since the system bars sit over the content.
      */
+    // The theme items use the `tools:` prefix (targetApi hints). writeFreshTheme
+    // declares xmlns:tools, but an existing themes.xml being upserted may not, and
+    // an unbound prefix fails resource compilation. Add it when missing.
+    private function ensureToolsNamespace(string $xml): string
+    {
+        if (str_contains($xml, 'xmlns:tools=')) return $xml;
+
+        return preg_replace(
+            '/<resources\b/',
+            '<resources xmlns:tools="http://schemas.android.com/tools"',
+            $xml,
+            1
+        );
+    }
+
     private function buildThemeItems(array $config): array
     {
         $items = [];
@@ -669,6 +685,13 @@ RULES;
             $color = $this->normalizeArgb($config['splashBackground']);
             $items[] = '<item name="android:windowSplashScreenBackground">' . $color . '</item>';
         }
+
+        // Android 12+ SplashScreen icon: the transparent splash logo from
+        // nativeblade:icon, falling back to the launcher icon before it exists.
+        $splashIcon = glob(base_path('src-tauri/gen/android/app/src/main/res/drawable-*/splash_icon.png'))
+            ? '@drawable/splash_icon'
+            : '@mipmap/ic_launcher';
+        $items[] = '<item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="31">' . $splashIcon . '</item>';
 
         return $items;
     }
@@ -706,7 +729,7 @@ XML;
             return preg_replace($pattern, $newBlock, $xml);
         }
 
-        $itemPattern = '/<item name="android:(statusBarColor|navigationBarColor|windowLightStatusBar|windowLightNavigationBar|windowFullscreen|windowSplashScreenBackground)"[^>]*>[^<]*<\/item>\s*/';
+        $itemPattern = '/<item name="android:(statusBarColor|navigationBarColor|windowLightStatusBar|windowLightNavigationBar|windowFullscreen|windowSplashScreenBackground|windowSplashScreenAnimatedIcon)"[^>]*>[^<]*<\/item>\s*/';
         $xml = preg_replace($itemPattern, '', $xml);
 
         if (preg_match('/<style name="' . preg_quote($themeName, '/') . '"[^>]*>/', $xml)) {

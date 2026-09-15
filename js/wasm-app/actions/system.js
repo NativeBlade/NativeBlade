@@ -62,6 +62,35 @@ export async function focus() {
     } catch (e) { console.warn('[NB] focus failed:', e); }
 }
 
+// Runtime shell background color, for the surfaces the WebView does not paint:
+// the safe-area insets (notch / home indicator), the area behind the page during
+// a navigation transition, and the desktop OS window background (seen on resize).
+// Lets an app follow a dark/light theme switch that build-time config cannot.
+export function set_background_color(payload, ctx) {
+    const color = payload && payload.color;
+    if (!color || typeof color !== 'string') return;
+
+    try { document.body.style.backgroundColor = color; } catch {}
+    try {
+        const container = document.getElementById('nb-frame-container');
+        if (container) container.style.backgroundColor = color;
+    } catch {}
+
+    // Desktop: paint the OS window background too (the color shown behind the
+    // webview during a resize or before the first paint). No-op where the Tauri
+    // build predates setBackgroundColor, or outside Tauri.
+    if (ctx && ctx.isTauri) {
+        import('@tauri-apps/api/window')
+            .then((m) => {
+                const win = m.getCurrentWindow && m.getCurrentWindow();
+                if (win && typeof win.setBackgroundColor === 'function') {
+                    return win.setBackgroundColor(color);
+                }
+            })
+            .catch(() => {});
+    }
+}
+
 export function log(payload) {
     const level = payload.level || 'info';
     const message = payload.message || '';

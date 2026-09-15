@@ -91,6 +91,18 @@ return NativeBlade::notification(fn (Notification $n) => $n->title('Saved')->bod
 | Modal | `showModal()`, `hideModal()` |
 | Shell | `shell(Closure)` (desktop only) |
 | Process | `exit()` |
+| Appearance | `setBackgroundColor($color)` |
+
+`setBackgroundColor($color)` paints the shell background at runtime, so it can
+follow a dark/light theme switch instead of being fixed by config. It covers the
+surfaces the WebView does not paint: the safe-area insets (notch / home
+indicator), the backdrop shown behind the page during a navigation transition,
+and, on desktop, the OS window background seen on resize. Pass any CSS color and
+call it whenever the theme changes:
+
+```php
+return NativeBlade::setBackgroundColor($dark ? '#0a0a0a' : '#f2f2f7')->toResponse();
+```
 
 All closure-based builders live in `NativeBlade\Plugins\*` (`Dialog`, `Notification`, `Camera`, `Biometric`, `Scan`, `Geolocation`, `Clipboard`, `Nfc`). Builders marked with `?Closure` (nullable) let you omit the closure when you don't need to configure anything, useful for the simple `NativeBlade::geolocation()` / `NativeBlade::scan()` case.
 

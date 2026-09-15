@@ -52,6 +52,7 @@ final class NativeResponseTest extends TestCase
         self::assertSame($r, $r->getSecure('k'));
         self::assertSame($r, $r->forgetSecure('k'));
         self::assertSame($r, $r->share('hi'));
+        self::assertSame($r, $r->setBackgroundColor('#0a0a0a'));
         self::assertSame($r, $r->analytics(fn ($a) => $a->event('x')));
         self::assertSame($r, $r->products(['com.app.pro']));
         self::assertSame($r, $r->purchase(fn ($p) => $p->product('com.app.pro')));
@@ -116,6 +117,16 @@ final class NativeResponseTest extends TestCase
         $r = (new NativeResponse())->forgetSecure('auth.token');
         self::assertSame(
             [['action' => 'forget_secure', 'data' => ['key' => 'auth.token']]],
+            $r->toArray()
+        );
+    }
+
+    #[Test]
+    public function set_background_color_queues_the_color(): void
+    {
+        $r = (new NativeResponse())->setBackgroundColor('#0a0a0a');
+        self::assertSame(
+            [['action' => 'set_background_color', 'data' => ['color' => '#0a0a0a']]],
             $r->toArray()
         );
     }

@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { log, exit } from '../../../js/wasm-app/actions/system.js';
+import { log, exit, set_background_color } from '../../../js/wasm-app/actions/system.js';
 
 describe('actions/system', () => {
     let calls;
@@ -74,6 +74,52 @@ describe('actions/system', () => {
         // handler must swallow it (no unhandled rejection) rather than throw.
         it('rejects quietly outside Tauri instead of throwing', async () => {
             await assert.doesNotReject(() => Promise.resolve(exit()));
+        });
+    });
+
+    describe('set_background_color', () => {
+        let container;
+        const hadDocument = 'document' in globalThis;
+
+        beforeEach(() => {
+            container = { style: {} };
+            globalThis.document = {
+                body: { style: {} },
+                getElementById: (id) => (id === 'nb-frame-container' ? container : null),
+            };
+        });
+
+        afterEach(() => {
+            if (!hadDocument) delete globalThis.document;
+        });
+
+        it('paints the shell body and the frame container', () => {
+            set_background_color({ color: '#0a0a0a' }, { isTauri: false });
+            assert.equal(document.body.style.backgroundColor, '#0a0a0a');
+            assert.equal(container.style.backgroundColor, '#0a0a0a');
+        });
+
+        it('is a no-op when no color is given', () => {
+            set_background_color({}, { isTauri: false });
+            assert.equal(document.body.style.backgroundColor, undefined);
+        });
+
+        it('ignores a non-string color', () => {
+            set_background_color({ color: 123 }, { isTauri: false });
+            assert.equal(document.body.style.backgroundColor, undefined);
+        });
+
+        it('does not throw when the frame container is absent', () => {
+            globalThis.document.getElementById = () => null;
+            assert.doesNotThrow(() => set_background_color({ color: '#fff' }, { isTauri: false }));
+            assert.equal(document.body.style.backgroundColor, '#fff');
+        });
+
+        it('paints the DOM and stays safe on the desktop (Tauri) path', async () => {
+            assert.doesNotThrow(() => set_background_color({ color: '#123456' }, { isTauri: true }));
+            assert.equal(document.body.style.backgroundColor, '#123456');
+            assert.equal(container.style.backgroundColor, '#123456');
+            await new Promise((resolve) => setTimeout(resolve, 10));
         });
     });
 });
