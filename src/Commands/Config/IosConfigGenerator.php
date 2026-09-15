@@ -458,23 +458,21 @@ XML;
 
     private function generateSplash(array $config): void
     {
-        $color = $config['splashBackground'] ?? null;
-        if (!$color) return;
-
         $plistPath = $this->findPlist();
         if (!$plistPath) return;
 
         $storyboardPath = dirname($plistPath) . '/Base.lproj/LaunchScreen.storyboard';
         if (!file_exists($storyboardPath)) return;
 
-        $hex = ltrim($color, '#');
-        $r = round(hexdec(substr($hex, 0, 2)) / 255, 4);
-        $g = round(hexdec(substr($hex, 2, 2)) / 255, 4);
-        $b = round(hexdec(substr($hex, 4, 2)) / 255, 4);
-
         $storyboard = file_get_contents($storyboardPath);
 
-        if (preg_match('/<color key="backgroundColor"/', $storyboard)) {
+        // Background color, only when configured.
+        $color = $config['splashBackground'] ?? null;
+        if ($color && preg_match('/<color key="backgroundColor"[^\/]*\/>/', $storyboard)) {
+            $hex = ltrim($color, '#');
+            $r = round(hexdec(substr($hex, 0, 2)) / 255, 4);
+            $g = round(hexdec(substr($hex, 2, 2)) / 255, 4);
+            $b = round(hexdec(substr($hex, 4, 2)) / 255, 4);
             $storyboard = preg_replace(
                 '/<color key="backgroundColor"[^\/]*\/>/',
                 '<color key="backgroundColor" red="' . $r . '" green="' . $g . '" blue="' . $b . '" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>',
@@ -482,8 +480,66 @@ XML;
             );
         }
 
+        // Centered logo, kept in sync with the image set nativeblade:icon
+        // produces: injected when it exists, removed when it does not, so the
+        // storyboard never points at a missing image.
+        $storyboard = is_dir(base_path('src-tauri/gen/apple/Assets.xcassets/SplashLogo.imageset'))
+            ? $this->injectSplashLogo($storyboard)
+            : $this->removeSplashLogo($storyboard);
+
         file_put_contents($storyboardPath, $storyboard);
-        $this->cmd->line("  <fg=green>✓</> iOS splash: {$color}");
+        $this->cmd->line("  <fg=green>✓</> iOS splash" . ($color ? ": {$color}" : ''));
+    }
+
+    // Insert a centered image view referencing the SplashLogo asset into Tauri's
+    // launch storyboard, idempotently. The blocks are wrapped in markers so
+    // removeSplashLogo can strip them again. The view id is the constant from
+    // Tauri's template.
+    private function injectSplashLogo(string $storyboard): string
+    {
+        if (str_contains($storyboard, 'nativeblade:splash')) {
+            return $storyboard;
+        }
+
+        $subviews = <<<'XML'
+                        <!-- nativeblade:splash:start -->
+                        <subviews>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="SplashLogo" translatesAutoresizingMaskIntoConstraints="NO" id="NBc-Sp-Lg0">
+                                <rect key="frame" x="147" y="388" width="120" height="120"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="120" id="NBc-wd-001"/>
+                                    <constraint firstAttribute="height" constant="120" id="NBc-ht-001"/>
+                                </constraints>
+                            </imageView>
+                        </subviews>
+                        <!-- nativeblade:splash:end -->
+XML;
+
+        $viewConstraints = <<<'XML'
+                        <!-- nativeblade:splash-constraints:start -->
+                        <constraints>
+                            <constraint firstItem="NBc-Sp-Lg0" firstAttribute="centerX" secondItem="5EZ-qb-Rvc" secondAttribute="centerX" id="NBc-cx-001"/>
+                            <constraint firstItem="NBc-Sp-Lg0" firstAttribute="centerY" secondItem="5EZ-qb-Rvc" secondAttribute="centerY" id="NBc-cy-001"/>
+                        </constraints>
+                        <!-- nativeblade:splash-constraints:end -->
+XML;
+
+        $storyboard = preg_replace(
+            '/(<autoresizingMask key="autoresizingMask"[^\/]*\/>)/',
+            "$1\n" . $subviews,
+            $storyboard,
+            1
+        );
+
+        return preg_replace('/(<\/view>)/', $viewConstraints . "\n            $1", $storyboard, 1);
+    }
+
+    // Strip the injected splash blocks so the storyboard stops referencing the
+    // SplashLogo asset once it is gone.
+    private function removeSplashLogo(string $storyboard): string
+    {
+        $storyboard = preg_replace('/\s*<!-- nativeblade:splash:start -->.*?<!-- nativeblade:splash:end -->/s', '', $storyboard);
+        return preg_replace('/\s*<!-- nativeblade:splash-constraints:start -->.*?<!-- nativeblade:splash-constraints:end -->/s', '', $storyboard);
     }
 
     private function findPlist(): ?string
