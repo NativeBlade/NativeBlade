@@ -112,4 +112,23 @@ XML;
         $storyboard = file_get_contents($this->storyboardPath);
         self::assertStringNotContainsString('image="SplashLogo"', $storyboard);
     }
+
+    #[Test]
+    public function removes_the_injected_logo_when_the_asset_is_deleted(): void
+    {
+        // First run injects the logo.
+        $this->generator->generate([]);
+        self::assertStringContainsString('image="SplashLogo"', file_get_contents($this->storyboardPath));
+
+        // The image set is deleted, then config runs again: the storyboard must
+        // no longer reference the now-missing asset.
+        unlink($this->assetsDir . '/SplashLogo.imageset/splash-logo.png');
+        rmdir($this->assetsDir . '/SplashLogo.imageset');
+        $this->generator->generate([]);
+
+        $storyboard = file_get_contents($this->storyboardPath);
+        self::assertNotFalse(simplexml_load_string($storyboard), 'storyboard must stay well-formed XML');
+        self::assertStringNotContainsString('image="SplashLogo"', $storyboard);
+        self::assertStringNotContainsString('nativeblade:splash', $storyboard);
+    }
 }

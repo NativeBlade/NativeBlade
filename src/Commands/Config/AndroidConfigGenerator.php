@@ -635,6 +635,7 @@ RULES;
             }
 
             $xml = file_get_contents($path);
+            $xml = $this->ensureToolsNamespace($xml);
             $xml = $this->upsertThemeItems($xml, $themeName, $items);
             file_put_contents($path, $xml);
         }
@@ -651,6 +652,21 @@ RULES;
      * visible color paint it inside the WebView via CSS using safe-area
      * insets, since the system bars sit over the content.
      */
+    // The theme items use the `tools:` prefix (targetApi hints). writeFreshTheme
+    // declares xmlns:tools, but an existing themes.xml being upserted may not, and
+    // an unbound prefix fails resource compilation. Add it when missing.
+    private function ensureToolsNamespace(string $xml): string
+    {
+        if (str_contains($xml, 'xmlns:tools=')) return $xml;
+
+        return preg_replace(
+            '/<resources\b/',
+            '<resources xmlns:tools="http://schemas.android.com/tools"',
+            $xml,
+            1
+        );
+    }
+
     private function buildThemeItems(array $config): array
     {
         $items = [];

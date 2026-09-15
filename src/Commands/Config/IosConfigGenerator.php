@@ -480,26 +480,29 @@ XML;
             );
         }
 
-        // Centered logo, only when nativeblade:icon has produced the image set
-        // (so the storyboard never points at a missing image).
-        if (is_dir(base_path('src-tauri/gen/apple/Assets.xcassets/SplashLogo.imageset'))) {
-            $storyboard = $this->injectSplashLogo($storyboard);
-        }
+        // Centered logo, kept in sync with the image set nativeblade:icon
+        // produces: injected when it exists, removed when it does not, so the
+        // storyboard never points at a missing image.
+        $storyboard = is_dir(base_path('src-tauri/gen/apple/Assets.xcassets/SplashLogo.imageset'))
+            ? $this->injectSplashLogo($storyboard)
+            : $this->removeSplashLogo($storyboard);
 
         file_put_contents($storyboardPath, $storyboard);
         $this->cmd->line("  <fg=green>✓</> iOS splash" . ($color ? ": {$color}" : ''));
     }
 
     // Insert a centered image view referencing the SplashLogo asset into Tauri's
-    // launch storyboard, idempotently. The view id is the constant from Tauri's
-    // template.
+    // launch storyboard, idempotently. The blocks are wrapped in markers so
+    // removeSplashLogo can strip them again. The view id is the constant from
+    // Tauri's template.
     private function injectSplashLogo(string $storyboard): string
     {
-        if (str_contains($storyboard, 'image="SplashLogo"')) {
+        if (str_contains($storyboard, 'nativeblade:splash')) {
             return $storyboard;
         }
 
         $subviews = <<<'XML'
+                        <!-- nativeblade:splash:start -->
                         <subviews>
                             <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="SplashLogo" translatesAutoresizingMaskIntoConstraints="NO" id="NBc-Sp-Lg0">
                                 <rect key="frame" x="147" y="388" width="120" height="120"/>
@@ -509,13 +512,16 @@ XML;
                                 </constraints>
                             </imageView>
                         </subviews>
+                        <!-- nativeblade:splash:end -->
 XML;
 
         $viewConstraints = <<<'XML'
+                        <!-- nativeblade:splash-constraints:start -->
                         <constraints>
                             <constraint firstItem="NBc-Sp-Lg0" firstAttribute="centerX" secondItem="5EZ-qb-Rvc" secondAttribute="centerX" id="NBc-cx-001"/>
                             <constraint firstItem="NBc-Sp-Lg0" firstAttribute="centerY" secondItem="5EZ-qb-Rvc" secondAttribute="centerY" id="NBc-cy-001"/>
                         </constraints>
+                        <!-- nativeblade:splash-constraints:end -->
 XML;
 
         $storyboard = preg_replace(
@@ -526,6 +532,14 @@ XML;
         );
 
         return preg_replace('/(<\/view>)/', $viewConstraints . "\n            $1", $storyboard, 1);
+    }
+
+    // Strip the injected splash blocks so the storyboard stops referencing the
+    // SplashLogo asset once it is gone.
+    private function removeSplashLogo(string $storyboard): string
+    {
+        $storyboard = preg_replace('/\s*<!-- nativeblade:splash:start -->.*?<!-- nativeblade:splash:end -->/s', '', $storyboard);
+        return preg_replace('/\s*<!-- nativeblade:splash-constraints:start -->.*?<!-- nativeblade:splash-constraints:end -->/s', '', $storyboard);
     }
 
     private function findPlist(): ?string

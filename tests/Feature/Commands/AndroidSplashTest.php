@@ -31,9 +31,10 @@ XML);
 
         mkdir($main . '/res/values', 0755, true);
         $this->themePath = $main . '/res/values/themes.xml';
+        // Deliberately without xmlns:tools — the generator must add it.
         file_put_contents($this->themePath, <<<XML
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources>
     <style name="Theme.nativeblade" parent="Theme.MaterialComponents.DayNight.NoActionBar">
     </style>
 </resources>
@@ -93,6 +94,17 @@ XML);
         self::assertStringContainsString('android:windowSplashScreenBackground', $theme);
         self::assertStringContainsString('#FF101010', $theme);
         self::assertStringContainsString('android:windowSplashScreenAnimatedIcon', $theme);
+    }
+
+    #[Test]
+    public function adds_the_tools_namespace_when_missing(): void
+    {
+        $this->generator->generate([]);
+
+        $theme = file_get_contents($this->themePath);
+        // The tools: prefix (targetApi) must be bound or resource compilation fails.
+        self::assertStringContainsString('xmlns:tools="http://schemas.android.com/tools"', $theme);
+        self::assertStringContainsString('tools:targetApi="31"', $theme);
     }
 
     #[Test]
