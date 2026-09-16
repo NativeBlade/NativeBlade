@@ -16,11 +16,13 @@ import androidx.core.content.FileProvider
 import app.tauri.annotation.ActivityCallback
 import app.tauri.annotation.Command
 import app.tauri.annotation.Permission
+import app.tauri.annotation.PermissionCallback
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
+import app.tauri.PermissionState
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -94,8 +96,15 @@ class NativeBladeMediaPlugin(private val activity: Activity) : Plugin(activity) 
     }
 
     override fun requestPermissions(invoke: Invoke) {
-        // The gallery picker is permission-free since API 33; only camera
-        // capture needs CAMERA. Use Tauri's @Permission alias machinery.
+        if (getPermissionState("camera") == PermissionState.GRANTED) {
+            invoke.resolve(permissionStatus())
+            return
+        }
+        requestPermissionForAlias("camera", invoke, "cameraPermissionCallback")
+    }
+
+    @PermissionCallback
+    fun cameraPermissionCallback(invoke: Invoke) {
         invoke.resolve(permissionStatus())
     }
 
@@ -204,8 +213,11 @@ class NativeBladeMediaPlugin(private val activity: Activity) : Plugin(activity) 
     }
 
     private fun permissionStatus(): JSObject {
-        val cam = if (ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA)
-            == PackageManager.PERMISSION_GRANTED) "granted" else "prompt"
+        val cam = when (getPermissionState("camera")) {
+            PermissionState.GRANTED -> "granted"
+            PermissionState.DENIED -> "denied"
+            else -> "prompt"
+        }
         return JSObject().apply {
             put("camera", cam)
             put("photos", "granted")
