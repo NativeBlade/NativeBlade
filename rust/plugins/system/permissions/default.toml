@@ -1,0 +1,11 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = """
+Default permission set for the NativeBlade system plugin.
+Allows opening the OS app settings screen.
+"""
+
+permissions = [
+  "allow-open-app-settings",
+]

@@ -30,6 +30,11 @@ tauri-plugin-store = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-opener = "2"
 
+# Always-on NativeBlade native plugin: system helpers (open app settings).
+# Carries a desktop stub, so it is a direct dep on every target — this is
+# what lets tauri-build discover its permission files (nativeblade-system:*).
+tauri-plugin-nativeblade-system = { path = "{{NATIVEBLADE_RUST_PATH}}/plugins/system" }
+
 # Optional Tauri plugins. Each one is gated by a Cargo feature so it
 # only ships in the binary when explicitly enabled via
 # NativeBladeConfig::plugins([...]) in your AppServiceProvider.

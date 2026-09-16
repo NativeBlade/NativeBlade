@@ -70,37 +70,36 @@ describe('actions/permissions', () => {
         assert.equal(posted[0].status, 'unsupported');
     });
 
-    it('opens iOS settings through the opener', async () => {
-        let opened = null;
+    it('opens iOS settings through the system plugin', async () => {
+        let invoked = null;
         const { ctx } = ctxWith({
             isTauri: true,
             isMobile: true,
             isAndroid: false,
-            openerApi: { openUrl: async (u) => { opened = u; } },
+            invokeTauri: async (cmd) => { invoked = cmd; },
         });
         await open_app_settings({}, ctx);
-        assert.equal(opened, 'app-settings:');
+        assert.equal(invoked, 'plugin:nativeblade-system|open_app_settings');
+    });
+
+    it('opens Android settings through the system plugin', async () => {
+        let invoked = null;
+        const { ctx } = ctxWith({
+            isTauri: true,
+            isMobile: true,
+            isAndroid: true,
+            invokeTauri: async (cmd) => { invoked = cmd; },
+        });
+        await open_app_settings({}, ctx);
+        assert.equal(invoked, 'plugin:nativeblade-system|open_app_settings');
     });
 
     it('is a no-op on desktop (not mobile)', async () => {
-        let opened = false;
-        const { ctx } = ctxWith({
-            isTauri: true,
-            isMobile: false,
-            isAndroid: false,
-            openerApi: { openUrl: async () => { opened = true; } },
-        });
-        await open_app_settings({}, ctx);
-        assert.equal(opened, false);
-    });
-
-    it('is a no-op on Android for now (no always-on host)', async () => {
         let called = false;
         const { ctx } = ctxWith({
             isTauri: true,
-            isAndroid: true,
+            isMobile: false,
             invokeTauri: async () => { called = true; },
-            openerApi: { openUrl: async () => { called = true; } },
         });
         await open_app_settings({}, ctx);
         assert.equal(called, false);
