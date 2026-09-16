@@ -497,18 +497,16 @@ XML;
     // Tauri's template.
     private function injectSplashLogo(string $storyboard): string
     {
-        if (str_contains($storyboard, 'nativeblade:splash')) {
-            return $storyboard;
-        }
+        $storyboard = $this->removeSplashLogo($storyboard);
 
         $subviews = <<<'XML'
                         <!-- nativeblade:splash:start -->
                         <subviews>
                             <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="SplashLogo" translatesAutoresizingMaskIntoConstraints="NO" id="NBc-Sp-Lg0">
-                                <rect key="frame" x="147" y="388" width="120" height="120"/>
+                                <rect key="frame" x="165" y="406" width="84" height="84"/>
                                 <constraints>
-                                    <constraint firstAttribute="width" constant="120" id="NBc-wd-001"/>
-                                    <constraint firstAttribute="height" constant="120" id="NBc-ht-001"/>
+                                    <constraint firstAttribute="width" constant="84" id="NBc-wd-001"/>
+                                    <constraint firstAttribute="height" constant="84" id="NBc-ht-001"/>
                                 </constraints>
                             </imageView>
                         </subviews>

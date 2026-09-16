@@ -122,6 +122,18 @@ class NativeBladePushPlugin: Plugin {
         }
     }
 
+    @objc public func checkPermission(_ invoke: Invoke) {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            let status: String
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral: status = "granted"
+            case .denied: status = "denied"
+            default: status = "prompt"
+            }
+            invoke.resolve(["status": status])
+        }
+    }
+
     @objc public func drainPending(_ invoke: Invoke) {
         invoke.resolve(["pending": PendingPushes.drain()])
     }

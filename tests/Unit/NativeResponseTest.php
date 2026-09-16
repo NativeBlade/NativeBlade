@@ -53,6 +53,9 @@ final class NativeResponseTest extends TestCase
         self::assertSame($r, $r->forgetSecure('k'));
         self::assertSame($r, $r->share('hi'));
         self::assertSame($r, $r->setBackgroundColor('#0a0a0a'));
+        self::assertSame($r, $r->checkPermission('camera'));
+        self::assertSame($r, $r->requestPermission('location'));
+        self::assertSame($r, $r->openAppSettings());
         self::assertSame($r, $r->analytics(fn ($a) => $a->event('x')));
         self::assertSame($r, $r->products(['com.app.pro']));
         self::assertSame($r, $r->purchase(fn ($p) => $p->product('com.app.pro')));
@@ -128,6 +131,19 @@ final class NativeResponseTest extends TestCase
         self::assertSame(
             [['action' => 'set_background_color', 'data' => ['color' => '#0a0a0a']]],
             $r->toArray()
+        );
+    }
+
+    #[Test]
+    public function permission_actions_queue_the_permission_name(): void
+    {
+        self::assertSame(
+            [['action' => 'check_permission', 'data' => ['permission' => 'camera']]],
+            (new NativeResponse())->checkPermission('camera')->toArray()
+        );
+        self::assertSame(
+            [['action' => 'request_permission', 'data' => ['permission' => 'notifications']]],
+            (new NativeResponse())->requestPermission('notifications')->toArray()
         );
     }
 

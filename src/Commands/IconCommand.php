@@ -171,7 +171,7 @@ class IconCommand extends Command
     <color name="ic_launcher_background">' . $colorHex . '</color>
 </resources>');
 
-        // Splash logo for the Android 12+ SplashScreen API (288dp canvas, art at 66%).
+        // Splash logo for the Android 12+ SplashScreen API (288dp canvas, art at 46%).
         $splashDensities = [
             'drawable-mdpi'    => 288,
             'drawable-hdpi'    => 432,
@@ -183,7 +183,7 @@ class IconCommand extends Command
         foreach ($splashDensities as $folder => $canvas) {
             $dir = "{$resDir}/{$folder}";
             if (!is_dir($dir)) mkdir($dir, 0755, true);
-            $this->resizeTransparent($source, "{$dir}/splash_icon.png", $canvas, 0.66);
+            $this->resizeTransparent($source, "{$dir}/splash_icon.png", $canvas, 0.46);
         }
 
         $this->line("  <fg=green>✓</> Android adaptive icons (mdpi → xxxhdpi)");

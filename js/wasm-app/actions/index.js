@@ -38,6 +38,7 @@ import * as shellModuleMod from './shell-module.js';
 import * as jsEventMod from './js-event.js';
 import * as windowMod from './window.js';
 import * as shortcutsMod from './shortcuts.js';
+import * as permissionsMod from './permissions.js';
 
 export const actions = {
     // dialog
@@ -111,6 +112,11 @@ export const actions = {
     exit: system.exit,
     log: system.log,
     set_background_color: system.set_background_color,
+
+    // permissions
+    check_permission: permissionsMod.check_permission,
+    request_permission: permissionsMod.request_permission,
+    open_app_settings: permissionsMod.open_app_settings,
     minimize: system.minimize,
     maximize: system.maximize,
     unmaximize: system.unmaximize,
