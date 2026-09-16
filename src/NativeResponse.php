@@ -385,6 +385,45 @@ class NativeResponse
     }
 
     // ------------------------------------------------------------------
+    // Permissions
+    // ------------------------------------------------------------------
+
+    /**
+     * Check a runtime permission without prompting. The result arrives on the
+     * `nb:permission` Livewire event as `$name` + `$status`, where status is one
+     * of 'granted', 'denied', 'prompt' (not asked yet) or 'unsupported'. Use a
+     * `NativeBlade\Config\Permission` constant for `$permission` (CAMERA,
+     * LOCATION, NOTIFICATIONS). Only permissions backed by a plugin resolve;
+     * the rest return 'unsupported'.
+     */
+    public function checkPermission(string $permission): static
+    {
+        return $this->push('check_permission', ['permission' => $permission]);
+    }
+
+    /**
+     * Request a runtime permission, showing the OS prompt when it has not been
+     * decided yet. The outcome arrives on the `nb:permission` Livewire event as
+     * `$name` + `$status` ('granted', 'denied', 'prompt' or 'unsupported'). Use a
+     * `NativeBlade\Config\Permission` constant for `$permission`.
+     */
+    public function requestPermission(string $permission): static
+    {
+        return $this->push('request_permission', ['permission' => $permission]);
+    }
+
+    /**
+     * Open the OS "app settings" page, the natural next step after a permission
+     * is 'denied' and can no longer be re-prompted. Works on iOS (settings URL).
+     * Android is a no-op for now (it needs an always-on system plugin to host the
+     * intent); no-op on desktop too.
+     */
+    public function openAppSettings(): static
+    {
+        return $this->push('open_app_settings', []);
+    }
+
+    // ------------------------------------------------------------------
     // Analytics
     // ------------------------------------------------------------------
 

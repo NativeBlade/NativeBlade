@@ -88,6 +88,7 @@
       "collapsible": true,
       "children": [
         { "title": "Getting Started", "path": "/mobile/getting-started/" },
+        { "title": "Permissions", "path": "/mobile/permissions/" },
         { "title": "Media", "path": "/mobile/media/" },
         { "title": "Push Notifications", "path": "/mobile/push/" },
         { "title": "Sensors", "path": "/mobile/sensors/" },
