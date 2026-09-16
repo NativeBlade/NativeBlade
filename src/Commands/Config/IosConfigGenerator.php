@@ -27,8 +27,16 @@ class IosConfigGenerator
 
     public function __construct(private Command $cmd) {}
 
+    /**
+     * Lowest iOS deployment target NativeBlade builds for. Tauri defaults to
+     * 14.0, but current Xcode only supports 15.0+ and fails the build with
+     * "IPHONEOS_DEPLOYMENT_TARGET is set to 14.0". Plugins already target 15.
+     */
+    public const MIN_IOS_VERSION = '15.0';
+
     public function generate(array $config): void
     {
+        $this->generateDeploymentTarget($config);
         $this->generateAppName();
         $this->generatePlistConfig($config);
         $this->generateVersion($config);
@@ -538,6 +546,67 @@ XML;
     {
         $storyboard = preg_replace('/\s*<!-- nativeblade:splash:start -->.*?<!-- nativeblade:splash:end -->/s', '', $storyboard);
         return preg_replace('/\s*<!-- nativeblade:splash-constraints:start -->.*?<!-- nativeblade:splash-constraints:end -->/s', '', $storyboard);
+    }
+
+    /**
+     * Apply the iOS deployment target (Xcode's IPHONEOS_DEPLOYMENT_TARGET),
+     * which is separate from the Info.plist MinimumOSVersion key. Written to
+     * tauri.conf.json (read when `nativeblade:add ios` generates the project)
+     * and to the already generated project.yml and project.pbxproj, since the
+     * project usually exists before config runs.
+     *
+     * With `minIosVersion()` declared, that value is applied exactly (never
+     * below MIN_IOS_VERSION). Without it, only targets below MIN_IOS_VERSION
+     * are raised and a higher value already in the project is kept.
+     */
+    private function generateDeploymentTarget(array $config): void
+    {
+        $declared = isset($config['minIosVersion']) ? (string) $config['minIosVersion'] : null;
+        $min = self::MIN_IOS_VERSION;
+        $target = ($declared !== null && version_compare($declared, $min, '>')) ? $declared : $min;
+
+        $shouldReplace = fn (string $current): bool => $declared !== null
+            ? $current !== $target
+            : version_compare($current, $min, '<');
+
+        $changed = false;
+
+        $confPath = base_path('src-tauri/tauri.conf.json');
+        if (file_exists($confPath)) {
+            $conf = json_decode(file_get_contents($confPath), true);
+            if (is_array($conf)) {
+                $current = $conf['bundle']['iOS']['minimumSystemVersion'] ?? null;
+                if (!is_string($current) || $shouldReplace($current)) {
+                    $conf['bundle']['iOS']['minimumSystemVersion'] = $target;
+                    file_put_contents($confPath, json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+                    $changed = true;
+                }
+            }
+        }
+
+        $appleDir = base_path('src-tauri/gen/apple');
+        $raise = function (array $m) use ($target, $shouldReplace, &$changed): string {
+            if (!$shouldReplace($m[2])) return $m[0];
+            $changed = true;
+            return $m[1] . $target . ($m[3] ?? '');
+        };
+
+        $projectYml = $appleDir . '/project.yml';
+        if (file_exists($projectYml)) {
+            $yml = file_get_contents($projectYml);
+            $patched = preg_replace_callback('/(\biOS:\s*["\']?)(\d+(?:\.\d+)*)(["\']?)/', $raise, $yml);
+            if ($patched !== $yml) file_put_contents($projectYml, $patched);
+        }
+
+        foreach (glob($appleDir . '/*.xcodeproj/project.pbxproj') ?: [] as $pbxproj) {
+            $pbx = file_get_contents($pbxproj);
+            $patched = preg_replace_callback('/(IPHONEOS_DEPLOYMENT_TARGET = )(\d+(?:\.\d+)*)(;)/', $raise, $pbx);
+            if ($patched !== $pbx) file_put_contents($pbxproj, $patched);
+        }
+
+        if ($changed) {
+            $this->cmd->line("  <fg=green>✓</> iOS deployment target: {$target}");
+        }
     }
 
     private function findPlist(): ?string

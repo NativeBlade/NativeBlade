@@ -90,7 +90,7 @@ Tracked upstream: <https://issuetracker.google.com/issues/172248255>.
 |--------|-------------|
 | `identifier(string)` | Bundle ID |
 | `version(string, int)` | CFBundleShortVersionString + CFBundleVersion |
-| `minIosVersion(string)` | Minimum iOS version (default: 15.0) |
+| `minIosVersion(string)` | Minimum iOS version (default: 15.0). Sets both `MinimumOSVersion` in Info.plist and the Xcode deployment target (`IPHONEOS_DEPLOYMENT_TARGET`). Values below 15.0 are raised to 15.0, the lowest current Xcode supports. |
 | `orientation(string)` | `portrait`, `landscape`, or `auto` |
 | `statusBar(style)` | Status bar style (`dark` or `light`) |
 | `fullscreen(bool)` | Hide status bar |
