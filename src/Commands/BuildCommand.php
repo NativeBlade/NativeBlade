@@ -8,6 +8,7 @@ use NativeBlade\Commands\Concerns\SyncsPackageComponents;
 use NativeBlade\Config\PluginRegistry;
 use NativeBlade\NativeBladeServiceProvider;
 use NativeBlade\ShellConfig;
+use NativeBlade\Support\BuildArtifacts;
 
 class BuildCommand extends Command
 {
@@ -304,22 +305,16 @@ class BuildCommand extends Command
         return '--features ' . escapeshellarg(implode(',', $features));
     }
 
+    /**
+     * Copy one artifact per extension, the newest one. See BuildArtifacts.
+     */
     private function searchAndCopyArtifacts(string $searchDir, string $destDir, string $version, array $extensions): void
     {
-        $basePath = base_path($searchDir);
-        if (!is_dir($basePath)) return;
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($basePath, \FilesystemIterator::SKIP_DOTS)
-        );
-
-        foreach ($iterator as $file) {
-            if (in_array($file->getExtension(), $extensions) && $file->isFile()) {
-                $dest = "{$destDir}/{$version}.{$file->getExtension()}";
-                copy($file->getPathname(), $dest);
-                $relative = str_replace(base_path() . DIRECTORY_SEPARATOR, '', $dest);
-                $this->line("  <fg=green>✓</> {$relative}");
-            }
+        foreach (BuildArtifacts::latest(base_path($searchDir), $extensions) as $ext => $path) {
+            $dest = "{$destDir}/{$version}.{$ext}";
+            copy($path, $dest);
+            $relative = str_replace(base_path() . DIRECTORY_SEPARATOR, '', $dest);
+            $this->line("  <fg=green>✓</> {$relative}");
         }
     }
 
