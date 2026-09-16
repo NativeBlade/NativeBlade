@@ -9,8 +9,12 @@ class NativeBladeSystemPlugin: Plugin {
                 invoke.reject("failed to build the app settings URL")
                 return
             }
-            UIApplication.shared.open(url, options: [:]) { _ in
-                invoke.resolve()
+            UIApplication.shared.open(url, options: [:]) { success in
+                if success {
+                    invoke.resolve()
+                } else {
+                    invoke.reject("failed to open the app settings URL")
+                }
             }
         }
     }
