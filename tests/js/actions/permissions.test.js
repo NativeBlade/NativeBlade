@@ -74,11 +74,24 @@ describe('actions/permissions', () => {
         let opened = null;
         const { ctx } = ctxWith({
             isTauri: true,
+            isMobile: true,
             isAndroid: false,
             openerApi: { openUrl: async (u) => { opened = u; } },
         });
         await open_app_settings({}, ctx);
         assert.equal(opened, 'app-settings:');
+    });
+
+    it('is a no-op on desktop (not mobile)', async () => {
+        let opened = false;
+        const { ctx } = ctxWith({
+            isTauri: true,
+            isMobile: false,
+            isAndroid: false,
+            openerApi: { openUrl: async () => { opened = true; } },
+        });
+        await open_app_settings({}, ctx);
+        assert.equal(opened, false);
     });
 
     it('is a no-op on Android for now (no always-on host)', async () => {

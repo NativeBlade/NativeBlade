@@ -65,7 +65,7 @@ async function resolveStatus(name, ctx, request) {
 // (ACTION_APPLICATION_DETAILS_SETTINGS) hosted by an always-on plugin, which
 // does not exist yet, so it is a no-op there for now. Desktop has no equivalent.
 export async function open_app_settings(payload, ctx) {
-    if (ctx.isTauri && !ctx.isAndroid && ctx.openerApi) {
+    if (ctx.isTauri && ctx.isMobile && !ctx.isAndroid && ctx.openerApi) {
         try { await ctx.openerApi.openUrl('app-settings:'); } catch {}
     }
 }
