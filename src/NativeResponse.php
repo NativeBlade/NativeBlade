@@ -414,9 +414,10 @@ class NativeResponse
 
     /**
      * Open the OS "app settings" page, the natural next step after a permission
-     * is 'denied' and can no longer be re-prompted. Works on iOS (settings URL).
-     * Android is a no-op for now (it needs an always-on system plugin to host the
-     * intent); no-op on desktop too.
+     * is 'denied' and can no longer be re-prompted. Works on Android
+     * (ACTION_APPLICATION_DETAILS_SETTINGS) and iOS (settings URL), hosted by the
+     * always-on nativeblade-system plugin. No-op on desktop (no per-app settings
+     * screen).
      */
     public function openAppSettings(): static
     {
