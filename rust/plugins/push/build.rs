@@ -1,6 +1,7 @@
 const COMMANDS: &[&str] = &[
     "get_token",
     "request_permission",
+    "check_permission",
     "drain_pending",
     "notify",
     "cancel",

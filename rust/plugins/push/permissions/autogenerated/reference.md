@@ -8,6 +8,7 @@ and draining pushes that were buffered during cold start.
 
 - `allow-get-token`
 - `allow-request-permission`
+- `allow-check-permission`
 - `allow-drain-pending`
 - `allow-notify`
 - `allow-cancel`
@@ -174,6 +175,32 @@ Enables the request_permission command without any pre-configured scope.
 <td>
 
 Denies the request_permission command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nativeblade-push:allow-check-permission`
+
+</td>
+<td>
+
+Enables the check_permission command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`nativeblade-push:deny-check-permission`
+
+</td>
+<td>
+
+Denies the check_permission command without any pre-configured scope.
 
 </td>
 </tr>
