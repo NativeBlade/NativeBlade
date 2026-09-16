@@ -132,6 +132,20 @@ class NativeBladePushPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun checkPermission(invoke: Invoke) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            invoke.resolve(JSObject().apply { put("status", "granted") })
+            return
+        }
+        val status = when (getPermissionState("postNotifications")) {
+            PermissionState.GRANTED -> "granted"
+            PermissionState.DENIED -> "denied"
+            else -> "prompt"
+        }
+        invoke.resolve(JSObject().apply { put("status", status) })
+    }
+
+    @Command
     fun drainPending(invoke: Invoke) {
         val drained = PendingPushes.drain()
         val arr = JSArray()
