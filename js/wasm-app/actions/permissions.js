@@ -60,13 +60,13 @@ async function resolveStatus(name, ctx, request) {
 }
 
 // Open the OS "app settings" page, the natural next step after a 'denied' where
-// the app can no longer re-prompt. iOS routes the app-settings URL through the
-// opener (no native needed). Android needs a native intent
-// (ACTION_APPLICATION_DETAILS_SETTINGS) hosted by an always-on plugin, which
-// does not exist yet, so it is a no-op there for now. Desktop has no equivalent.
+// the app can no longer re-prompt. Hosted by the always-on nativeblade-system
+// plugin: Settings.ACTION_APPLICATION_DETAILS_SETTINGS on Android and
+// UIApplication.openSettingsURLString on iOS. Desktop has no per-app settings
+// screen, so it is a no-op there.
 export async function open_app_settings(payload, ctx) {
-    if (ctx.isTauri && ctx.isMobile && !ctx.isAndroid && ctx.openerApi) {
-        try { await ctx.openerApi.openUrl('app-settings:'); } catch {}
+    if (ctx.isTauri && ctx.isMobile) {
+        try { await ctx.invokeTauri('plugin:nativeblade-system|open_app_settings'); } catch {}
     }
 }
 

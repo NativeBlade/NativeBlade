@@ -160,6 +160,7 @@ class PluginsConfigGenerator
         // makes Cargo fail with "dep:... is not listed as a dependency".
         // Add any missing ones here so existing projects self-heal on config.
         $content = $this->ensureNativebladeDeps($content, $descriptors);
+        $content = $this->ensureAlwaysOnNativebladeDeps($content, $descriptors);
         $content = $this->ensureCustomPluginDeps($content, $customPlugins);
 
         $featureLines = [];
@@ -257,6 +258,47 @@ class PluginsConfigGenerator
 
         $added = count($missing) + count($missingUniversal);
         $this->cmd->line("  <fg=green>✓</> Cargo.toml deps: added {$added} nativeblade plugin crate(s)");
+
+        return $content;
+    }
+
+    /**
+     * Ensure every always-on nativeblade plugin crate (compiled into the
+     * framework, not gated by a feature) has a direct, non-optional dependency
+     * line in [dependencies]. tauri-build only discovers a plugin's permission
+     * files from the app's own dependency list, so a transitive-only crate would
+     * let a capability reference `nativeblade-system:default` that the ACL build
+     * never sees. The base path is derived from an existing nativeblade path-dep.
+     * Missing-only: an existing line is left untouched.
+     *
+     * @param  array<int, array<string, mixed>>  $descriptors
+     */
+    private function ensureAlwaysOnNativebladeDeps(string $content, array $descriptors): string
+    {
+        $prefix = 'tauri-plugin-nativeblade-';
+
+        if (!preg_match('#' . preg_quote($prefix, '#') . '[\w-]+\s*=\s*\{\s*path\s*=\s*"([^"]*)/plugins/[\w-]+"#', $content, $m)) {
+            return $content;
+        }
+        $base = $m[1];
+
+        $added = 0;
+        foreach ($descriptors as $d) {
+            $crate = $d['always_on_crate'] ?? null;
+            if ($crate === null) continue;
+            if (str_contains($content, "{$crate} = ")) continue;
+            $subdir = $d['always_on_subdir'] ?? substr($crate, strlen($prefix));
+            $line = sprintf('%s = { path = "%s/plugins/%s" }', $crate, $base, $subdir);
+            $next = $this->insertAfterSection($content, '[dependencies]', $line);
+            if ($next !== $content) {
+                $content = $next;
+                $added++;
+            }
+        }
+
+        if ($added > 0) {
+            $this->cmd->line("  <fg=green>✓</> Cargo.toml deps: added {$added} always-on nativeblade crate(s)");
+        }
 
         return $content;
     }

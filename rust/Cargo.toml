@@ -1,5 +1,5 @@
 [workspace]
-members = ["plugins/push", "plugins/media", "plugins/review", "plugins/secure-storage", "plugins/sharing", "plugins/analytics", "plugins/admob", "plugins/payments", "plugins/network", "plugins/tasks", "plugins/sensors"]
+members = ["plugins/push", "plugins/media", "plugins/review", "plugins/secure-storage", "plugins/sharing", "plugins/analytics", "plugins/admob", "plugins/payments", "plugins/network", "plugins/tasks", "plugins/sensors", "plugins/system"]
 
 [package]
 name = "nativeblade-tauri"
@@ -38,6 +38,10 @@ tauri-plugin-process = "2"
 tauri-plugin-store = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-opener = "2"
+
+# Always-on NativeBlade native plugin: system helpers (open app settings).
+# It carries a desktop stub, so it compiles on every target.
+tauri-plugin-nativeblade-system = { path = "plugins/system" }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-notification = "2"

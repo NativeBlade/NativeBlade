@@ -127,4 +127,43 @@ TOML;
         $cargo = file_get_contents($this->cargoPath);
         self::assertSame(1, substr_count($cargo, 'tauri-plugin-nativeblade-review ='));
     }
+
+    #[Test]
+    public function adds_the_always_on_system_crate_as_a_direct_non_optional_dep(): void
+    {
+        // tauri-build only discovers a plugin's permission files from the app's
+        // own dependency list, so the always-on system crate must be a direct,
+        // non-optional dep even though the framework already pulls it in.
+        $this->generator->generate([Plugin::PUSH, Plugin::MEDIA, Plugin::SYSTEM]);
+
+        $cargo = file_get_contents($this->cargoPath);
+
+        self::assertStringContainsString(
+            'tauri-plugin-nativeblade-system = { path = "../vendor/nativeblade/nativeblade/rust/plugins/system" }',
+            $cargo
+        );
+        // Never optional — that would hide it from the ACL build.
+        self::assertStringNotContainsString('plugins/system", optional', $cargo);
+
+        // Lands in [dependencies] (compiles on every target), not the mobile
+        // target section, since the crate carries a desktop stub.
+        $depsPos = strpos($cargo, '[dependencies]');
+        $mobilePos = strpos($cargo, "[target.'cfg(any(target_os");
+        $systemPos = strpos($cargo, 'tauri-plugin-nativeblade-system =');
+        self::assertNotFalse($systemPos);
+        self::assertGreaterThan($depsPos, $systemPos);
+        self::assertLessThan($mobilePos, $systemPos);
+    }
+
+    #[Test]
+    public function does_not_duplicate_the_always_on_system_crate(): void
+    {
+        $plugins = [Plugin::PUSH, Plugin::SYSTEM];
+
+        $this->generator->generate($plugins);
+        $this->generator->generate($plugins);
+
+        $cargo = file_get_contents($this->cargoPath);
+        self::assertSame(1, substr_count($cargo, 'tauri-plugin-nativeblade-system ='));
+    }
 }

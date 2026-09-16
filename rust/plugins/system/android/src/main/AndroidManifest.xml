@@ -1,0 +1,3 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Opening the app settings screen needs no permissions. -->
+</manifest>
