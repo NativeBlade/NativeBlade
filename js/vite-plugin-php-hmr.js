@@ -1,6 +1,8 @@
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import path from 'path';
 import os from 'node:os';
+
+const UNLINK_GRACE_MS = 1000;
 
 export default function phpHmrPlugin(projectRoot) {
     const changes = [];
@@ -95,9 +97,52 @@ export default function phpHmrPlugin(projectRoot) {
                 return 'php';
             };
 
+            // Last content pushed per file. A save that leaves a file identical is
+            // not a change: the Tailwind watcher rewrites public/build on every
+            // Blade save, usually byte for byte, and each pushed batch makes the
+            // app re-render, so unchanged rewrites showed up as extra reloads.
+            const lastContent = new Map();
+            if (cssHot) {
+                for (const filePath of listFiles(path.join(projectRoot, 'public/build'))) {
+                    if (!isWatched(filePath)) continue;
+                    try { lastContent.set(toWasmPath(filePath), readFileSync(filePath, 'utf-8')); } catch {}
+                }
+            }
+
+            // Vite empties public/build before each rebuild and writes the same
+            // files back ~30 ms later. A delete is only pushed if the file stays
+            // gone for UNLINK_GRACE_MS; if it comes back first, it is compared to
+            // the content it had before like any other write.
+            const pendingUnlinks = new Map();
+
             const emit = (op, filePath, content) => {
                 try {
                     const wasmPath = toWasmPath(filePath);
+
+                    const pending = pendingUnlinks.get(wasmPath);
+                    if (pending) {
+                        clearTimeout(pending);
+                        pendingUnlinks.delete(wasmPath);
+                    }
+
+                    if (op === 'unlink') {
+                        pendingUnlinks.set(wasmPath, setTimeout(() => {
+                            pendingUnlinks.delete(wasmPath);
+                            lastContent.delete(wasmPath);
+                            publish('unlink', filePath, wasmPath, null);
+                        }, UNLINK_GRACE_MS));
+                        return;
+                    }
+
+                    if (lastContent.get(wasmPath) === content) return;
+                    lastContent.set(wasmPath, content);
+
+                    publish(op, filePath, wasmPath, content);
+                } catch {}
+            };
+
+            const publish = (op, filePath, wasmPath, content) => {
+                try {
                     const kind = kindFor(filePath);
                     version++;
 
@@ -195,6 +240,18 @@ export default function phpHmrPlugin(projectRoot) {
             ];
         },
     };
+}
+
+function listFiles(dir) {
+    const files = [];
+    try {
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) files.push(...listFiles(full));
+            else if (entry.isFile()) files.push(full);
+        }
+    } catch {}
+    return files;
 }
 
 function resolvePublicHost() {
