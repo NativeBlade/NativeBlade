@@ -191,9 +191,33 @@ class PluginsConfigGenerator
         file_put_contents($path, $content);
         $this->cmd->line("  <fg=green>✓</> Cargo.toml features: " . (empty($featureLines) ? '(none)' : implode(', ', array_keys($featureLines))));
 
-        if ($depsChanged) {
+        if ($depsChanged || $this->cargoLockOutOfSync($content)) {
             $this->refreshCargoLock();
         }
+    }
+
+    /**
+     * True when a `tauri-plugin-nativeblade-*` crate is declared in Cargo.toml
+     * but has no package entry in Cargo.lock, i.e. the lock is stale relative to
+     * the manifest. Cheap string check, no cargo invocation.
+     */
+    private function cargoLockOutOfSync(string $cargoToml): bool
+    {
+        $lockPath = base_path('src-tauri/Cargo.lock');
+        if (!is_file($lockPath)) {
+            return false;
+        }
+
+        $lock = file_get_contents($lockPath);
+
+        preg_match_all('/^(tauri-plugin-nativeblade-[\w-]+)\s*=/m', $cargoToml, $m);
+        foreach (array_unique($m[1]) as $crate) {
+            if (!str_contains($lock, "name = \"{$crate}\"")) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

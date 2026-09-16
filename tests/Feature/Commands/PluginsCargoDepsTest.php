@@ -55,6 +55,18 @@ final class PluginsCargoDepsTest extends TestCase
         return $cmd;
     }
 
+    private function makeBufferedCommand(\Symfony\Component\Console\Output\BufferedOutput $buffer): Command
+    {
+        $cmd = new class extends Command {
+            protected $signature = 'dummy:dummy';
+        };
+        $cmd->setOutput(new \Illuminate\Console\OutputStyle(
+            new \Symfony\Component\Console\Input\ArrayInput([]),
+            $buffer
+        ));
+        return $cmd;
+    }
+
     private function writeCargo(): void
     {
         $cargo = <<<TOML
@@ -165,5 +177,70 @@ TOML;
 
         $cargo = file_get_contents($this->cargoPath);
         self::assertSame(1, substr_count($cargo, 'tauri-plugin-nativeblade-system ='));
+    }
+
+    #[Test]
+    public function refreshes_the_lock_when_it_is_stale_even_if_the_toml_is_unchanged(): void
+    {
+        // Simulate a project whose Cargo.toml already carries the system dep (an
+        // earlier update added it) but whose committed lock never recorded it.
+        file_put_contents($this->cargoPath, <<<TOML
+        [dependencies]
+        nativeblade-tauri = { path = "../vendor/nativeblade/nativeblade/rust" }
+        tauri-plugin-nativeblade-system = { path = "../vendor/nativeblade/nativeblade/rust/plugins/system" }
+
+        [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+        tauri-plugin-nativeblade-push = { path = "../vendor/nativeblade/nativeblade/rust/plugins/push", optional = true }
+
+        # nativeblade:plugins:start
+        [features]
+        default = ["custom-protocol"]
+        custom-protocol = ["tauri/custom-protocol"]
+        # nativeblade:plugins:end
+        TOML);
+
+        // Lock exists but has no system package entry -> stale.
+        file_put_contents(
+            base_path('src-tauri/Cargo.lock'),
+            "[[package]]\nname = \"tauri-plugin-nativeblade-push\"\nversion = \"0.1.0\"\n"
+        );
+
+        $buffer = new \Symfony\Component\Console\Output\BufferedOutput();
+        (new PluginsConfigGenerator($this->makeBufferedCommand($buffer)))
+            ->generate([Plugin::PUSH, Plugin::SYSTEM]);
+
+        // The toml dep line is untouched, yet a refresh must have been attempted
+        // (it either refreshed the lock or emitted the fallback hint).
+        $out = $buffer->fetch();
+        self::assertMatchesRegularExpression('/Cargo\.lock refreshed|generate-lockfile/', $out);
+    }
+
+    #[Test]
+    public function does_not_refresh_when_the_lock_is_already_in_sync(): void
+    {
+        file_put_contents($this->cargoPath, <<<TOML
+        [dependencies]
+        nativeblade-tauri = { path = "../vendor/nativeblade/nativeblade/rust" }
+        tauri-plugin-nativeblade-system = { path = "../vendor/nativeblade/nativeblade/rust/plugins/system" }
+
+        # nativeblade:plugins:start
+        [features]
+        default = ["custom-protocol"]
+        custom-protocol = ["tauri/custom-protocol"]
+        # nativeblade:plugins:end
+        TOML);
+
+        // Lock already records the system crate -> in sync, no refresh needed.
+        file_put_contents(
+            base_path('src-tauri/Cargo.lock'),
+            "[[package]]\nname = \"tauri-plugin-nativeblade-system\"\nversion = \"0.1.0\"\n"
+        );
+
+        $buffer = new \Symfony\Component\Console\Output\BufferedOutput();
+        (new PluginsConfigGenerator($this->makeBufferedCommand($buffer)))
+            ->generate([Plugin::SYSTEM]);
+
+        $out = $buffer->fetch();
+        self::assertDoesNotMatchRegularExpression('/Cargo\.lock refreshed|generate-lockfile/', $out);
     }
 }
