@@ -99,4 +99,7 @@ enum Plugin: string
 
     /** System-wide keyboard shortcuts (desktop only). Declared via `NativeBladeConfig::globalShortcuts([...])`; each press fires the `nb:shortcut` Livewire event. */
     case GLOBAL_SHORTCUT = 'global_shortcut';
+
+    /** Always-on system helpers. Powers `NativeBlade::openAppSettings()` (Settings.ACTION_APPLICATION_DETAILS_SETTINGS on Android, UIApplication.openSettingsURLString on iOS). Compiled into the framework crate, so it is always available. NativeBlade native plugin. */
+    case SYSTEM = 'system';
 }

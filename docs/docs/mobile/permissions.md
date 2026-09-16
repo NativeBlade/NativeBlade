@@ -68,13 +68,9 @@ Other constants (`MICROPHONE`, `CONTACTS`, `CALENDAR`, `PHOTOS`, ...) return
 ## Open the app settings
 
 After a `denied` the app usually cannot prompt again, so the natural next step is
-to send the user to the OS settings page for the app:
-
-```php
-return NativeBlade::openAppSettings()->toResponse();
-```
-
-Works on iOS. On Android and desktop it is a no-op for now.
+to send the user to the OS settings page for the app with
+`NativeBlade::openAppSettings()`. See [App Settings](/mobile/app-settings/) for the
+full details.
 
 ## Notes
 

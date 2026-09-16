@@ -4,9 +4,9 @@ pub mod commands;
 use tauri::Manager;
 
 /// Returns a `tauri::Builder` pre-configured with NativeBlade's always-on
-/// plugins (dialog, os, process, store, fs, opener), the framework
-/// commands (scheduler, database, fileops), and desktop window/menu
-/// handlers.
+/// plugins (dialog, os, process, store, fs, opener, nativeblade-system),
+/// the framework commands (scheduler, database, fileops), and desktop
+/// window/menu handlers.
 ///
 /// Optional plugins (haptics, geolocation, push, media, etc.) are
 /// registered in the user's `src-tauri/src/lib.rs` after this call,
@@ -18,7 +18,8 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_opener::init());
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_nativeblade_system::init());
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let builder = builder.plugin(tauri_plugin_notification::init());

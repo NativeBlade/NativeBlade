@@ -316,6 +316,13 @@ class PluginRegistry
                 'capabilities' => ['process:default'],
                 'npm' => ['@tauri-apps/plugin-process' => '^2'],
             ],
+            // Custom NativeBlade plugin compiled into the framework crate (no
+            // Cargo feature). Only its command ACL needs wiring, and only on
+            // mobile, since desktop has no app-settings screen.
+            Plugin::SYSTEM => [
+                'mobile_only' => true,
+                'mobile_capabilities' => ['nativeblade-system:default'],
+            ],
         };
     }
 
@@ -355,6 +362,7 @@ class PluginRegistry
             Plugin::STORE,
             Plugin::FS,
             Plugin::OPENER,
+            Plugin::SYSTEM,
         ];
     }
 
