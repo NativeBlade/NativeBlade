@@ -152,6 +152,7 @@ class PluginsConfigGenerator
         if (!file_exists($path)) return;
 
         $content = file_get_contents($path);
+        $beforeDeps = $content;
 
         // The path-based nativeblade-* plugin crates are seeded into the
         // Cargo.toml from the stub at scaffold time. Plugins added to the
@@ -162,6 +163,8 @@ class PluginsConfigGenerator
         $content = $this->ensureNativebladeDeps($content, $descriptors);
         $content = $this->ensureAlwaysOnNativebladeDeps($content, $descriptors);
         $content = $this->ensureCustomPluginDeps($content, $customPlugins);
+
+        $depsChanged = $content !== $beforeDeps;
 
         $featureLines = [];
         foreach ($descriptors as $d) {
@@ -187,6 +190,52 @@ class PluginsConfigGenerator
 
         file_put_contents($path, $content);
         $this->cmd->line("  <fg=green>✓</> Cargo.toml features: " . (empty($featureLines) ? '(none)' : implode(', ', array_keys($featureLines))));
+
+        if ($depsChanged) {
+            $this->refreshCargoLock();
+        }
+    }
+
+    /**
+     * Bring src-tauri/Cargo.lock back in sync after adding native dependency
+     * lines. `nativeblade:config` edits Cargo.toml but Cargo never sees the new
+     * crate until the lockfile records it, and a production build runs cargo with
+     * `--locked` / `--frozen`, which refuses a stale lock ("cannot update the lock
+     * file because --locked was passed"). Since config runs before the native
+     * build (locally and on the build farm), refreshing here keeps a committed
+     * lock from breaking the build.
+     *
+     * `cargo metadata` resolves and writes the lock as a side effect, adding the
+     * missing crate without upgrading the pinned versions of everything else
+     * (unlike `cargo update`). Best-effort: on a machine with no Rust toolchain
+     * there is nothing to build anyway, so we skip with a hint instead of failing.
+     */
+    private function refreshCargoLock(): void
+    {
+        $dir = base_path('src-tauri');
+        if (!is_file($dir . '/Cargo.lock')) {
+            return;
+        }
+
+        $hint = 'run `cargo generate-lockfile` in src-tauri before a --locked build';
+
+        try {
+            $process = new \Symfony\Component\Process\Process(
+                ['cargo', 'metadata', '--format-version', '1'],
+                $dir
+            );
+            $process->setTimeout(300);
+            $process->disableOutput();
+            $process->run();
+
+            if ($process->isSuccessful()) {
+                $this->cmd->line('  <fg=green>✓</> Cargo.lock refreshed for new native deps');
+            } else {
+                $this->cmd->line("  <fg=yellow>→</> Could not refresh Cargo.lock automatically — {$hint}");
+            }
+        } catch (\Throwable $e) {
+            $this->cmd->line("  <fg=yellow>→</> cargo not found — {$hint}");
+        }
     }
 
     /**
