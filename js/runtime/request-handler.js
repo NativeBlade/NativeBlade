@@ -4,6 +4,7 @@ import * as httpBridge from './http-bridge.js';
 import * as fsBridge from './fs-bridge.js';
 import * as dbBridge from './db-bridge.js';
 import { inlineAssets } from './inline-assets.js';
+import { runBridgeCycle } from './bridge-cycle.js';
 
 // The main window's bridge-completion callback (posts responses back to the app
 // iframe). A single global is fine for the main window because Livewire drives
@@ -149,16 +150,12 @@ function processStderr(raw) {
     if (rest) console.warn('[NativeBlade PHP Errors]', rest);
 }
 
-async function fulfillInBackground(php, originalPath, originalOptions, type = 'http', onBridge = null) {
+function fulfillInBackground(php, originalPath, originalOptions, type = 'http', onBridge = null) {
     const bridge = type === 'db' ? dbBridge : type === 'fs' ? fsBridge : httpBridge;
-    const fulfilled = await bridge.fulfill(php);
-    if (!fulfilled) return;
-
-    // Thread onBridge through the re-run: a multi-bridge request re-enters
-    // handleRequest, and its own fulfillInBackground carries the same callback.
-    const result = await handleRequest(originalPath, originalOptions, onBridge);
-    if (result.bridgePending) return;
-
-    const cb = onBridge || pendingBridgeCallback;
-    if (cb) cb(result);
+    return runBridgeCycle({
+        php,
+        bridge,
+        rerun: () => handleRequest(originalPath, originalOptions, onBridge),
+        getCallback: () => onBridge || pendingBridgeCallback,
+    });
 }
