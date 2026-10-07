@@ -3,6 +3,7 @@ import { join, relative, extname, resolve } from 'path';
 import { execSync } from 'child_process';
 import { gzipSync } from 'zlib';
 import { createRequire } from 'module';
+import { resolveActiveLocales, isLocaleFileToSkip } from './bundle-locales.js';
 
 const ROOT = process.argv[2] || process.cwd();
 
@@ -79,17 +80,8 @@ function detectPhpVersion() {
     return null;
 }
 
-const envPath = join(ROOT, '.env');
-let activeLocales = new Set(['en']);
-try {
-    const envContent = readFileSync(envPath, 'utf-8');
-    const m1 = envContent.match(/^APP_LOCALE=(\S+)/m);
-    const m2 = envContent.match(/^APP_FALLBACK_LOCALE=(\S+)/m);
-    if (m1) activeLocales.add(m1[1].replace(/['"]/g, ''));
-    if (m2) activeLocales.add(m2[1].replace(/['"]/g, ''));
-} catch {}
-
-const localeList = [...activeLocales];
+// .env locales plus every locale the app translates in lang/ (see bundle-locales.js).
+const localeList = resolveActiveLocales(ROOT);
 console.log(`Keeping locales: ${localeList.join(', ')}`);
 
 const INCLUDE_DIRS = [
@@ -152,26 +144,6 @@ const MIME_TYPES = {
 
 const ALWAYS_INCLUDE = [/composer\.json$/, /autoload.*\.php$/];
 
-function isLocaleFileToSkip(rel) {
-    // Carbon: vendor/nesbot/carbon/src/Carbon/Lang/<locale>.php
-    const carbonMatch = rel.match(/vendor\/nesbot\/carbon\/src\/Carbon\/Lang\/([^\/]+?)\.php$/);
-    if (carbonMatch) {
-        const locale = carbonMatch[1];
-        if (!localeList.some(l => locale === l || locale.startsWith(l + '_') || l.startsWith(locale + '_'))) {
-            return true;
-        }
-    }
-    // Symfony translations: vendor/symfony/*/Resources/translations/messages.<locale>.xlf
-    const symfonyMatch = rel.match(/vendor\/symfony\/[^\/]+\/Resources\/translations\/[^\/]+\.([^.]+)\.(xlf|yaml|yml|php)$/);
-    if (symfonyMatch) {
-        const locale = symfonyMatch[1];
-        if (!localeList.some(l => locale === l || locale.startsWith(l + '_') || l.startsWith(locale + '_'))) {
-            return true;
-        }
-    }
-    return false;
-}
-
 function shouldInclude(filePath) {
     const rel = relative(ROOT, filePath).replace(/\\/g, '/');
 
@@ -183,7 +155,7 @@ function shouldInclude(filePath) {
         if (pattern.test('/' + rel + '/')) return false;
     }
 
-    if (isLocaleFileToSkip(rel)) return false;
+    if (isLocaleFileToSkip(rel, localeList)) return false;
 
     const ext = extname(filePath).toLowerCase();
     if (EXCLUDE_EXTENSIONS.includes(ext)) return false;
