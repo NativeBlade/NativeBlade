@@ -4,7 +4,11 @@ import * as httpBridge from './http-bridge.js';
 import * as fsBridge from './fs-bridge.js';
 import * as dbBridge from './db-bridge.js';
 import { inlineAssets } from './inline-assets.js';
-import { runBridgeCycle } from './bridge-cycle.js';
+import { runBridgeCycle, settleBridges } from './bridge-cycle.js';
+
+// Checked in this order after every PHP execution; only one can be pending
+// per execution because PHP exits at its first bridge call.
+const BRIDGES = { http: httpBridge, fs: fsBridge, db: dbBridge };
 
 // The main window's bridge-completion callback (posts responses back to the app
 // iframe). A single global is fine for the main window because Livewire drives
@@ -103,23 +107,15 @@ export async function handleRequest(path, options = {}, onBridge = null) {
 
     if (result.errors) processStderr(result.errors);
 
-    if (await httpBridge.hasPendingRequest(php, text)) {
-        fulfillInBackground(php, path, options, 'http', onBridge);
+    const pending = await settleBridges({
+        php,
+        text,
+        bridges: BRIDGES,
+        startCycle: (type) => fulfillInBackground(php, path, options, type, onBridge),
+    });
+    if (pending) {
         return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
     }
-    httpBridge.done(php);
-
-    if (await fsBridge.hasPendingRequest(php, text)) {
-        fulfillInBackground(php, path, options, 'fs', onBridge);
-        return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
-    }
-    fsBridge.done(php);
-
-    if (await dbBridge.hasPendingRequest(php, text)) {
-        fulfillInBackground(php, path, options, 'db', onBridge);
-        return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
-    }
-    dbBridge.done(php);
 
     try {
         const json = JSON.parse(text);
@@ -151,11 +147,11 @@ function processStderr(raw) {
 }
 
 function fulfillInBackground(php, originalPath, originalOptions, type = 'http', onBridge = null) {
-    const bridge = type === 'db' ? dbBridge : type === 'fs' ? fsBridge : httpBridge;
     return runBridgeCycle({
         php,
-        bridge,
+        bridge: BRIDGES[type],
         rerun: () => handleRequest(originalPath, originalOptions, onBridge),
         getCallback: () => onBridge || pendingBridgeCallback,
+        onAbandon: () => { for (const bridge of Object.values(BRIDGES)) bridge.done(php); },
     });
 }
