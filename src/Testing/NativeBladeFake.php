@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use League\Flysystem\Filesystem;
 use Livewire\Features\SupportTesting\Testable;
+use NativeBlade\Http\RequestKey;
 use NativeBlade\Http\WasmHttpHandler;
 use NativeBlade\NativeResponse;
 use NativeBlade\ShellConfig;
@@ -119,6 +120,7 @@ class NativeBladeFake extends ShellConfig
                     'method' => $request->getMethod(),
                     'url' => (string) $request->getUri(),
                     'body' => $body,
+                    'bodyHash' => RequestKey::bodyHash($body, $request->getHeaderLine('Content-Type')),
                     'pool' => WasmHttpHandler::isPooling(),
                 ];
 
@@ -440,7 +442,7 @@ class NativeBladeFake extends ShellConfig
     private static function key(array $entry): string
     {
         return match ($entry['type']) {
-            'http' => 'http|' . $entry['method'] . '|' . $entry['url'] . '|' . md5($entry['body'] ?? ''),
+            'http' => 'http|' . $entry['method'] . '|' . $entry['url'] . '|' . ($entry['bodyHash'] ?? md5($entry['body'] ?? '')),
             'db' => 'db|' . $entry['sql'] . '|' . json_encode($entry['bindings']),
             'fs' => 'fs|' . $entry['op'] . '|' . $entry['baseDir'] . '|' . $entry['path'],
             default => json_encode($entry),
@@ -451,7 +453,7 @@ class NativeBladeFake extends ShellConfig
     {
         return match ($entry['type']) {
             'http' => $entry['method'] . ' ' . $entry['url']
-                . (($entry['body'] ?? '') !== '' ? ' body#' . substr(md5($entry['body']), 0, 8) : ''),
+                . (($entry['body'] ?? '') !== '' ? ' body#' . substr($entry['bodyHash'] ?? md5($entry['body']), 0, 8) : ''),
             'db' => $entry['sql'] . ' ' . json_encode($entry['bindings']),
             'fs' => $entry['op'] . ' ' . $entry['baseDir'] . ':' . $entry['path'],
             default => json_encode($entry),

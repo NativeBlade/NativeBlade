@@ -334,6 +334,26 @@ final class NativeBladeFakeTest extends TestCase
     }
 
     #[Test]
+    public function a_multipart_upload_with_http_attach_is_the_same_call_on_every_run(): void
+    {
+        $fake = NativeBlade::fake();
+        Storage::disk('native')->put(native_path('a.png'), 'png-bytes');
+        $sent = [];
+        Http::fake(['api.test/*' => function ($request) use (&$sent) { $sent[] = $request; return Http::response(['ok' => true]); }]);
+
+        $fake->replay(function () {
+            $bytes = Storage::disk('native')->get(native_path('a.png'));
+            Http::attach('file', $bytes, 'a.png')->post('https://api.test/upload', ['answer' => 7]);
+            Storage::disk('native')->delete(native_path('a.png'));
+        });
+
+        self::assertCount(1, $sent, 'the upload reached the network once');
+        self::assertTrue($sent[0]->hasFile('file', 'png-bytes', 'a.png'));
+        $fake->assertHttpCalls(1)->assertFsOps(2);
+        self::assertStringContainsString('filename="a.png"', $fake->httpCalls()[0]['body'], 'the multipart body was recorded');
+    }
+
+    #[Test]
     public function the_native_disk_works_through_storage_directly(): void
     {
         $fake = NativeBlade::fake();

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace NativeBlade\Tests\Unit\Http;
 
 use GuzzleHttp\Promise\FulfilledPromise;
+use GuzzleHttp\Psr7\MultipartStream;
 use GuzzleHttp\Psr7\Request;
+use NativeBlade\Http\RequestKey;
 use GuzzleHttp\Psr7\Response;
 use NativeBlade\Http\WasmHttpHandler;
 use PHPUnit\Framework\Attributes\Test;
@@ -68,7 +70,31 @@ final class WasmHttpHandlerTest extends TestCase
      */
     private function keyFor(Request $request, int $index): string
     {
-        return md5($request->getMethod() . '|' . (string) $request->getUri() . '|' . md5((string) $request->getBody()) . '|' . $index);
+        $bodyHash = RequestKey::bodyHash((string) $request->getBody(), $request->getHeaderLine('Content-Type'));
+
+        return md5($request->getMethod() . '|' . (string) $request->getUri() . '|' . $bodyHash . '|' . $index);
+    }
+
+    #[Test]
+    public function the_random_multipart_boundary_is_not_part_of_the_key(): void
+    {
+        $handler = new WasmHttpHandler();
+        $multipart = fn (string $boundary, string $bytes) => new Request(
+            'POST',
+            'https://api.example.com/upload',
+            ['Content-Type' => 'multipart/form-data; boundary=' . $boundary],
+            new MultipartStream([['name' => 'file', 'contents' => $bytes, 'filename' => 'a.png']], $boundary),
+        );
+
+        $first = $multipart('aaaa1111', 'bytes');
+        $sameUploadNewBoundary = $multipart('bbbb2222', 'bytes');
+        $otherFile = $multipart('aaaa1111', 'other');
+
+        self::assertSame($this->keyFor($first, 0), $this->keyFor($sameUploadNewBoundary, 0));
+        self::assertNotSame($this->keyFor($first, 0), $this->keyFor($otherFile, 0));
+
+        $this->seedCache($this->keyFor($first, 0), ['body' => 'uploaded']);
+        self::assertSame('uploaded', (string) $handler($sameUploadNewBoundary, [])->wait()->getBody());
     }
 
     #[Test]

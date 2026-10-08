@@ -61,7 +61,7 @@ export function describeCall(type, entry) {
         case 'http': {
             // The body is part of the call: two POSTs to one URL with different
             // payloads are different calls, and the hash shows which one moved.
-            const body = entry.body ? ` body#${shortHash(entry.body)}` : '';
+            const body = entry.body ? ` body#${shortHash(normalizedBody(entry))}` : '';
             return `${entry.method || 'GET'} ${entry.url || ''}${body}`.trim();
         }
         case 'db': {
@@ -73,6 +73,20 @@ export function describeCall(type, entry) {
         case 'fs': return `${entry.op || 'op'} ${entry.baseDir ? entry.baseDir + ':' : ''}${entry.path || ''}`.trim();
         default: return JSON.stringify(entry);
     }
+}
+
+/**
+ * The pending body is base64; decode it and replace the multipart boundary,
+ * which Guzzle draws at random per request, so the same upload reads the same
+ * on every run (mirrors RequestKey::normalizeBody in PHP).
+ */
+export function normalizedBody(entry) {
+    let body = entry.body || '';
+    try { body = atob(body); } catch {}
+    const headers = entry.headers || {};
+    const contentType = headers['Content-Type'] || headers['content-type'] || '';
+    const m = /boundary="?([^";]+)"?/i.exec(contentType);
+    return m ? body.split(m[1]).join('nb-boundary') : body;
 }
 
 /** FNV-1a over the string, as 8 hex chars: enough to tell two payloads apart. */

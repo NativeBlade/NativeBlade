@@ -78,6 +78,16 @@ describe('replay-detector', () => {
         assert.equal(shortHash('x'), shortHash('x'));
     });
 
+    it('ignores the random multipart boundary so the same upload reads the same on every run', () => {
+        const multipart = (boundary) => ({
+            method: 'POST', url: 'https://a/upload',
+            headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+            body: btoa(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="a.png"\r\n\r\nbytes\r\n--${boundary}--\r\n`),
+        });
+        assert.equal(describeCall('http', multipart('aaaa1111')), describeCall('http', multipart('bbbb2222')));
+        assert.notEqual(describeCall('http', multipart('aaaa1111')), describeCall('http', { ...multipart('aaaa1111'), body: btoa('other') }));
+    });
+
     it('formats a divergence as a one-based, human readable message', () => {
         const message = formatDivergence({ type: 'db', index: 2, was: 'select a', now: 'select b' });
         assert.match(message, /query #3 changed between runs/);
