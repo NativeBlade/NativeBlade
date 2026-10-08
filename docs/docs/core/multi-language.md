@@ -143,6 +143,14 @@ class LanguageSwitcher extends Component
 re-renders the current page so already-rendered strings update. Use
 `NativeBlade::navigate(...)` (not Livewire's `wire:navigate`) to repaint.
 
+Livewire stores the locale in each component's snapshot and restores it on
+every request of that component, which would keep components mounted before
+`setLanguage()` in the old language. NativeBlade overrides that: on every
+Livewire request the persisted choice is applied again (to Laravel and to
+Carbon), so actions on already-mounted components run in the new language.
+This only happens when a language was chosen through `setLanguage()`; an app
+that sets the locale on its own, from a middleware for instance, is left alone.
+
 ## The two `<html lang>` attributes
 
 There are two HTML documents, each with its own `lang`, and they behave differently:

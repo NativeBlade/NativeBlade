@@ -40,6 +40,8 @@ class NativeBladeServiceProvider extends ServiceProvider
         $this->registerScheduleRoute();
         $this->registerPushRoutes();
 
+        $this->app->booted(fn () => $this->keepChosenLocaleOnLivewireRequests());
+
         if (!$this->app->runningInConsole()) {
             $this->app->booted(function () {
                 $this->runMigrations();
@@ -79,6 +81,35 @@ class NativeBladeServiceProvider extends ServiceProvider
                 Commands\LogsCommand::class,
             ]);
         }
+    }
+
+    /**
+     * Livewire's SupportLocales stores the locale in every component snapshot
+     * and restores it on each request of that component, on top of the locale
+     * the app persisted. After setLanguage(), components mounted earlier would
+     * keep running in the old language until the screen is recreated.
+     *
+     * The listener only acts when the app chose a language through NativeBlade
+     * (the persisted app.locale state): an app that sets the locale on its own,
+     * from a middleware for instance, must not be overridden by config defaults.
+     * The state is read inside the listener because the same request can change
+     * the language before another component hydrates.
+     */
+    private function keepChosenLocaleOnLivewireRequests(): void
+    {
+        if (!function_exists('Livewire\on')) {
+            return;
+        }
+
+        \Livewire\on('hydrate', function () {
+            $chosen = $this->app->make('nativeblade')->getState('app.locale');
+            if (!is_string($chosen) || $chosen === '') {
+                return;
+            }
+
+            $this->app->setLocale($chosen);
+            \Carbon\Carbon::setLocale($chosen);
+        });
     }
 
     private function patchWasmRequest(): void
