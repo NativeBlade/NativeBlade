@@ -3,11 +3,13 @@
 namespace NativeBlade\Commands;
 
 use Illuminate\Console\Command;
+use NativeBlade\Commands\Concerns\DisablesViteFontFallbacks;
 use NativeBlade\Commands\Concerns\RefreshesNativeBuild;
 use NativeBlade\NativeBladeServiceProvider;
 
 class UpdateCommand extends Command
 {
+    use DisablesViteFontFallbacks;
     use RefreshesNativeBuild;
 
     protected $signature = 'nativeblade:update';
@@ -21,6 +23,7 @@ class UpdateCommand extends Command
 
         $this->syncPackageJson();
         $this->syncViteConfig();
+        $this->disableViteFontFallbacks();
         $this->syncCargoConfig();
         $this->refreshNativeBuildIfChanged();
 
