@@ -462,6 +462,55 @@ final class NativeBladeFakeTest extends TestCase
     }
 
     #[Test]
+    public function a_catch_throwable_cannot_change_what_happens_after_the_exit(): void
+    {
+        $fake = NativeBlade::fake();
+        $runs = 0;
+
+        $result = $fake->replay(function () use (&$runs) {
+            $runs++;
+            DB::table('probe_rows')->insert(['name' => 'before-exit']);
+            try {
+                Http::get('https://api.test/items');
+            } catch (\Throwable) {
+                // Everything here would never run on the device.
+                DB::table('probe_rows')->insert(['name' => 'after-exit']);
+                NativeBlade::setState('sync.failed', true);
+                NativeBlade::log('unexpected error', [], 'error');
+                Storage::disk('native')->put(native_path('after.txt'), 'x');
+                NativeBlade::vibrate(10)->toResponse();
+
+                return 'swallowed';
+            }
+
+            return 'completed';
+        });
+
+        self::assertSame('completed', $result, 'the swallowed run is not a completed request');
+        self::assertSame(2, $runs);
+        self::assertSame(2, DB::table('probe_rows')->where('name', 'before-exit')->count(), 'written before the exit on both runs');
+        self::assertSame(0, DB::table('probe_rows')->where('name', 'after-exit')->count(), 'rolled back as the device never ran it');
+        self::assertNull(NativeBlade::getState('sync.failed'));
+        self::assertFileDoesNotExist($fake->fsRoot() . '/app/after.txt');
+        $fake->assertNotLogged('unexpected error')->assertNothingPushed()->assertHttpCalls(1)->assertFsOps(0);
+    }
+
+    #[Test]
+    public function a_transaction_open_at_the_exit_point_is_lost_as_on_the_device(): void
+    {
+        $fake = NativeBlade::fake();
+
+        $fake->replay(function () {
+            DB::transaction(function () {
+                DB::table('probe_rows')->insert(['name' => 'in-transaction']);
+                Http::get('https://api.test/items');
+            });
+        });
+
+        self::assertSame(1, DB::table('probe_rows')->where('name', 'in-transaction')->count(), 'only the completing run commits');
+    }
+
+    #[Test]
     public function assertion_failures_list_what_was_recorded(): void
     {
         $fake = NativeBlade::fake();

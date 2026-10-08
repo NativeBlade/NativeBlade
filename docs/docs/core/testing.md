@@ -112,12 +112,15 @@ nothing (the request completed without making it).
 a plain closure. The closure is invoked once per run and must start from the
 same inputs each time.
 
-Three things to know. The exit is an `Error`, not an `Exception`, so a
-`catch (\Exception $e)` around a native call lets it through, as `exit()`
-would on the device. `Http::pool()` is never a stop point: its requests run
-together and count as one call, as on the device. `Http::sequence()` fakes
-are consumed by the run that reaches them; prefer fixed responses or
-callbacks with replay.
+Three things to know. The exit point behaves like `exit()` even inside a
+`catch (\Throwable $e)`: whatever the app does after it in that run is
+undone. Native calls are refused, writes on local connections (the state
+included) are rolled back at the end of the run, logs and pushed actions are
+dropped, and the run never counts as completed, whatever it returned. A
+transaction open at the exit point is lost, as it is on the device.
+`Http::pool()` is never a stop point: its requests run together and count as
+one call, as on the device. `Http::sequence()` fakes are consumed by the run
+that reaches them; prefer fixed responses or callbacks with replay.
 
 ## Assertions
 

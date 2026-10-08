@@ -82,6 +82,9 @@ class NativeBladeFake extends ShellConfig
     /** @var array<int, mixed> results of the calls already completed, by call index */
     private array $cache = [];
 
+    /** @var list<\Illuminate\Database\Connection> local connections with a transaction opened at the exit point */
+    private array $postExitConnections = [];
+
     public function __construct(
         private string $fakePlatform = 'android',
         private bool $fakeDev = false,
@@ -261,10 +264,51 @@ class NativeBladeFake extends ShellConfig
         }
 
         $this->cache[$index] = $execute();
-        $this->exited = true;
+        $this->exit();
         $this->checkBudgets($this->runCalls);
 
         throw new BridgePending();
+    }
+
+    /**
+     * The point where the device calls exit(0). PHP has no uncatchable
+     * throwable, so a `catch (\Throwable)` in app code can swallow the
+     * BridgePending; the fake then makes everything after this point as if
+     * it never ran: native calls are refused (see bridge()), database writes
+     * on local connections are rolled back at the end of the run, and the
+     * run is never treated as completed.
+     */
+    private function exit(): void
+    {
+        $this->exited = true;
+        $this->postExitConnections = [];
+        foreach (DB::getConnections() as $name => $connection) {
+            $driver = $connection->getConfig('driver');
+            if (in_array($driver, self::BRIDGE_DB_DRIVERS, true)) {
+                continue;
+            }
+            try {
+                $connection->beginTransaction();
+                $this->postExitConnections[] = $connection;
+            } catch (\Throwable) {
+                // A connection that cannot open a transaction is left alone.
+            }
+        }
+    }
+
+    private function undoPostExitWrites(): void
+    {
+        foreach ($this->postExitConnections as $connection) {
+            try {
+                if ($connection->transactionLevel() > 0) {
+                    // Back to level 0: a transaction the app had open at the
+                    // exit point is lost too, as it would be on the device.
+                    $connection->rollBack(0);
+                }
+            } catch (\Throwable) {
+            }
+        }
+        $this->postExitConnections = [];
     }
 
     // ------------------------------------------------------------------
@@ -335,11 +379,16 @@ class NativeBladeFake extends ShellConfig
                 $completed = false;
                 try {
                     $result = $run();
-                    $completed = true;
+                    // A run that exited and was caught by the app is not a
+                    // completed request, whatever it returned.
+                    $completed = !$this->exited;
                 } catch (BridgePending) {
                     // The run stopped at its pending call; the next one goes further.
                 } catch (ReplayFailed $e) {
+                    $this->undoPostExitWrites();
                     Assert::fail($e->getMessage());
+                } finally {
+                    $this->undoPostExitWrites();
                 }
 
                 if ($completed) {
