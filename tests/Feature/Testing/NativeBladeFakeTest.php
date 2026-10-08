@@ -19,21 +19,46 @@ use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * A component whose single action can be shaped per test: how many HTTP
- * calls it makes, whether a call carries a random value (the classic replay
- * bug), and which side effects it has.
+ * A component whose single action can be shaped per test: how many native
+ * calls it makes, whether a call carries a random value, whether it writes
+ * before or after a call, and the classic lock-before-the-network trap.
  */
 final class SyncProbe extends Component
 {
     public int $calls = 1;
     public bool $random = false;
-    public bool $insert = false;
+    public bool $lock = false;
+    public bool $insertBefore = false;
+    public bool $insertAfter = false;
+    public int $localQueries = 0;
+    public int $nativeQueries = 0;
     public bool $write = false;
     public bool $log = false;
     public bool $push = false;
 
     public function sync(): mixed
     {
+        if ($this->lock) {
+            // The trap: on the device the lock written before the HTTP call
+            // survives the exit, and the re-run gives up.
+            if (NativeBlade::getState('sync.lock')) {
+                return 'already running';
+            }
+            NativeBlade::setState('sync.lock', true);
+        }
+
+        if ($this->insertBefore) {
+            DB::table('probe_rows')->insert(['name' => 'before']);
+        }
+
+        for ($i = 0; $i < $this->localQueries; $i++) {
+            DB::table('probe_rows')->where('id', $i)->first();
+        }
+
+        for ($i = 0; $i < $this->nativeQueries; $i++) {
+            DB::connection('native')->table('remote_items')->where('id', $i)->first();
+        }
+
         for ($i = 0; $i < $this->calls; $i++) {
             $query = ['page' => $i];
             if ($this->random) {
@@ -42,8 +67,8 @@ final class SyncProbe extends Component
             Http::get('https://api.test/items', $query);
         }
 
-        if ($this->insert) {
-            DB::table('probe_rows')->insert(['name' => 'synced']);
+        if ($this->insertAfter) {
+            DB::table('probe_rows')->insert(['name' => 'after']);
         }
         if ($this->write) {
             Storage::disk('native')->put(native_path('out.txt'), 'hello');
@@ -70,6 +95,7 @@ final class NativeBladeFakeTest extends TestCase
     {
         parent::defineEnvironment($app);
         $app['config']->set('filesystems.disks.native', ['driver' => 'nativeblade', 'purpose' => 'app']);
+        $app['config']->set('database.connections.native', ['driver' => 'nativeblade-db', 'native_driver' => 'sqlite', 'database' => ':memory:']);
     }
 
     protected function setUp(): void
@@ -80,6 +106,33 @@ final class NativeBladeFakeTest extends TestCase
             $table->string('name');
         });
         Http::fake(['api.test/*' => Http::response(['ok' => true])]);
+    }
+
+    /** The native connection only exists once the fake is installed. */
+    private function fakeWithNativeTable(): NativeBladeFake
+    {
+        $fake = NativeBlade::fake();
+        Schema::connection('native')->create('remote_items', function ($table) {
+            $table->increments('id');
+            $table->string('name');
+        });
+
+        return $fake;
+    }
+
+    private function expectReplayFailure(callable $run, string ...$fragments): void
+    {
+        try {
+            $run();
+        } catch (AssertionFailedError $e) {
+            foreach ($fragments as $fragment) {
+                self::assertStringContainsString($fragment, $e->getMessage());
+            }
+
+            return;
+        }
+
+        self::fail('expected the replay to fail');
     }
 
     #[Test]
@@ -98,7 +151,7 @@ final class NativeBladeFakeTest extends TestCase
     }
 
     #[Test]
-    public function replay_passes_a_deterministic_action_and_records_its_calls(): void
+    public function a_deterministic_action_completes_and_its_calls_are_recorded(): void
     {
         $fake = NativeBlade::fake();
         $component = Livewire::test(SyncProbe::class, ['calls' => 2]);
@@ -111,6 +164,29 @@ final class NativeBladeFakeTest extends TestCase
             ->assertHttpCallsAtMost(NativeBladeFake::HTTP_BUDGET);
         self::assertSame('https://api.test/items?page=1', $fake->httpCalls()[1]['url']);
         self::assertFalse($fake->httpCalls()[0]['pool']);
+        self::assertSame($fake->httpCalls(), $fake->nativeCalls());
+    }
+
+    #[Test]
+    public function each_run_goes_one_native_call_further_and_earlier_calls_come_from_the_cache(): void
+    {
+        $fake = NativeBlade::fake();
+        $runs = 0;
+        $sent = 0;
+        Http::fake(['api.test/*' => function () use (&$sent) { $sent++; return Http::response(['ok' => true]); }]);
+
+        $result = $fake->replay(function () use (&$runs) {
+            $runs++;
+            Http::get('https://api.test/a');
+            Http::get('https://api.test/b');
+
+            return 'done';
+        });
+
+        self::assertSame('done', $result);
+        self::assertSame(3, $runs, 'two native calls: two runs that exit, one that completes');
+        self::assertSame(2, $sent, 'each call reaches the network once; the re-runs read the cache');
+        $fake->assertHttpCalls(2);
     }
 
     #[Test]
@@ -119,15 +195,79 @@ final class NativeBladeFakeTest extends TestCase
         $fake = NativeBlade::fake();
         $component = Livewire::test(SyncProbe::class, ['calls' => 2, 'random' => true]);
 
-        try {
-            $fake->replayCall($component, 'sync');
-            self::fail('expected the replay to diverge');
-        } catch (AssertionFailedError $e) {
-            self::assertMatchesRegularExpression('/Replay diverged at call #[0-9]+/', $e->getMessage());
-            self::assertStringContainsString('was `GET https://api.test/items?page=0&r=', $e->getMessage());
-            self::assertStringContainsString('now `GET https://api.test/items?page=0&r=', $e->getMessage());
-            self::assertStringContainsString('not deterministic', $e->getMessage());
-        }
+        $this->expectReplayFailure(
+            fn () => $fake->replayCall($component, 'sync'),
+            'Replay diverged at call #',
+            'was `GET https://api.test/items?page=0&r=',
+            'now `GET https://api.test/items?page=0&r=',
+            'not deterministic',
+        );
+    }
+
+    #[Test]
+    public function a_lock_written_before_the_network_call_makes_the_re_run_give_up(): void
+    {
+        $fake = NativeBlade::fake();
+        $component = Livewire::test(SyncProbe::class, ['lock' => true]);
+
+        $this->expectReplayFailure(
+            fn () => $fake->replayCall($component, 'sync'),
+            'Replay diverged at call #1: was `GET https://api.test/items?page=0`, now nothing (the request completed without making it)',
+        );
+    }
+
+    #[Test]
+    public function writes_before_a_native_call_happen_on_every_run_and_writes_after_it_once(): void
+    {
+        $fake = NativeBlade::fake();
+
+        $fake->replayCall(Livewire::test(SyncProbe::class, ['insertBefore' => true]), 'sync');
+        self::assertSame(2, DB::table('probe_rows')->where('name', 'before')->count(), 'two runs reached the insert');
+
+        $fake->replayCall(Livewire::test(SyncProbe::class, ['insertAfter' => true]), 'sync');
+        self::assertSame(1, DB::table('probe_rows')->where('name', 'after')->count(), 'only the completing run reached it');
+    }
+
+    #[Test]
+    public function local_queries_are_information_and_never_a_native_call(): void
+    {
+        $fake = NativeBlade::fake();
+        $component = Livewire::test(SyncProbe::class, ['localQueries' => 30]);
+
+        $fake->replayCall($component, 'sync');
+
+        $fake->assertNativeQueries(0)->assertHttpCalls(1);
+        self::assertGreaterThanOrEqual(30, count($fake->queries()));
+        self::assertFalse($fake->queries()[0]['bridge']);
+    }
+
+    #[Test]
+    public function native_queries_count_against_the_budget_and_are_served_from_the_cache_on_re_runs(): void
+    {
+        $fake = $this->fakeWithNativeTable();
+
+        $fake->replayCall(Livewire::test(SyncProbe::class, ['nativeQueries' => 5]), 'sync');
+        $fake->assertNativeQueries(5)->assertNativeQueriesAtMost(NativeBladeFake::DB_BUDGET)->assertHttpCalls(1);
+        self::assertTrue($fake->nativeQueries()[0]['bridge']);
+        self::assertSame('native', $fake->nativeQueries()[0]['connection']);
+
+        $this->expectReplayFailure(
+            fn () => $fake->replayCall(Livewire::test(SyncProbe::class, ['nativeQueries' => NativeBladeFake::DB_BUDGET + 1]), 'sync'),
+            'ran 21 queries on the native database',
+        );
+    }
+
+    #[Test]
+    public function the_native_database_is_real_enough_to_read_rows_back(): void
+    {
+        $fake = $this->fakeWithNativeTable();
+
+        $fake->replay(function () {
+            DB::connection('native')->table('remote_items')->insert(['name' => 'remote']);
+        });
+
+        self::assertSame(1, DB::connection('native')->table('remote_items')->count());
+        self::assertSame('insert', $fake->nativeQueries()[0]['kind']);
     }
 
     #[Test]
@@ -136,13 +276,11 @@ final class NativeBladeFakeTest extends TestCase
         $fake = NativeBlade::fake();
         $component = Livewire::test(SyncProbe::class, ['calls' => NativeBladeFake::HTTP_BUDGET + 1]);
 
-        try {
-            $fake->replayCall($component, 'sync');
-            self::fail('expected the budget to fail');
-        } catch (AssertionFailedError $e) {
-            self::assertStringContainsString('made 11 sequential HTTP calls', $e->getMessage());
-            self::assertStringContainsString('NativeBlade::pool()', $e->getMessage());
-        }
+        $this->expectReplayFailure(
+            fn () => $fake->replayCall($component, 'sync'),
+            'made 11 sequential HTTP calls',
+            'NativeBlade::pool()',
+        );
     }
 
     #[Test]
@@ -160,21 +298,7 @@ final class NativeBladeFakeTest extends TestCase
     }
 
     #[Test]
-    public function the_first_run_is_rolled_back_so_side_effects_happen_once(): void
-    {
-        $fake = NativeBlade::fake();
-        $component = Livewire::test(SyncProbe::class, ['insert' => true]);
-
-        $fake->replayCall($component, 'sync');
-
-        self::assertSame(1, DB::table('probe_rows')->count());
-        $fake->assertQueriesAtMost(NativeBladeFake::DB_BUDGET);
-        $inserts = array_filter($fake->queries(), fn ($q) => str_contains($q['sql'], 'insert into "probe_rows"'));
-        self::assertCount(1, $inserts);
-    }
-
-    #[Test]
-    public function native_disk_operations_are_recorded_and_the_files_are_real(): void
+    public function native_disk_operations_are_native_calls_and_the_files_are_real(): void
     {
         $fake = NativeBlade::fake();
         $component = Livewire::test(SyncProbe::class, ['write' => true]);
@@ -201,9 +325,30 @@ final class NativeBladeFakeTest extends TestCase
             ->assertLogged('synced')
             ->assertLogged('synced', 'info')
             ->assertNotLogged('failed');
-        self::assertCount(1, $fake->pushed(), 'the rolled-back first run must not leave its push behind');
+        self::assertCount(1, $fake->pushed());
         self::assertCount(1, $fake->logs());
         self::assertSame(['calls' => 1], $fake->logs()[0]['context']);
+    }
+
+    #[Test]
+    public function app_code_cannot_swallow_the_exit(): void
+    {
+        $fake = NativeBlade::fake();
+        $runs = 0;
+
+        $result = $fake->replay(function () use (&$runs) {
+            $runs++;
+            try {
+                Http::get('https://api.test/items');
+            } catch (\Exception) {
+                return 'swallowed';
+            }
+
+            return 'completed';
+        });
+
+        self::assertSame('completed', $result);
+        self::assertSame(2, $runs);
     }
 
     #[Test]
@@ -212,20 +357,15 @@ final class NativeBladeFakeTest extends TestCase
         $fake = NativeBlade::fake();
         $fake->replay(fn () => Http::get('https://api.test/items'));
 
-        try {
-            $fake->assertActionPushed('navigate');
-            self::fail('expected a failure');
-        } catch (AssertionFailedError $e) {
-            self::assertStringContainsString("No 'navigate' action was pushed", $e->getMessage());
-            self::assertStringContainsString('Nothing was pushed.', $e->getMessage());
-        }
-
-        try {
-            $fake->assertHttpCalled('POST', 'https://api.test/items');
-            self::fail('expected a failure');
-        } catch (AssertionFailedError $e) {
-            self::assertStringContainsString('#1 GET https://api.test/items', $e->getMessage());
-        }
+        $this->expectReplayFailure(
+            fn () => $fake->assertActionPushed('navigate'),
+            "No 'navigate' action was pushed",
+            'Nothing was pushed.',
+        );
+        $this->expectReplayFailure(
+            fn () => $fake->assertHttpCalled('POST', 'https://api.test/items'),
+            '#1 GET https://api.test/items',
+        );
 
         $fake->assertNothingPushed();
     }
@@ -235,12 +375,10 @@ final class NativeBladeFakeTest extends TestCase
     {
         $fake = NativeBlade::fake();
 
-        try {
-            $fake->replay(fn () => Http::get('https://api.test/ping', ['r' => Str::random(4)]));
-            self::fail('expected the replay to diverge');
-        } catch (AssertionFailedError $e) {
-            self::assertStringContainsString('Replay diverged at call #1', $e->getMessage());
-        }
+        $this->expectReplayFailure(
+            fn () => $fake->replay(fn () => Http::get('https://api.test/ping', ['r' => Str::random(4)])),
+            'Replay diverged at call #1',
+        );
     }
 
     #[Test]
@@ -254,11 +392,9 @@ final class NativeBladeFakeTest extends TestCase
 
         $fake->assertNotificationScheduled()->assertNotificationScheduled('reminder-1');
 
-        try {
-            $fake->assertNotificationScheduled('other');
-            self::fail('expected a failure');
-        } catch (AssertionFailedError $e) {
-            self::assertStringContainsString("No 'notification' action matching", $e->getMessage());
-        }
+        $this->expectReplayFailure(
+            fn () => $fake->assertNotificationScheduled('other'),
+            "No 'notification' action matching",
+        );
     }
 }

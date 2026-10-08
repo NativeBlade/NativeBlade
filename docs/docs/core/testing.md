@@ -7,11 +7,15 @@ description: "Simulate the runtime's execution model in PHPUnit with NativeBlade
 
 Most NativeBlade bugs only show up on the device. `Livewire::test()` runs an
 action once, in one process, with a real HTTP client and a real database. The
-app runs it differently: PHP is re-run from scratch after every native call
-(HTTP, database, filesystem), replaying the earlier calls from a cache, and
-the request is abandoned when it makes more sequential calls than the runtime
-allows. Code that passes a normal test still breaks there when a call is not
-deterministic or an action makes too many calls.
+app runs it differently: a request runs until its first native call that is
+not in the cache (an HTTP request, a query on the native database, an
+operation on a native disk), exits there, and is re-run from the same snapshot
+once the shell has the result. The earlier calls are served from the cache.
+What the request wrote before exiting (local SQLite, state, files) stays
+written. The request is abandoned when it makes more sequential calls than the
+runtime allows. Code that passes a normal test still breaks there when a call
+is not deterministic, when a write before a call changes the next run, or when
+an action makes too many calls.
 
 `NativeBlade::fake()` brings that model into PHPUnit.
 
@@ -41,23 +45,31 @@ public function test_sync_survives_the_runtime(): void
   the rest answer for the platform you pass. `dev: true` makes
   `NativeBlade::isDev()` true.
 - **Records every native call** the code makes, in order: HTTP requests
-  (faked or real), queries on every connection, and operations on disks that
-  use the `nativeblade` driver. Those disks write to a temporary directory,
-  so the test can read the files back with `Storage::disk('native')`.
+  (faked or real), queries on connections with the `nativeblade-db` driver,
+  and operations on disks with the `nativeblade` driver. Queries on the local
+  SQLite are recorded as information, flagged `bridge: false`; on the device
+  they run inside the app and are never a native call.
+- **Stands in for the native database and disks.** Connections with the
+  `nativeblade-db` driver become an in-memory SQLite, so a test can create
+  tables on them and read rows back. Native disks write to a temporary
+  directory, so the test can read the files back with `Storage::disk('native')`.
 - **Captures what goes to the shell:** every action flushed with
   `->toResponse()` and every `NativeBlade::log()` entry, instead of sending
   them to a WebView that is not there.
 
 ## Replay
 
-`replayCall($component, 'method', ...$params)` runs a Livewire action twice
-from the same component snapshot, exactly as the runtime re-runs a request.
-The first run happens inside a database transaction that is rolled back; the
-component, the recorded calls, the pushed actions and the logs reflect the
-second run. Between the runs the clock is frozen, so only real
-non-determinism shows.
+`replayCall($component, 'method', ...$params)` runs a Livewire action the way
+the runtime runs a request. Run one goes until the first native call, carries
+it out (that is the shell's job) and exits. Run two starts from the same
+component snapshot, gets that call from the cache, goes until the second one
+and exits. And so on until a run completes: an action with three native calls
+runs four times. Nothing a run wrote is undone. The clock is frozen for the
+whole replay, so only real non-determinism shows. The component, the recorded
+calls, the pushed actions and the logs reflect the final run.
 
-The test fails when the two runs do not make the same calls in the same order:
+The test fails when a run does not make the same calls, in the same order, as
+the run before it:
 
 ```
 Replay diverged at call #3: was `GET https://api.example.com/ping?r=GmxmcS`,
@@ -72,7 +84,7 @@ It also fails when a run exceeds a budget. The limits mirror the runtime:
 | Calls per request | Limit |
 |---|---|
 | Sequential HTTP calls (a `NativeBlade::pool()` counts as one) | 10 |
-| Queries | 20 |
+| Queries on the native database (local SQLite does not count) | 20 |
 | Filesystem operations on native disks | 20 |
 
 ```
@@ -81,12 +93,31 @@ after 10. Batch independent calls with NativeBlade::pool() or split the work
 across requests.
 ```
 
-`replay(fn () => ...)` does the same for any code: a controller action, a job,
-a plain closure. The closure must start from the same inputs each time.
+Because nothing is undone between runs, the replay also catches the trap
+that only shows on the device: a write before a native call that changes what
+the next run does.
 
-Two things to know. `Http::sequence()` fakes are consumed by the first run, so
-use fixed responses or callbacks with replay. Transaction statements are not
-counted as queries.
+```php
+if (NativeBlade::getState('sync.lock')) return;   // run two gives up here
+NativeBlade::setState('sync.lock', true);
+Http::get('https://api.example.com/sync');          // run one exits here
+```
+
+```
+Replay diverged at call #1: was `GET https://api.example.com/sync`, now
+nothing (the request completed without making it).
+```
+
+`replay(fn () => ...)` does the same for any code: a controller action, a job,
+a plain closure. The closure is invoked once per run and must start from the
+same inputs each time.
+
+Three things to know. The exit is an `Error`, not an `Exception`, so a
+`catch (\Exception $e)` around a native call lets it through, as `exit()`
+would on the device. `Http::pool()` is never a stop point: its requests run
+together and count as one call, as on the device. `Http::sequence()` fakes
+are consumed by the run that reaches them; prefer fixed responses or
+callbacks with replay.
 
 ## Assertions
 
@@ -96,8 +127,10 @@ Counts and lookups over the recorded calls:
 $fake->assertHttpCalls(2);
 $fake->assertHttpCallsAtMost(10);
 $fake->assertHttpCalled('POST', 'https://api.example.com/items*');   // Str::is() pattern
-$fake->assertQueries(3);
-$fake->assertQueriesAtMost(20);
+$fake->assertNativeQueries(3);        // native database only: what the budget counts
+$fake->assertNativeQueriesAtMost(20);
+$fake->assertQueries(40);              // every query, local SQLite included
+$fake->assertQueriesAtMost(60);
 $fake->assertFsOps(1);
 $fake->assertFsOpsAtMost(20);
 ```
@@ -118,7 +151,7 @@ $fake->assertNotLogged('retrying');
 A failed assertion lists what was recorded, so the message shows the calls or
 actions the code actually made.
 
-The raw data is available too: `sequence()`, `httpCalls()`, `queries()`,
+The raw data is available too: `sequence()`, `nativeCalls()`, `httpCalls()`, `queries()`, `nativeQueries()`,
 `fsOps()`, `pushed()`, `logs()` and `fsRoot()`, the directory the native disks
 write to.
 

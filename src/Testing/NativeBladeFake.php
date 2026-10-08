@@ -3,6 +3,8 @@
 namespace NativeBlade\Testing;
 
 use Closure;
+use GuzzleHttp\Promise\FulfilledPromise;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Filesystem\FilesystemAdapter;
@@ -23,14 +25,20 @@ use ReflectionProperty;
 /**
  * The runtime's execution model, simulated inside PHPUnit.
  *
- * On the device a request is re-run from scratch after every native call
- * (HTTP, database, filesystem), replaying the earlier calls from a cache, and
- * is abandoned when it makes more sequential calls than the runtime allows.
+ * On the device a request runs until its first native call that is not in
+ * the cache (HTTP, a query on a `nativeblade-db` connection, an operation on
+ * a native disk), exits there, and is re-run from the same snapshot once the
+ * shell has the result; the earlier calls are served from the cache. What the
+ * request wrote before exiting (local SQLite, state, files) stays written. A
+ * request is abandoned when it makes more sequential calls than the runtime
+ * allows.
+ *
  * Code that passes Livewire::test() still breaks there when a call is not
- * deterministic or an action makes too many of them. NativeBlade::fake()
- * records every call an action makes, runs it twice to compare the sequences
- * the way the shell's replay detector does, enforces the same budgets, and
- * lets a test assert on the actions pushed to the shell and the log entries.
+ * deterministic, when a write before a call changes the next run, or when an
+ * action makes too many calls. NativeBlade::fake() runs an action exactly
+ * that way: N+1 runs, nothing undone, the sequence of calls compared between
+ * runs and the same budgets enforced. It also captures the actions pushed to
+ * the shell and the log entries.
  *
  * @see \NativeBlade\Facades\NativeBlade::fake()
  */
@@ -45,8 +53,11 @@ class NativeBladeFake extends ShellConfig
     /** Mirror of MAX_RETRIES in js/runtime/fs-bridge.js. */
     public const FS_BUDGET = 20;
 
-    /** @var list<array<string, mixed>> every bridge call, in order */
-    private array $sequence = [];
+    /** Connections whose queries are native calls on the device. */
+    public const BRIDGE_DB_DRIVERS = ['nativeblade-db'];
+
+    /** @var list<array<string, mixed>> everything recorded, in order: native calls and local queries */
+    private array $log = [];
 
     /** @var list<array{action: string, data: array<string, mixed>}> */
     private array $pushed = [];
@@ -55,6 +66,20 @@ class NativeBladeFake extends ShellConfig
     private array $logs = [];
 
     private string $fsRoot;
+
+    // Replay state.
+    private bool $replaying = false;
+    private bool $exited = false;
+    private int $callIndex = 0;
+
+    /** @var list<array<string, mixed>> native calls of the current run */
+    private array $runCalls = [];
+
+    /** @var list<array<string, mixed>> native calls of the previous run */
+    private array $previousCalls = [];
+
+    /** @var array<int, mixed> results of the calls already completed, by call index */
+    private array $cache = [];
 
     public function __construct(
         private string $fakePlatform = 'android',
@@ -80,31 +105,61 @@ class NativeBladeFake extends ShellConfig
 
         $app->instance('nativeblade', $fake);
 
-        Http::globalRequestMiddleware(function (RequestInterface $request) use ($fake) {
-            $fake->record([
-                'type' => 'http',
-                'method' => $request->getMethod(),
-                'url' => (string) $request->getUri(),
-                'pool' => WasmHttpHandler::isPooling(),
-            ]);
+        // HTTP: a Guzzle middleware, so a cached call never reaches the handler
+        // (nor Http::fake()'s stub), exactly as the handler on the device
+        // returns the cached response without a fetch.
+        Http::globalMiddleware(function (callable $handler) use ($fake) {
+            return function (RequestInterface $request, array $options) use ($handler, $fake) {
+                $entry = [
+                    'type' => 'http',
+                    'method' => $request->getMethod(),
+                    'url' => (string) $request->getUri(),
+                    'pool' => WasmHttpHandler::isPooling(),
+                ];
 
-            return $request;
+                $snapshot = $fake->bridge($entry, function () use ($handler, $request, $options) {
+                    $response = $handler($request, $options)->wait();
+
+                    return [
+                        'status' => $response->getStatusCode(),
+                        'headers' => $response->getHeaders(),
+                        'body' => (string) $response->getBody(),
+                    ];
+                });
+
+                return new FulfilledPromise(new Response($snapshot['status'], $snapshot['headers'], $snapshot['body']));
+            };
         });
 
-        $app['events']->listen(QueryExecuted::class, function (QueryExecuted $event) use ($fake) {
-            $fake->record([
+        // Native database: an in-memory SQLite whose every query is a native call.
+        $bridge = fn (array $entry, Closure $execute) => $fake->bridge($entry, $execute);
+        foreach (self::BRIDGE_DB_DRIVERS as $driver) {
+            DB::extend($driver, fn (array $config, string $name) => new FakeNativeConnection($bridge, $config, $name));
+        }
+        foreach ((array) $app['config']->get('database.connections', []) as $name => $connection) {
+            if (in_array($connection['driver'] ?? null, self::BRIDGE_DB_DRIVERS, true)) {
+                DB::purge($name);
+            }
+        }
+
+        // Local database: recorded as information, never a native call.
+        $app['events']->listen(QueryExecuted::class, function (QueryExecuted $event) use ($fake, $app) {
+            $driver = $app['config']->get("database.connections.{$event->connectionName}.driver");
+            if (in_array($driver, self::BRIDGE_DB_DRIVERS, true)) {
+                return;
+            }
+            $fake->note([
                 'type' => 'db',
+                'bridge' => false,
                 'sql' => $event->sql,
                 'bindings' => $event->bindings,
                 'connection' => $event->connectionName,
             ]);
         });
 
-        Storage::extend('nativeblade', function ($app, $config) use ($fake) {
-            $adapter = new RecordingFilesystemAdapter(
-                $fake->fsRoot,
-                fn (array $op) => $fake->record(['type' => 'fs', ...$op]),
-            );
+        // Native disks: every operation is a native call.
+        Storage::extend('nativeblade', function ($app, $config) use ($fake, $bridge) {
+            $adapter = new RecordingFilesystemAdapter($fake->fsRoot, $bridge);
 
             return new FilesystemAdapter(new Filesystem($adapter), $adapter, $config);
         });
@@ -150,21 +205,76 @@ class NativeBladeFake extends ShellConfig
     }
 
     // ------------------------------------------------------------------
+    // The bridge
+    // ------------------------------------------------------------------
+
+    /**
+     * Every native call comes through here. Outside a replay it just runs and
+     * is recorded. Inside a replay it behaves like the device: a call already
+     * completed is served from the cache; the first call that is not stops the
+     * run after being carried out (that is what the shell would do), and the
+     * request is re-run; a call whose content differs from the previous run
+     * at the same position is a divergence.
+     *
+     * @internal
+     */
+    public function bridge(array $entry, Closure $execute): mixed
+    {
+        if (!$this->replaying) {
+            $this->note($entry);
+
+            return $execute();
+        }
+
+        if ($this->exited) {
+            // The request already exited in this run; on the device nothing
+            // runs after exit(0). Reached when a retry loop re-sends a call.
+            throw new BridgePending();
+        }
+
+        $index = $this->callIndex++;
+        $this->runCalls[] = $entry;
+        $this->note($entry);
+
+        $previous = $this->previousCalls[$index] ?? null;
+        if ($previous !== null && self::key($previous) !== self::key($entry)) {
+            throw new ReplayFailed($this->divergence($index, $previous, $entry));
+        }
+
+        if (!empty($entry['pool'])) {
+            // A pool is flushed as one batch on the device; it is never a
+            // stop point here, and its calls are not cached.
+            return $execute();
+        }
+
+        if (array_key_exists($index, $this->cache)) {
+            return $this->cache[$index];
+        }
+
+        $this->cache[$index] = $execute();
+        $this->exited = true;
+        $this->checkBudgets($this->runCalls);
+
+        throw new BridgePending();
+    }
+
+    // ------------------------------------------------------------------
     // Replay
     // ------------------------------------------------------------------
 
     /**
-     * Run a Livewire action twice from the same component snapshot, exactly as
-     * the runtime re-runs a request, and fail when the two runs do not make
-     * the same native calls in the same order or when one of them exceeds a
-     * budget. The first run's database writes are rolled back; the component
-     * and the recorded calls reflect the second run.
+     * Run a Livewire action the way the runtime runs a request: again and
+     * again from the same component snapshot, each run going one native call
+     * further than the last, until a run completes. Fails on the first call
+     * that differs between two runs and when a run exceeds a budget. Nothing a
+     * run wrote is undone. The component, the recorded calls, the pushed
+     * actions and the logs reflect the final run.
      */
     public function replayCall(Testable $component, string $method, mixed ...$params): Testable
     {
         $state = \Livewire\invade($component)->lastState;
 
-        $this->runTwice(
+        $this->runReplay(
             fn () => $component->call($method, ...$params),
             function () use ($component, $state) {
                 \Livewire\invade($component)->lastState = $state;
@@ -176,15 +286,15 @@ class NativeBladeFake extends ShellConfig
 
     /**
      * Same as replayCall() for any code: a controller action, a job, a plain
-     * closure. The closure must start from the same inputs each time; the
-     * database is rolled back between the runs for it.
+     * closure. The closure is invoked once per run and must start from the
+     * same inputs each time.
      */
     public function replay(Closure $action): mixed
     {
-        return $this->runTwice($action, null);
+        return $this->runReplay($action, null);
     }
 
-    private function runTwice(Closure $run, ?Closure $restore): mixed
+    private function runReplay(Closure $run, ?Closure $restore): mixed
     {
         $frozeClock = false;
         if (!Carbon::hasTestNow()) {
@@ -192,87 +302,81 @@ class NativeBladeFake extends ShellConfig
             $frozeClock = true;
         }
 
-        try {
-            $first = $this->recordRun(function () use ($run) {
-                $connections = DB::getConnections();
-                foreach ($connections as $connection) {
-                    $connection->beginTransaction();
-                }
-                try {
-                    $run();
-                } finally {
-                    foreach ($connections as $connection) {
-                        $connection->rollBack();
-                    }
-                }
-            });
+        $this->replaying = true;
+        $this->cache = [];
+        $this->previousCalls = [];
+        $maxRuns = 1 + self::HTTP_BUDGET + self::DB_BUDGET + self::FS_BUDGET;
 
-            if ($restore !== null) {
-                $restore();
+        try {
+            for ($runNumber = 1; $runNumber <= $maxRuns; $runNumber++) {
+                if ($runNumber > 1 && $restore !== null) {
+                    $restore();
+                }
+                // A fresh PHP process on the device: nothing remembered from
+                // the previous run survives.
+                $this->forgetRequestMemo();
+                $this->log = [];
+                $this->pushed = [];
+                $this->logs = [];
+                $this->runCalls = [];
+                $this->callIndex = 0;
+                $this->exited = false;
+
+                $result = null;
+                $completed = false;
+                try {
+                    $result = $run();
+                    $completed = true;
+                } catch (BridgePending) {
+                    // The run stopped at its pending call; the next one goes further.
+                } catch (ReplayFailed $e) {
+                    Assert::fail($e->getMessage());
+                }
+
+                if ($completed) {
+                    if (count($this->runCalls) < count($this->previousCalls)) {
+                        Assert::fail($this->divergence(count($this->runCalls), $this->previousCalls[count($this->runCalls)], null));
+                    }
+                    $this->checkBudgets($this->runCalls);
+
+                    return $result;
+                }
+
+                $this->previousCalls = $this->runCalls;
             }
 
-            $this->pushed = [];
-            $this->logs = [];
-            $result = null;
-            $second = $this->recordRun(function () use ($run, &$result) {
-                $result = $run();
-            });
+            Assert::fail("The request did not complete after {$maxRuns} runs.");
         } finally {
+            $this->replaying = false;
             if ($frozeClock) {
                 Carbon::setTestNow();
             }
         }
-
-        $this->sequence = $second;
-        $this->assertSameSequence($first, $second);
-        $this->assertWithinBudgets($second);
-
-        return $result;
     }
 
-    /** @return list<array<string, mixed>> the calls made during $fn */
-    private function recordRun(Closure $fn): array
+    private function divergence(int $index, array $was, ?array $now): string
     {
-        // Each run is a fresh PHP process on the device: nothing remembered
-        // from the previous run survives, so the memo is dropped here too.
-        $this->forgetRequestMemo();
+        $nowText = $now === null
+            ? 'nothing (the request completed without making it)'
+            : '`' . self::describe($now) . '`';
 
-        $start = count($this->sequence);
-        $fn();
-
-        return array_values(array_slice($this->sequence, $start));
+        return sprintf(
+            "Replay diverged at call #%d: was `%s`, now %s.\n"
+            . 'PHP is re-run after every native call (HTTP, native database, native filesystem) and must make the same '
+            . 'calls in the same order; something before this call is not deterministic (random values, the clock, '
+            . 'state written before the call that changes the next run).',
+            $index + 1,
+            self::describe($was),
+            $nowText,
+        );
     }
 
-    private function assertSameSequence(array $first, array $second): void
+    /** @throws ReplayFailed */
+    private function checkBudgets(array $calls): void
     {
-        $max = max(count($first), count($second));
-        for ($i = 0; $i < $max; $i++) {
-            $a = $first[$i] ?? null;
-            $b = $second[$i] ?? null;
-            if ($a !== null && $b !== null && self::key($a) === self::key($b)) {
-                continue;
-            }
-
-            $was = $a === null ? 'nothing (the first run ended here)' : '`' . self::describe($a) . '`';
-            $now = $b === null ? 'nothing (the second run ended here)' : '`' . self::describe($b) . '`';
-
-            Assert::fail(sprintf(
-                "Replay diverged at call #%d: was %s, now %s.\n"
-                . 'PHP is re-run after every native call (HTTP, database, filesystem) and must make the same calls '
-                . 'in the same order; something before this call is not deterministic (random values, the clock, '
-                . 'state changed before the call).',
-                $i + 1,
-                $was,
-                $now,
-            ));
-        }
-    }
-
-    private function assertWithinBudgets(array $sequence): void
-    {
-        $http = self::httpBudgetUnits($sequence);
+        $http = self::httpBudgetUnits($calls);
         if ($http > self::HTTP_BUDGET) {
-            Assert::fail(sprintf(
+            throw new ReplayFailed(sprintf(
                 'This action made %d sequential HTTP calls; the runtime abandons a request after %d. '
                 . 'Batch independent calls with NativeBlade::pool() or split the work across requests.',
                 $http,
@@ -280,20 +384,20 @@ class NativeBladeFake extends ShellConfig
             ));
         }
 
-        $db = count(array_filter($sequence, fn ($e) => $e['type'] === 'db'));
+        $db = count(array_filter($calls, fn ($e) => $e['type'] === 'db'));
         if ($db > self::DB_BUDGET) {
-            Assert::fail(sprintf(
-                'This action ran %d queries; the runtime abandons a request after %d. '
+            throw new ReplayFailed(sprintf(
+                'This action ran %d queries on the native database; the runtime abandons a request after %d. '
                 . 'Eager-load relations, cache lookups or split the work across requests.',
                 $db,
                 self::DB_BUDGET,
             ));
         }
 
-        $fs = count(array_filter($sequence, fn ($e) => $e['type'] === 'fs'));
+        $fs = count(array_filter($calls, fn ($e) => $e['type'] === 'fs'));
         if ($fs > self::FS_BUDGET) {
-            Assert::fail(sprintf(
-                'This action made %d filesystem operations; the runtime abandons a request after %d. '
+            throw new ReplayFailed(sprintf(
+                'This action made %d native filesystem operations; the runtime abandons a request after %d. '
                 . 'Split the work across requests.',
                 $fs,
                 self::FS_BUDGET,
@@ -302,11 +406,11 @@ class NativeBladeFake extends ShellConfig
     }
 
     /** Pooled calls cost one re-run together, as on the device. */
-    private static function httpBudgetUnits(array $sequence): int
+    private static function httpBudgetUnits(array $calls): int
     {
         $units = 0;
         $inPool = false;
-        foreach ($sequence as $entry) {
+        foreach ($calls as $entry) {
             if ($entry['type'] !== 'http') {
                 $inPool = false;
                 continue;
@@ -350,33 +454,45 @@ class NativeBladeFake extends ShellConfig
     // ------------------------------------------------------------------
 
     /** @internal */
-    public function record(array $entry): void
+    public function note(array $entry): void
     {
-        $this->sequence[] = $entry;
+        $this->log[] = $entry;
     }
 
-    /** @return list<array<string, mixed>> every native call, in order (after replay: the final run) */
+    /** @return list<array<string, mixed>> everything recorded, in order (after a replay: the final run) */
     public function sequence(): array
     {
-        return $this->sequence;
+        return $this->log;
+    }
+
+    /** @return list<array<string, mixed>> only the native calls: HTTP, native database, native filesystem */
+    public function nativeCalls(): array
+    {
+        return array_values(array_filter($this->log, fn ($e) => $e['type'] !== 'db' || !empty($e['bridge'])));
     }
 
     /** @return list<array{type: string, method: string, url: string, pool: bool}> */
     public function httpCalls(): array
     {
-        return array_values(array_filter($this->sequence, fn ($e) => $e['type'] === 'http'));
+        return array_values(array_filter($this->log, fn ($e) => $e['type'] === 'http'));
     }
 
-    /** @return list<array{type: string, sql: string, bindings: array, connection: string}> */
+    /** @return list<array<string, mixed>> every query, local and native; `bridge` tells which */
     public function queries(): array
     {
-        return array_values(array_filter($this->sequence, fn ($e) => $e['type'] === 'db'));
+        return array_values(array_filter($this->log, fn ($e) => $e['type'] === 'db'));
+    }
+
+    /** @return list<array<string, mixed>> queries on native (`nativeblade-db`) connections only */
+    public function nativeQueries(): array
+    {
+        return array_values(array_filter($this->log, fn ($e) => $e['type'] === 'db' && !empty($e['bridge'])));
     }
 
     /** @return list<array{type: string, op: string, path: string, baseDir: string}> */
     public function fsOps(): array
     {
-        return array_values(array_filter($this->sequence, fn ($e) => $e['type'] === 'fs'));
+        return array_values(array_filter($this->log, fn ($e) => $e['type'] === 'fs'));
     }
 
     /** @return list<array{action: string, data: array<string, mixed>}> actions flushed with toResponse() */
@@ -422,6 +538,7 @@ class NativeBladeFake extends ShellConfig
         Assert::fail("No HTTP call matched {$method} {$url}.\n" . $this->listing('HTTP calls', $this->httpCalls()));
     }
 
+    /** Every query, local SQLite included. */
     public function assertQueries(int $count): static
     {
         Assert::assertCount($count, $this->queries(), $this->listing('queries', $this->queries()));
@@ -432,6 +549,21 @@ class NativeBladeFake extends ShellConfig
     public function assertQueriesAtMost(int $count): static
     {
         Assert::assertLessThanOrEqual($count, count($this->queries()), $this->listing('queries', $this->queries()));
+
+        return $this;
+    }
+
+    /** Queries on native connections only: the ones that count against the budget. */
+    public function assertNativeQueries(int $count): static
+    {
+        Assert::assertCount($count, $this->nativeQueries(), $this->listing('native queries', $this->nativeQueries()));
+
+        return $this;
+    }
+
+    public function assertNativeQueriesAtMost(int $count): static
+    {
+        Assert::assertLessThanOrEqual($count, count($this->nativeQueries()), $this->listing('native queries', $this->nativeQueries()));
 
         return $this;
     }
