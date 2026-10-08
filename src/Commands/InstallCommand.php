@@ -4,11 +4,13 @@ namespace NativeBlade\Commands;
 
 use Illuminate\Console\Command;
 use NativeBlade\Commands\Concerns\DisablesViteFontFallbacks;
+use NativeBlade\Commands\Concerns\IgnoresGeneratedFiles;
 use NativeBlade\NativeBladeServiceProvider;
 
 class InstallCommand extends Command
 {
     use DisablesViteFontFallbacks;
+    use IgnoresGeneratedFiles;
 
     protected $signature = 'nativeblade:install
         {--name= : App name (skips the interactive prompt)}
@@ -58,6 +60,7 @@ class InstallCommand extends Command
         $this->patchDatabaseConfig();
         $this->patchFilesystemsConfig();
         $this->patchEnv();
+        $this->ignoreGeneratedFiles();
         $this->createDirectories();
         $this->call('nativeblade:icon');
         $this->runConfigInFreshProcess();

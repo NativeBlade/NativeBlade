@@ -85,9 +85,10 @@ In Blade, use Laravel translation as usual:
 ## Changing the language at runtime
 
 Let the user switch languages from inside the app. The choice is persisted to the
-local SQLite state, applied to the current request immediately, and mirrored to
-`nativeblade-locale.json` so the next splash screen already starts in the chosen
-language.
+local SQLite state and applied to the current request immediately. The shell
+reads the `lang` attribute of the next rendered page and remembers it, so the
+next splash screen already starts in the chosen language. Nothing is written to
+`public/`.
 
 ```php
 use NativeBlade\Facades\NativeBlade;

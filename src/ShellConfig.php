@@ -765,6 +765,9 @@ class ShellConfig
             'INSERT OR REPLACE INTO nativeblade_state (key, value, scope) VALUES (?, ?, ?)',
             [$key, json_encode($value), $scope]
         );
+        if ($key === 'app.locale') {
+            $this->rememberChosenLocale(is_string($value) ? $value : null);
+        }
     }
 
     /**
@@ -782,26 +785,22 @@ class ShellConfig
     }
 
     /**
-     * Set the app language. Persists it (survives restarts), applies it to the
-     * current request via app()->setLocale(), and mirrors it to the boot locale
-     * file so the splash/loading screen (rendered by i18n.js before PHP boots)
-     * follows the user's choice on the next launch.
+     * Set the app language. Persists it (survives restarts) and applies it to
+     * the current request via app()->setLocale(). The shell reads the `lang`
+     * attribute of the next rendered page and remembers it, so the splash
+     * screen (rendered by i18n.js before PHP boots) follows the choice on the
+     * next launch without any file being written.
      */
     public function setLanguage(string $locale): void
     {
         $this->setState('app.locale', $locale);
         app()->setLocale($locale);
-
-        @file_put_contents(public_path('nativeblade-locale.json'), json_encode([
-            'defaultLocale' => $locale,
-            'locale'        => $locale,
-        ]));
     }
 
     /** The persisted app language, or the config default when none was chosen yet. */
     public function currentLanguage(): string
     {
-        return $this->getState('app.locale', config('app.locale', 'en'));
+        return $this->chosenLocale() ?? config('app.locale', 'en');
     }
 
     /**
@@ -828,6 +827,9 @@ class ShellConfig
     {
         $this->ensureTable();
         DB::connection('sqlite')->delete('DELETE FROM nativeblade_state WHERE key = ?', [$key]);
+        if ($key === 'app.locale') {
+            $this->rememberChosenLocale(null);
+        }
     }
 
     /**
@@ -869,8 +871,50 @@ class ShellConfig
     // ------------------------------------------------------------------
 
     /** Create the `nativeblade_state` table on first access. */
+    /**
+     * Per-request memory. On the device every request is a fresh PHP process
+     * and every query is a native round trip, so what was already read or
+     * ensured in this process is not read again.
+     */
+    private bool $tableEnsured = false;
+    private bool $chosenLocaleLoaded = false;
+    private ?string $chosenLocale = null;
+
+    /**
+     * The language chosen through setLanguage(), or null when the app never
+     * chose one. Read once per request.
+     */
+    public function chosenLocale(): ?string
+    {
+        if (!$this->chosenLocaleLoaded) {
+            $value = $this->getState('app.locale');
+            $this->chosenLocale = is_string($value) && $value !== '' ? $value : null;
+            $this->chosenLocaleLoaded = true;
+        }
+
+        return $this->chosenLocale;
+    }
+
+    private function rememberChosenLocale(?string $locale): void
+    {
+        $this->chosenLocale = $locale !== '' ? $locale : null;
+        $this->chosenLocaleLoaded = true;
+    }
+
+    /** @internal Testing: the next access reads again, as a new request would. */
+    protected function forgetRequestMemo(): void
+    {
+        $this->tableEnsured = false;
+        $this->chosenLocaleLoaded = false;
+        $this->chosenLocale = null;
+    }
+
     private function ensureTable(): void
     {
+        if ($this->tableEnsured) {
+            return;
+        }
         DB::connection('sqlite')->statement('CREATE TABLE IF NOT EXISTS nativeblade_state (key TEXT PRIMARY KEY, value TEXT, scope TEXT DEFAULT \'persistent\')');
+        $this->tableEnsured = true;
     }
 }

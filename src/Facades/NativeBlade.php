@@ -174,4 +174,21 @@ class NativeBlade extends Facade
     {
         return 'nativeblade';
     }
+
+    /**
+     * Replace the shell with a fake that simulates the runtime's execution
+     * model inside PHPUnit: records every HTTP call, query and filesystem
+     * operation, replays actions to catch non-deterministic code, enforces
+     * the runtime's call budgets, and captures pushed actions and log entries.
+     *
+     * @param  string  $platform  'android' | 'ios' | 'windows' | 'macos' | 'linux' | 'web'
+     * @param  bool  $dev  what NativeBlade::isDev() reports
+     */
+    public static function fake(string $platform = 'android', bool $dev = false): \NativeBlade\Testing\NativeBladeFake
+    {
+        $fake = \NativeBlade\Testing\NativeBladeFake::install(static::getFacadeApplication(), $platform, $dev);
+        static::swap($fake);
+
+        return $fake;
+    }
 }

@@ -102,8 +102,9 @@ class NativeBladeServiceProvider extends ServiceProvider
         }
 
         \Livewire\on('hydrate', function () {
-            $chosen = $this->app->make('nativeblade')->getState('app.locale');
-            if (!is_string($chosen) || $chosen === '') {
+            // Memoized per request: the state is read once, not per component.
+            $chosen = $this->app->make('nativeblade')->chosenLocale();
+            if ($chosen === null) {
                 return;
             }
 

@@ -22,6 +22,12 @@ class WasmHttpHandler
         self::$pendingRequests = [];
     }
 
+    /** True between enablePool() and flushPool(): calls made now ride in one batch. */
+    public static function isPooling(): bool
+    {
+        return self::$poolMode;
+    }
+
     public static function flushPool(): void
     {
         if (empty(self::$pendingRequests)) {
