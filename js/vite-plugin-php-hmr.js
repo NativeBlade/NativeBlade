@@ -183,6 +183,21 @@ export default function phpHmrPlugin(projectRoot) {
                 next();
             });
 
+            // NativeBlade::log() entries and PHP errors from the running app,
+            // echoed in the terminal so a phone's logs are readable without
+            // devtools. The shell posts them when it knows this server's URL.
+            server.middlewares.use((req, res, next) => {
+                if (req.method !== 'POST' || !req.url.startsWith('/__nb_log')) return next();
+
+                let body = '';
+                req.on('data', (chunk) => { if (body.length < 65536) body += chunk; });
+                req.on('end', () => {
+                    try { printAppLog(JSON.parse(body)); } catch {}
+                    res.statusCode = 204;
+                    res.end();
+                });
+            });
+
             // App identity for the Portal's app list: product name + icon as a
             // data URL (smallest icon first — this lands in the Portal's
             // localStorage, one entry per remembered app).
@@ -240,6 +255,24 @@ export default function phpHmrPlugin(projectRoot) {
             ];
         },
     };
+}
+
+const LEVEL_COLORS = { info: '\x1b[36m', warn: '\x1b[33m', error: '\x1b[31m', debug: '\x1b[35m' };
+
+export function formatAppLog(entry) {
+    const level = typeof entry.level === 'string' ? entry.level : 'info';
+    const color = LEVEL_COLORS[level] || LEVEL_COLORS.info;
+    const time = typeof entry.at === 'string' ? entry.at.replace(/^.*T/, '').replace(/[+-]\d\d:\d\d$|Z$/, '') : '';
+    const context = entry.context && typeof entry.context === 'object' && Object.keys(entry.context).length
+        ? ' ' + JSON.stringify(entry.context)
+        : '';
+    const tag = entry.source === 'php' ? 'php' : 'app';
+    return `${color}[nb:${tag}:${level}]\x1b[0m ${time ? time + ' ' : ''}${String(entry.message ?? '')}${context}`;
+}
+
+function printAppLog(entry) {
+    const line = formatAppLog(entry);
+    (entry.level === 'error' ? console.error : console.log)(line);
 }
 
 function listFiles(dir) {

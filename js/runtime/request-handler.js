@@ -5,10 +5,18 @@ import * as fsBridge from './fs-bridge.js';
 import * as dbBridge from './db-bridge.js';
 import { inlineAssets } from './inline-assets.js';
 import { runBridgeCycle, settleBridges } from './bridge-cycle.js';
+import { createReplayDetector, readPending, formatDivergence } from './replay-detector.js';
+import { reportProblem } from './report.js';
+import { isDevMode } from './dev-mode.js';
 
 // Checked in this order after every PHP execution; only one can be pending
 // per execution because PHP exits at its first bridge call.
 const BRIDGES = { http: httpBridge, fs: fsBridge, db: dbBridge };
+
+// One logical request = several PHP runs. The detector compares the bridge
+// calls each run makes and reports the first one that differs, which is the
+// symptom of non-deterministic PHP before a bridge call (see replay-detector.js).
+const replay = createReplayDetector();
 
 // The main window's bridge-completion callback (posts responses back to the app
 // iframe). A single global is fine for the main window because Livewire drives
@@ -59,6 +67,8 @@ export async function handleRequest(path, options = {}, onBridge = null) {
         APP_BASE_PATH: '/app',
         NATIVEBLADE_PLATFORM: detectPlatform(),
         NATIVEBLADE_TIMESTAMP: String(Math.floor(Date.now() / 1000)),
+        // Lets PHP (NativeBlade::isDev()) fail loud only while served by nativeblade:dev.
+        NATIVEBLADE_DEV: isDevMode() ? '1' : '0',
     };
     for (const [k, v] of Object.entries(headers)) {
         const key = 'HTTP_' + k.toUpperCase().replace(/-/g, '_');
@@ -111,11 +121,15 @@ export async function handleRequest(path, options = {}, onBridge = null) {
         php,
         text,
         bridges: BRIDGES,
-        startCycle: (type) => fulfillInBackground(php, path, options, type, onBridge),
+        startCycle: (type) => {
+            reportReplayDivergence(php, type);
+            return fulfillInBackground(php, path, options, type, onBridge);
+        },
     });
     if (pending) {
         return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
     }
+    replay.reset();
 
     try {
         const json = JSON.parse(text);
@@ -143,7 +157,11 @@ function processStderr(raw) {
         } catch {}
     }
     const rest = raw.replace(logPattern, '').trim();
-    if (rest) console.warn('[NativeBlade PHP Errors]', rest);
+    if (rest) {
+        // PHP warnings and fatals go through the log action, so they reach the
+        // log file, the dev terminal and the dev overlay, not only the console.
+        reportProblem('error', rest, {}, 'php');
+    }
 }
 
 function fulfillInBackground(php, originalPath, originalOptions, type = 'http', onBridge = null) {
@@ -152,6 +170,23 @@ function fulfillInBackground(php, originalPath, originalOptions, type = 'http', 
         bridge: BRIDGES[type],
         rerun: () => handleRequest(originalPath, originalOptions, onBridge),
         getCallback: () => onBridge || pendingBridgeCallback,
-        onAbandon: () => { for (const bridge of Object.values(BRIDGES)) bridge.done(php); },
+        onAbandon: () => {
+            replay.reset();
+            for (const bridge of Object.values(BRIDGES)) bridge.done(php);
+        },
     });
+}
+
+function reportReplayDivergence(php, type) {
+    let findings;
+    try {
+        findings = replay.track(type, readPending(php, BRIDGES[type].PENDING_PATH));
+    } catch {
+        return;
+    }
+    for (const finding of findings) {
+        reportProblem('error', formatDivergence(finding), {
+            type: finding.type, index: finding.index, was: finding.was, now: finding.now,
+        });
+    }
 }

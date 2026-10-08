@@ -20,7 +20,11 @@ Http::withToken($token)->post('https://api.example.com/orders', [
 ```
 
 Everything you know from Laravel applies: headers, tokens, JSON, timeouts,
-retries, and the response helpers.
+retries, and the response helpers. Inside the app the native bridge is
+installed as the Guzzle handler of every request, so Laravel's own pipeline
+still runs: `beforeSending()` callbacks, `Http::fake()` in tests, request
+middleware and macros behave exactly as on a server. Only the network hop is
+different.
 
 ## Parallel requests
 

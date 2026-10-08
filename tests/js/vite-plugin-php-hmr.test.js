@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import phpHmrPlugin from '../../js/vite-plugin-php-hmr.js';
+import phpHmrPlugin, { formatAppLog } from '../../js/vite-plugin-php-hmr.js';
 
 // Minimal stand-in for a Vite dev server: a watcher that emits file events and
 // the middleware stack that serves /__php_changes.
@@ -22,6 +22,20 @@ function startPlugin(root) {
         config: { server: {} },
     });
 
+    // Drive the middleware stack with a fake request/response.
+    const dispatch = (req) => {
+        let body = null;
+        let status = 200;
+        const res = { setHeader() {}, end(data) { body = data; }, set statusCode(v) { status = v; }, get statusCode() { return status; } };
+        for (const middleware of middlewares) {
+            let calledNext = false;
+            middleware(req, res, () => { calledNext = true; });
+            if (!calledNext) break;
+        }
+        // Read lazily: a middleware may answer after an async request event.
+        return { get body() { return body; }, get status() { return status; } };
+    };
+
     const changesSince = (since = 0) => {
         let body = null;
         const req = { url: `/__php_changes?since=${since}`, method: 'GET' };
@@ -34,7 +48,7 @@ function startPlugin(root) {
         return JSON.parse(body);
     };
 
-    return { watcher, changesSince };
+    return { watcher, changesSince, dispatch };
 }
 
 function write(root, rel, content) {
@@ -153,6 +167,39 @@ describe('vite-plugin-php-hmr', () => {
         watcher.emit('add', css);
 
         assert.deepEqual(changesSince(0).changes.map((c) => c.op), ['unlink', 'add']);
+    });
+
+    it('prints app log entries posted to /__nb_log in the terminal', async () => {
+        const { dispatch } = startPlugin(root);
+        const printed = [];
+        const original = { log: console.log, error: console.error };
+        // Only our lines: Node may print its own warnings through console.error meanwhile.
+        const capture = (kind) => (line) => { if (String(line).includes('[nb:')) printed.push([kind, line]); };
+        console.log = capture('log');
+        console.error = capture('error');
+
+        try {
+            const req = new EventEmitter();
+            req.method = 'POST';
+            req.url = '/__nb_log';
+            const result = dispatch(req);
+            req.emit('data', JSON.stringify({ level: 'error', message: 'Payment failed', context: { id: 9 }, at: '2026-10-08T12:00:00.000+00:00' }));
+            req.emit('end');
+            await new Promise((r) => setImmediate(r));
+
+            assert.equal(result.status, 204);
+            assert.equal(printed.length, 1);
+            assert.equal(printed[0][0], 'error');
+            assert.match(printed[0][1], /\[nb:app:error\].*12:00:00\.000 Payment failed \{"id":9\}/);
+        } finally {
+            console.log = original.log;
+            console.error = original.error;
+        }
+    });
+
+    it('formats PHP errors with their own tag', () => {
+        assert.match(formatAppLog({ source: 'php', level: 'error', message: 'Undefined variable' }), /^\x1b\[31m\[nb:php:error\]\x1b\[0m Undefined variable$/);
+        assert.match(formatAppLog({ message: 'plain' }), /\[nb:app:info\]\x1b\[0m plain$/);
     });
 
     it('only returns changes newer than the requested version', () => {

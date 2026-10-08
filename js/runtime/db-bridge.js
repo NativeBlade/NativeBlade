@@ -1,4 +1,5 @@
-const PENDING_PATH = '/tmp/__nb_db_pending.json';
+import { reportProblem } from './report.js';
+export const PENDING_PATH = '/tmp/__nb_db_pending.json';
 const CACHE_DIR = '/tmp/__nb_db_cache';
 const MAX_RETRIES = 20;
 
@@ -21,7 +22,7 @@ export async function fulfill(php) {
         return false;
     }
     if (retryCount >= MAX_RETRIES) {
-        console.warn(
+        reportProblem('error',
             `[NativeBlade] database bridge budget exhausted: this PHP request made more than ${MAX_RETRIES} ` +
             `sequential queries and was abandoned with no response. Reduce queries per request (eager-load ` +
             `relations) or split the work across separate requests.`

@@ -53,7 +53,8 @@ class WasmHttpHandler
         }
         $body = (string) $request->getBody();
 
-        $key = md5($method . '|' . $url . '|' . self::$requestIndex);
+        $index = self::$requestIndex;
+        $key = md5($method . '|' . $url . '|' . $index);
         self::$requestIndex++;
         $cachePath = self::CACHE_DIR . '/' . $key . '.json';
 
@@ -81,6 +82,9 @@ class WasmHttpHandler
 
         $pending = [
             'key' => $key,
+            // Position of this call in the request; the shell compares it across
+            // re-runs to spot non-deterministic code before a bridge call.
+            'index' => $index,
             'url' => $url,
             'method' => $method,
             'headers' => $headers,

@@ -1,4 +1,5 @@
-const PENDING_PATH = '/tmp/__nb_fs_pending.json';
+import { reportProblem } from './report.js';
+export const PENDING_PATH = '/tmp/__nb_fs_pending.json';
 const CACHE_DIR = '/tmp/__nb_fs_cache';
 const MAX_RETRIES = 20;
 
@@ -36,7 +37,7 @@ export async function hasPendingRequest(php, output) {
 
 export async function fulfill(php) {
     if (retryCount >= MAX_RETRIES) {
-        console.warn(
+        reportProblem('error',
             `[NativeBlade] filesystem bridge budget exhausted: this PHP request made more than ${MAX_RETRIES} ` +
             `sequential filesystem operations and was abandoned with no response. Split the work across separate requests.`
         );

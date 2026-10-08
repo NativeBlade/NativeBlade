@@ -632,6 +632,16 @@ class ShellConfig
     }
 
     /**
+     * True while the app is served by `nativeblade:dev`. The shell sets this
+     * per request; a store build never does. APP_DEBUG is not a substitute:
+     * the runtime forces it on inside wasm so errors always render.
+     */
+    public function isDev(): bool
+    {
+        return ($_SERVER['NATIVEBLADE_DEV'] ?? '') === '1';
+    }
+
+    /**
      * Human-readable version of the running app, taken from the per-platform
      * config (`DesktopConfig::version`, `AndroidConfig::version`, etc.).
      * Returns `'dev'` when running in web/dev mode without a declared version.
@@ -712,6 +722,7 @@ class ShellConfig
             'level' => $level,
             'message' => $message,
             'context' => $context,
+            'at' => (new \DateTimeImmutable())->format('Y-m-d\TH:i:s.vP'),
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         @file_put_contents('php://stderr', "__NB_LOG__{$entry}__NB_LOG_END__\n");

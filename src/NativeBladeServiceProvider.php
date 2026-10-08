@@ -43,7 +43,19 @@ class NativeBladeServiceProvider extends ServiceProvider
         if (!$this->app->runningInConsole()) {
             $this->app->booted(function () {
                 $this->runMigrations();
-                app()->setLocale($this->app->make('nativeblade')->currentLanguage());
+
+                $shell = $this->app->make('nativeblade');
+                $locale = $shell->currentLanguage();
+                app()->setLocale($locale);
+
+                // Fail loud in development: a locale with no translations
+                // silently renders the fallback language in a store build.
+                if ($shell->isDev()) {
+                    $problem = Support\LocaleCheck::problem($locale, (string) config('app.fallback_locale', 'en'), $this->app->langPath());
+                    if ($problem !== null) {
+                        $shell->log($problem, ['locale' => $locale], 'error');
+                    }
+                }
             });
         }
 
@@ -64,6 +76,7 @@ class NativeBladeServiceProvider extends ServiceProvider
                 Commands\SignCommand::class,
                 Commands\PhpVersionCommand::class,
                 Commands\McpCommand::class,
+                Commands\LogsCommand::class,
             ]);
         }
     }
@@ -102,10 +115,12 @@ class NativeBladeServiceProvider extends ServiceProvider
             return;
         }
 
-        $stack = \GuzzleHttp\HandlerStack::create(new Http\WasmHttpHandler());
-
-        \Illuminate\Support\Facades\Http::globalMiddleware(
-            fn (callable $next) => fn ($request, array $options) => $stack($request, $options)
+        // Every PendingRequest gets WasmHttpHandler as its Guzzle handler, so
+        // Laravel's own pipeline (beforeSending, fake, retry, middleware) still
+        // runs and only the network hop goes through the bridge.
+        $this->app->singleton(
+            \Illuminate\Http\Client\Factory::class,
+            fn ($app) => new Http\WasmHttpFactory($app->make(\Illuminate\Contracts\Events\Dispatcher::class))
         );
     }
 

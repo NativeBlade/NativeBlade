@@ -9,6 +9,7 @@
 import * as cameraModule from './components/camera/camera.js';
 import { getComponent } from './component-registry.js';
 import { actions } from './actions/index.js';
+import { log } from './actions/system.js';
 
 let appFrameRef = null;
 let isTauri = false;
@@ -177,9 +178,15 @@ export function handleNativeAction(action, payload, appFrame, replyWindow = null
     import(`@components/${action}/${action}.js`)
         .then(mod => { if (mod.render) mod.render(payload); })
         .catch(() => {
-            console.warn(
-                `[NB] unknown action '${action}' — dropped. The runtime is likely older than the app `
-                + `(restart nativeblade:dev / rebuild the app / update the Portal).`
-            );
+            // Through the log action: console, log file, dev terminal and, in
+            // development, the on-screen overlay.
+            log({
+                level: 'error',
+                message: `[NB] unknown action '${action}' was dropped. The runtime is likely older than the app `
+                    + `(restart nativeblade:dev / rebuild the app / update the Portal).`,
+                context: { action },
+                source: 'shell',
+                at: new Date().toISOString(),
+            });
         });
 }
