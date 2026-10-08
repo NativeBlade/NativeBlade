@@ -35,8 +35,19 @@ function safeJson(value) {
  * @param {Function} [opts.fetchFn]      fetch used to post entries to the dev server
  * @returns {(entry: object) => Promise<void>} resolves once the file write settled; never rejects
  */
-export function createSink({ fs = null, baseDir = null, ensureDir = null, devServerUrl = '', fetchFn = null } = {}) {
+export function createSink({ fs = null, baseDir = null, ensureDir = null, devServerUrl = '', fetchFn = null, warn = defaultWarn } = {}) {
     let chain = Promise.resolve();
+    let warned = false;
+
+    // A write that fails (most likely the fs scope lacks $APPLOG, see
+    // stubs/capabilities/default.json) must not reject the sink, but it must
+    // not vanish either: say so once on the console.
+    function writeFailed(err) {
+        if (warned) return;
+        warned = true;
+        warn(`[NB] could not write ${LOG_FILE} in the app log directory; entries still go to the console`
+            + (devServerUrl ? ' and the dev server' : '') + '. Check the fs:scope of capabilities/default.json.', err);
+    }
     let size = null;
 
     async function append(line) {
@@ -74,7 +85,11 @@ export function createSink({ fs = null, baseDir = null, ensureDir = null, devSer
         if (!fs || baseDir === null || baseDir === undefined) return chain;
 
         // Serialized: appends from a burst of logs must not interleave.
-        chain = chain.then(() => append(formatLine(entry))).catch(() => {});
+        chain = chain.then(() => append(formatLine(entry))).catch(writeFailed);
         return chain;
     };
+}
+
+function defaultWarn(...args) {
+    try { console.warn(...args); } catch {}
 }

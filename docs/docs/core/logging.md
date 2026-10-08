@@ -34,6 +34,16 @@ php artisan nativeblade:logs --lines=500
 php artisan nativeblade:logs --path                # only print the location
 ```
 
+The file is written through the fs plugin, which needs `$APPLOG` in the
+`fs:scope` of `src-tauri/capabilities/default.json`. New apps have it; an app
+created earlier gets it the next time `nativeblade:config` runs (`nativeblade:dev`
+and `nativeblade:build` run it). When the write is refused the WebView console
+says so once and the other destinations keep working.
+
+A `NativeBlade::log()` placed before an HTTP call, a query or a filesystem
+operation appears once, even though PHP is re-run after each of those calls:
+only the run that completes the request reports its log lines.
+
 Desktop: the file lives in the OS log directory for the app identifier
 (`~/Library/Logs/<identifier>/` on macOS, `%LOCALAPPDATA%\<identifier>\logs\`
 on Windows, `~/.local/share/<identifier>/logs/` on Linux).

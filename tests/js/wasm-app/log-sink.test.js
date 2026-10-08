@@ -105,14 +105,16 @@ describe('wasm-app/log-sink', () => {
             assert.equal(posts[0].init.keepalive, true);
         });
 
-        it('never rejects: a failing write or post is swallowed and later entries still go through', async () => {
+        it('never rejects: a failing write or post is swallowed, later entries still go through, and the write failure is reported once', async () => {
             const fs = makeFs({ failWrite: true });
             let fetches = 0;
+            const warnings = [];
             const sink = createSink({
                 fs,
                 baseDir: 'AppLog',
                 devServerUrl: 'http://dev',
                 fetchFn: async () => { fetches++; throw new Error('offline'); },
+                warn: (...args) => warnings.push(args),
             });
 
             await sink({ message: 'a' });
@@ -120,6 +122,16 @@ describe('wasm-app/log-sink', () => {
 
             assert.equal(fetches, 2);
             assert.equal(fs.calls.filter((c) => c[0] === 'writeTextFile').length, 2);
+            assert.equal(warnings.length, 1, 'the write failure is reported once, not per entry');
+            assert.match(warnings[0][0], /could not write nativeblade\.log/);
+            assert.match(warnings[0][0], /fs:scope/);
+        });
+
+        it('does not warn when writes succeed', async () => {
+            const warnings = [];
+            const sink = createSink({ fs: makeFs(), baseDir: 'AppLog', warn: (...args) => warnings.push(args) });
+            await sink({ message: 'a' });
+            assert.deepEqual(warnings, []);
         });
 
         it('does nothing when neither a file system nor a dev server is available', async () => {

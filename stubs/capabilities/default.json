@@ -60,6 +60,8 @@
                 { "path": "$APPDATA/**" },
                 { "path": "$APPCACHE" },
                 { "path": "$APPCACHE/**" },
+                { "path": "$APPLOG" },
+                { "path": "$APPLOG/**" },
                 { "path": "$TEMP" },
                 { "path": "$TEMP/**" }
             ]

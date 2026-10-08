@@ -115,14 +115,25 @@ export async function handleRequest(path, options = {}, onBridge = null) {
     const result = await php.run({ code });
     let text = result.text || '';
 
-    if (result.errors) processStderr(result.errors);
+    // Each run of a logical request starts PHP from scratch, so the last run's
+    // stderr holds every log line and error the request produced. Keeping only
+    // the latest run and flushing it once the request settles (or is
+    // abandoned) is what stops a NativeBlade::log() before an Http call from
+    // showing up twice.
+    bufferedStderr = result.errors || '';
 
     const pending = await settleBridges({
         php,
         text,
         bridges: BRIDGES,
         startCycle: (type) => {
-            reportReplayDivergence(php, type);
+            // In development a divergence ends the request: re-running after
+            // it only repeats the same mistake until the retry budget is gone,
+            // with a copy of every log line each time. A store build keeps
+            // going, since some divergences still converge.
+            if (reportReplayDivergence(php, type) && isDevMode()) {
+                return abandonInBackground(php, onBridge);
+            }
             return fulfillInBackground(php, path, options, type, onBridge);
         },
     });
@@ -130,6 +141,7 @@ export async function handleRequest(path, options = {}, onBridge = null) {
         return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
     }
     replay.reset();
+    flushStderr();
 
     try {
         const json = JSON.parse(text);
@@ -141,6 +153,14 @@ export async function handleRequest(path, options = {}, onBridge = null) {
     if (!isJson) text = inlineAssets(text, php);
 
     return { text, errors: result.errors, httpStatusCode: result.httpStatusCode || 200 };
+}
+
+let bufferedStderr = '';
+
+function flushStderr() {
+    const raw = bufferedStderr;
+    bufferedStderr = '';
+    if (raw) processStderr(raw);
 }
 
 function processStderr(raw) {
@@ -170,23 +190,40 @@ function fulfillInBackground(php, originalPath, originalOptions, type = 'http', 
         bridge: BRIDGES[type],
         rerun: () => handleRequest(originalPath, originalOptions, onBridge),
         getCallback: () => onBridge || pendingBridgeCallback,
-        onAbandon: () => {
-            replay.reset();
-            for (const bridge of Object.values(BRIDGES)) bridge.done(php);
-        },
+        onAbandon: () => abandonRequest(php),
     });
 }
 
+// Ends the logical request without a result, through the same path a bridge
+// that gave up takes (the waiting caller receives BRIDGE_ABORTED).
+function abandonInBackground(php, onBridge = null) {
+    return runBridgeCycle({
+        php,
+        bridge: { fulfill: async () => false },
+        rerun: async () => ({ bridgePending: true }),
+        getCallback: () => onBridge || pendingBridgeCallback,
+        onAbandon: () => abandonRequest(php),
+    });
+}
+
+function abandonRequest(php) {
+    flushStderr();
+    replay.reset();
+    for (const bridge of Object.values(BRIDGES)) bridge.done(php);
+}
+
+/** @returns {boolean} true when at least one divergence was found and reported */
 function reportReplayDivergence(php, type) {
     let findings;
     try {
         findings = replay.track(type, readPending(php, BRIDGES[type].PENDING_PATH));
     } catch {
-        return;
+        return false;
     }
     for (const finding of findings) {
         reportProblem('error', formatDivergence(finding), {
             type: finding.type, index: finding.index, was: finding.was, now: finding.now,
         });
     }
+    return findings.length > 0;
 }

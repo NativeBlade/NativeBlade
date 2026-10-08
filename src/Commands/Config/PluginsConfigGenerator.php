@@ -519,6 +519,7 @@ class PluginsConfigGenerator
         if (file_exists($defaultPath)) {
             $cap = json_decode(file_get_contents($defaultPath), true);
             $extras = $this->filterNonStringPerms($cap['permissions'] ?? [], $allowedPrefixes);
+            $extras = self::ensureFsScopePaths($extras, self::REQUIRED_FS_SCOPE_PATHS);
             $cap['permissions'] = array_values(array_unique([
                 ...array_filter($sharedPerms),
                 ...$extras,
@@ -548,6 +549,45 @@ class PluginsConfigGenerator
             file_put_contents($desktopPath, json_encode($cap, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
             $this->cmd->line("  <fg=green>✓</> capabilities/desktop.json");
         }
+    }
+
+    /**
+     * Paths the framework itself writes through the fs plugin. The app's own
+     * fs:scope object is kept as the developer left it, so apps created before
+     * a path was added to the stub would lack it forever; this tops it up.
+     * $APPLOG holds nativeblade.log (see wasm-app/log-sink.js).
+     */
+    public const REQUIRED_FS_SCOPE_PATHS = ['$APPLOG', '$APPLOG/**'];
+
+    /**
+     * Add the given paths to the `fs:scope` permission's allow list when it
+     * exists and lacks them. Without an fs:scope object nothing is added: the
+     * app has no fs plugin, or manages the scope elsewhere.
+     *
+     * @param  array<int, array<string, mixed>>  $permissions  non-string permission objects
+     * @param  array<int, string>  $paths
+     * @return array<int, array<string, mixed>>
+     */
+    public static function ensureFsScopePaths(array $permissions, array $paths): array
+    {
+        foreach ($permissions as $i => $perm) {
+            if (($perm['identifier'] ?? null) !== 'fs:scope') {
+                continue;
+            }
+            $allow = is_array($perm['allow'] ?? null) ? $perm['allow'] : [];
+            $present = array_map(
+                fn ($entry) => is_array($entry) ? ($entry['path'] ?? null) : $entry,
+                $allow
+            );
+            foreach ($paths as $path) {
+                if (!in_array($path, $present, true)) {
+                    $allow[] = ['path' => $path];
+                }
+            }
+            $permissions[$i]['allow'] = $allow;
+        }
+
+        return $permissions;
     }
 
     /**
