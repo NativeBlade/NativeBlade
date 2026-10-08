@@ -395,6 +395,61 @@ class NativeBladeFake extends ShellConfig
         return $this;
     }
 
+    /**
+     * On the device every run is a fresh PHP process; in PHPUnit it is the
+     * same one, so static properties and container singletons outlive a run.
+     * These hooks put such state back the way a new process would find it.
+     *
+     * @var list<string> container abstracts forgotten before every run
+     */
+    private array $flushBetweenRuns = [];
+
+    /** @var list<Closure> */
+    private array $resetBetweenRuns = [];
+
+    /** Forget these container instances before every run; a singleton resolved during a run is rebuilt by the next. */
+    public function flushBetweenRuns(string ...$abstracts): static
+    {
+        $this->flushBetweenRuns = [...$this->flushBetweenRuns, ...$abstracts];
+
+        return $this;
+    }
+
+    /** Run this before every run, for state the container does not own (static properties, caches). */
+    public function resetBetweenRuns(Closure $reset): static
+    {
+        $this->resetBetweenRuns[] = $reset;
+
+        return $this;
+    }
+
+    /**
+     * Native call after which the next replay stops, as a request does when the
+     * user navigates away, the app is closed, or the budget runs out. The call
+     * itself is carried out (the shell completes it) and PHP never resumes:
+     * what the run wrote before stays, nothing after it happens, and no
+     * response reaches the component. One-shot: cleared after the replay.
+     */
+    private ?int $abandonAt = null;
+
+    public function abandonAt(int $call): static
+    {
+        $this->abandonAt = max(1, $call);
+
+        return $this;
+    }
+
+    private function freshProcessState(): void
+    {
+        $this->forgetRequestMemo();
+        foreach ($this->flushBetweenRuns as $abstract) {
+            app()->forgetInstance($abstract);
+        }
+        foreach ($this->resetBetweenRuns as $reset) {
+            $reset();
+        }
+    }
+
     private function runReplay(Closure $run, ?Closure $restore): mixed
     {
         // The clock is held still inside a run and stepped between runs; the
@@ -417,7 +472,7 @@ class NativeBladeFake extends ShellConfig
                 }
                 // A fresh PHP process on the device: nothing remembered from
                 // the previous run survives.
-                $this->forgetRequestMemo();
+                $this->freshProcessState();
                 $this->log = [];
                 $this->pushed = [];
                 $this->logs = [];
@@ -460,12 +515,19 @@ class NativeBladeFake extends ShellConfig
                     return $result;
                 }
 
+                if ($this->abandonAt !== null && count($this->runCalls) >= $this->abandonAt) {
+                    // The request died here. The recorded calls are this
+                    // run's, up to the one that was carried out last.
+                    return null;
+                }
+
                 $this->previousCalls = $this->runCalls;
             }
 
             Assert::fail("The request did not complete after {$maxRuns} runs.");
         } finally {
             $this->replaying = false;
+            $this->abandonAt = null;
             Carbon::setTestNow($previousTestNow);
         }
     }

@@ -90,6 +90,11 @@ final class SyncProbe extends Component
     }
 }
 
+final class ProbeStatic
+{
+    public static int $n = 0;
+}
+
 final class NativeBladeFakeTest extends TestCase
 {
     protected function defineEnvironment($app): void
@@ -619,6 +624,70 @@ final class NativeBladeFakeTest extends TestCase
             }),
             'made 11 sequential HTTP calls',
         );
+    }
+
+    #[Test]
+    public function state_that_outlives_a_run_is_put_back_with_the_between_run_hooks(): void
+    {
+        $fake = NativeBlade::fake();
+        app()->singleton('probe.counter', fn () => new \ArrayObject(['n' => 0]));
+
+        // Same process, so without the hooks the static and the singleton
+        // carry over and the second run differs from the first.
+        $this->expectReplayFailure(
+            fn () => $fake->replay(function () {
+                ProbeStatic::$n++;
+                Http::get('https://api.test/a', ['n' => ProbeStatic::$n]);
+            }),
+            'Replay diverged at call #1: was `GET https://api.test/a?n=1`, now `GET https://api.test/a?n=2`',
+        );
+
+        ProbeStatic::$n = 0;
+        $fake->resetBetweenRuns(fn () => ProbeStatic::$n = 0)
+            ->flushBetweenRuns('probe.counter')
+            ->replay(function () {
+                ProbeStatic::$n++;
+                $counter = app('probe.counter');
+                $counter['n']++;
+                Http::get('https://api.test/a', ['n' => ProbeStatic::$n, 'c' => $counter['n']]);
+            });
+
+        $fake->assertHttpCalled('GET', 'https://api.test/a?n=1&c=1');
+    }
+
+    #[Test]
+    public function abandon_at_kills_the_request_right_after_the_given_native_call(): void
+    {
+        $fake = NativeBlade::fake();
+        $component = Livewire::test(SyncProbe::class, ['calls' => 3, 'insertBefore' => true, 'insertAfter' => true, 'push' => true]);
+        $sent = 0;
+        Http::fake(['api.test/*' => function () use (&$sent) { $sent++; return Http::response(['ok' => true]); }]);
+
+        $fake->abandonAt(2)->replayCall($component, 'sync');
+
+        self::assertSame(2, $sent, 'the second call was carried out by the shell before PHP died');
+        $fake->assertHttpCalls(2)->assertNothingPushed();
+        self::assertSame(2, DB::table('probe_rows')->where('name', 'before')->count(), 'written by both runs that reached it');
+        self::assertSame(0, DB::table('probe_rows')->where('name', 'after')->count(), 'never reached');
+        self::assertSame(3, $component->get('calls'), 'no response reached the component');
+
+        // One-shot: the next replay runs to completion.
+        $fake->replayCall(Livewire::test(SyncProbe::class, ['calls' => 3]), 'sync');
+        $fake->assertHttpCalls(3);
+    }
+
+    #[Test]
+    public function abandon_at_beyond_the_last_call_lets_the_request_complete(): void
+    {
+        $fake = NativeBlade::fake();
+
+        $result = $fake->abandonAt(5)->replay(function () {
+            Http::get('https://api.test/a');
+
+            return 'done';
+        });
+
+        self::assertSame('done', $result);
     }
 
     #[Test]

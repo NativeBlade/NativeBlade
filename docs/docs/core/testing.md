@@ -165,6 +165,45 @@ The raw data is available too: `sequence()`, `nativeCalls()`, `httpCalls()`, `qu
 `fsOps()`, `pushed()`, `logs()` and `fsRoot()`, the directory the native disks
 write to.
 
+## A request that dies
+
+On the device a request can end before it completes: the user navigates
+away, the app is closed, the budget runs out. What it wrote until then stays,
+the rest never happens, and no response reaches the component. `abandonAt()`
+reproduces that for the next replay:
+
+```php
+$fake->abandonAt(3)->replayCall($wizard, 'submit');
+```
+
+The third native call is carried out (the shell completes it, so a POST does
+reach the server) and PHP never resumes. The run's writes before that call
+stay, writes after it are undone, nothing is pushed or logged, and the
+component keeps the state it had before the request. The recorded calls are
+the ones made up to that point. A request with fewer calls than the number
+completes normally. The setting is cleared after one replay.
+
+## State that outlives a run
+
+On the device every run is a fresh PHP process. In PHPUnit all runs share one
+process, so a static property or a container singleton that a run mutates is
+still mutated in the next run, where the device would start clean. The fake
+cannot reset that on its own, the same way Laravel Octane cannot: PHP has no
+generic reset for statics, and flushing every singleton would take the
+database and Livewire with it. Two hooks put such state back before every
+run:
+
+```php
+$fake->resetBetweenRuns(fn () => DeviceState::$timezone = null)
+    ->flushBetweenRuns(SyncClock::class)   // container instance, rebuilt on next use
+    ->replayCall($component, 'sync');
+```
+
+A counter in a static that feeds a request shows as a divergence without the
+hook; a value cached in a static during the first run and reused by the
+second is the opposite case, a divergence the device would have and the fake
+cannot see. Keep per-request state in the request, or declare it here.
+
 ## Where to use it
 
 Every Livewire action that talks to the network, the database or the native
