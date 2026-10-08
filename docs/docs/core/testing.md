@@ -64,9 +64,14 @@ the runtime runs a request. Run one goes until the first native call, carries
 it out (that is the shell's job) and exits. Run two starts from the same
 component snapshot, gets that call from the cache, goes until the second one
 and exits. And so on until a run completes: an action with three native calls
-runs four times. Nothing a run wrote is undone. The clock is frozen for the
-whole replay, so only real non-determinism shows. The component, the recorded
-calls, the pushed actions and the logs reflect the final run.
+runs four times. Nothing a run wrote is undone. The clock stands still inside
+a run and moves one second forward between runs: on the device the runs are a
+few hundred milliseconds apart, so a timestamp inside a call crosses a second
+boundary now and then, and the step makes that happen every time instead of
+once in a while. `advanceClockBetweenRuns(0)` freezes it, any other value sets
+the step. A `Carbon::setTestNow()` the test made is restored afterwards. The
+component, the recorded calls, the pushed actions and the logs reflect the
+final run.
 
 The test fails when a run does not make the same calls, in the same order, as
 the run before it:

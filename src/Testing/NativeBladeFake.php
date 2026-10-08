@@ -359,13 +359,27 @@ class NativeBladeFake extends ShellConfig
         return $this->runReplay($action, null);
     }
 
+    /**
+     * Seconds the clock moves forward between two runs. On the device the
+     * runs are a few hundred milliseconds apart, so a timestamp in a call
+     * crosses a second boundary now and then; a full second between runs
+     * makes that happen every time instead of once in a while. 0 freezes it.
+     */
+    private float $clockStepSeconds = 1.0;
+
+    public function advanceClockBetweenRuns(float $seconds): static
+    {
+        $this->clockStepSeconds = max(0.0, $seconds);
+
+        return $this;
+    }
+
     private function runReplay(Closure $run, ?Closure $restore): mixed
     {
-        $frozeClock = false;
-        if (!Carbon::hasTestNow()) {
-            Carbon::setTestNow(Carbon::now());
-            $frozeClock = true;
-        }
+        // The clock is held still inside a run and stepped between runs; the
+        // test's own Carbon::setTestNow(), if any, is restored at the end.
+        $previousTestNow = Carbon::hasTestNow() ? Carbon::getTestNow() : null;
+        Carbon::setTestNow($previousTestNow ? $previousTestNow->copy() : Carbon::now());
 
         $this->replaying = true;
         $this->cache = [];
@@ -376,6 +390,9 @@ class NativeBladeFake extends ShellConfig
             for ($runNumber = 1; $runNumber <= $maxRuns; $runNumber++) {
                 if ($runNumber > 1 && $restore !== null) {
                     $restore();
+                }
+                if ($runNumber > 1 && $this->clockStepSeconds > 0) {
+                    Carbon::setTestNow(Carbon::getTestNow()->copy()->addMilliseconds((int) round($this->clockStepSeconds * 1000)));
                 }
                 // A fresh PHP process on the device: nothing remembered from
                 // the previous run survives.
@@ -422,9 +439,7 @@ class NativeBladeFake extends ShellConfig
             Assert::fail("The request did not complete after {$maxRuns} runs.");
         } finally {
             $this->replaying = false;
-            if ($frozeClock) {
-                Carbon::setTestNow();
-            }
+            Carbon::setTestNow($previousTestNow);
         }
     }
 

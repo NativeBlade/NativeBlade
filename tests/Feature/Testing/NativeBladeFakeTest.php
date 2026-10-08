@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NativeBlade\Tests\Feature\Testing;
 
 use Illuminate\Http\Client\Pool;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
@@ -536,6 +537,46 @@ final class NativeBladeFakeTest extends TestCase
         });
 
         self::assertSame(1, DB::table('probe_rows')->where('name', 'in-transaction')->count(), 'only the completing run commits');
+    }
+
+    #[Test]
+    public function the_clock_moves_between_runs_so_a_timestamp_in_a_call_diverges_every_time(): void
+    {
+        $fake = NativeBlade::fake();
+
+        $this->expectReplayFailure(
+            fn () => $fake->replay(fn () => Http::get('https://api.test/ping', ['t' => now()->timestamp])),
+            'Replay diverged at call #1',
+            'ping?t=',
+        );
+    }
+
+    #[Test]
+    public function the_clock_step_is_one_second_by_default_configurable_and_the_test_clock_is_restored(): void
+    {
+        Carbon::setTestNow('2026-10-08 10:00:00');
+        $fake = NativeBlade::fake();
+        $seen = [];
+
+        $fake->replay(function () use (&$seen) {
+            $seen[] = now()->toDateTimeString();
+            Http::get('https://api.test/a');
+            Http::get('https://api.test/b');
+        });
+        self::assertSame(['2026-10-08 10:00:00', '2026-10-08 10:00:01', '2026-10-08 10:00:02'], $seen);
+        self::assertSame('2026-10-08 10:00:00', now()->toDateTimeString(), 'the test clock is back where the test set it');
+
+        $seen = [];
+        $fake->advanceClockBetweenRuns(0)->replay(function () use (&$seen) {
+            $seen[] = now()->toDateTimeString();
+            Http::get('https://api.test/a');
+        });
+        self::assertSame(['2026-10-08 10:00:00', '2026-10-08 10:00:00'], $seen);
+
+        Carbon::setTestNow();
+        $fake->advanceClockBetweenRuns(1);
+        $fake->replay(fn () => Http::get('https://api.test/a'));
+        self::assertFalse(Carbon::hasTestNow(), 'a clock the test never froze is left unfrozen');
     }
 
     #[Test]
