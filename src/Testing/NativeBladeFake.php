@@ -85,6 +85,9 @@ class NativeBladeFake extends ShellConfig
     /** @var list<\Illuminate\Database\Connection> local connections with a transaction opened at the exit point */
     private array $postExitConnections = [];
 
+    /** Divergence or budget message found during the current run, reported once the run is over. */
+    private ?string $failure = null;
+
     /**
      * Transaction level of each connection when the run started. A test
      * wrapped in RefreshDatabase runs inside a transaction opened before the
@@ -260,7 +263,11 @@ class NativeBladeFake extends ShellConfig
 
         $previous = $this->previousCalls[$index] ?? null;
         if ($previous !== null && self::key($previous) !== self::key($entry)) {
-            throw new ReplayFailed($this->divergence($index, $previous, $entry));
+            // On the device the detector lives in the shell, outside PHP, so
+            // no catch can swallow it. Here the violation is noted, the run
+            // ends like an exit, and replay() fails afterwards, outside app
+            // code, with this message.
+            $this->abandon($this->divergence($index, $previous, $entry));
         }
 
         if (!empty($entry['pool'])) {
@@ -275,7 +282,21 @@ class NativeBladeFake extends ShellConfig
 
         $this->cache[$index] = $execute();
         $this->exit();
-        $this->checkBudgets($this->runCalls);
+        $overBudget = $this->overBudget($this->runCalls);
+        if ($overBudget !== null) {
+            $this->abandon($overBudget);
+        }
+
+        throw new BridgePending();
+    }
+
+    /** Ends the run as an exit would and keeps the reason for replay() to report. */
+    private function abandon(string $reason): never
+    {
+        $this->failure ??= $reason;
+        if (!$this->exited) {
+            $this->exit();
+        }
 
         throw new BridgePending();
     }
@@ -410,6 +431,7 @@ class NativeBladeFake extends ShellConfig
 
                 $result = null;
                 $completed = false;
+                $this->failure = null;
                 try {
                     $result = $run();
                     // A run that exited and was caught by the app is not a
@@ -417,18 +439,23 @@ class NativeBladeFake extends ShellConfig
                     $completed = !$this->exited;
                 } catch (BridgePending) {
                     // The run stopped at its pending call; the next one goes further.
-                } catch (ReplayFailed $e) {
-                    $this->undoPostExitWrites();
-                    Assert::fail($e->getMessage());
                 } finally {
                     $this->undoPostExitWrites();
+                }
+
+                // Reported here, outside app code, so no catch can hide it.
+                if ($this->failure !== null) {
+                    Assert::fail($this->failure);
                 }
 
                 if ($completed) {
                     if (count($this->runCalls) < count($this->previousCalls)) {
                         Assert::fail($this->divergence(count($this->runCalls), $this->previousCalls[count($this->runCalls)], null));
                     }
-                    $this->checkBudgets($this->runCalls);
+                    $overBudget = $this->overBudget($this->runCalls);
+                    if ($overBudget !== null) {
+                        Assert::fail($overBudget);
+                    }
 
                     return $result;
                 }
@@ -460,38 +487,40 @@ class NativeBladeFake extends ShellConfig
         );
     }
 
-    /** @throws ReplayFailed */
-    private function checkBudgets(array $calls): void
+    /** The budget message when the calls exceed one, null when they fit. */
+    private function overBudget(array $calls): ?string
     {
         $http = self::httpBudgetUnits($calls);
         if ($http > self::HTTP_BUDGET) {
-            throw new ReplayFailed(sprintf(
+            return sprintf(
                 'This action made %d sequential HTTP calls; the runtime abandons a request after %d. '
                 . 'Batch independent calls with NativeBlade::pool() or split the work across requests.',
                 $http,
                 self::HTTP_BUDGET,
-            ));
+            );
         }
 
         $db = count(array_filter($calls, fn ($e) => $e['type'] === 'db'));
         if ($db > self::DB_BUDGET) {
-            throw new ReplayFailed(sprintf(
+            return sprintf(
                 'This action ran %d queries on the native database; the runtime abandons a request after %d. '
                 . 'Eager-load relations, cache lookups or split the work across requests.',
                 $db,
                 self::DB_BUDGET,
-            ));
+            );
         }
 
         $fs = count(array_filter($calls, fn ($e) => $e['type'] === 'fs'));
         if ($fs > self::FS_BUDGET) {
-            throw new ReplayFailed(sprintf(
+            return sprintf(
                 'This action made %d native filesystem operations; the runtime abandons a request after %d. '
                 . 'Split the work across requests.',
                 $fs,
                 self::FS_BUDGET,
-            ));
+            );
         }
+
+        return null;
     }
 
     /** Pooled calls cost one re-run together, as on the device. */

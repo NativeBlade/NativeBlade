@@ -580,6 +580,48 @@ final class NativeBladeFakeTest extends TestCase
     }
 
     #[Test]
+    public function a_divergence_is_reported_with_its_own_message_even_when_the_app_catches_throwable(): void
+    {
+        $fake = NativeBlade::fake();
+        $symptom = null;
+
+        $this->expectReplayFailure(
+            fn () => $fake->replay(function () use (&$symptom) {
+                try {
+                    Http::post('https://api.test/answers/store', ['t' => now()->timestamp]);
+                } catch (\Throwable $e) {
+                    // What a network-error handler would do: mark it pending.
+                    $symptom = 'stored as pending';
+                    DB::table('probe_rows')->insert(['name' => 'pending']);
+                }
+            }),
+            'Replay diverged at call #1: was `POST https://api.test/answers/store body#',
+            'now `POST https://api.test/answers/store body#',
+        );
+
+        self::assertSame(0, DB::table('probe_rows')->where('name', 'pending')->count(), 'nothing after the violation survives');
+    }
+
+    #[Test]
+    public function an_exceeded_budget_is_reported_with_its_own_message_even_when_the_app_catches_throwable(): void
+    {
+        $fake = NativeBlade::fake();
+
+        $this->expectReplayFailure(
+            fn () => $fake->replay(function () {
+                try {
+                    for ($i = 0; $i <= NativeBladeFake::HTTP_BUDGET; $i++) {
+                        Http::get("https://api.test/items?page={$i}");
+                    }
+                } catch (\Throwable) {
+                    NativeBlade::log('unexpected error', [], 'error');
+                }
+            }),
+            'made 11 sequential HTTP calls',
+        );
+    }
+
+    #[Test]
     public function assertion_failures_list_what_was_recorded(): void
     {
         $fake = NativeBlade::fake();

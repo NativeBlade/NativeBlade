@@ -74,7 +74,9 @@ component, the recorded calls, the pushed actions and the logs reflect the
 final run.
 
 The test fails when a run does not make the same calls, in the same order, as
-the run before it:
+the run before it. As on the device, where the detector lives in the shell,
+the violation ends the run like an exit and is reported once the run is over,
+so a `catch` in the app cannot turn it into a different symptom:
 
 ```
 Replay diverged at call #3: was `GET https://api.example.com/ping?r=GmxmcS`,
