@@ -496,6 +496,34 @@ final class NativeBladeFakeTest extends TestCase
     }
 
     #[Test]
+    public function data_set_up_inside_the_test_transaction_survives_a_swallowed_exit(): void
+    {
+        // What RefreshDatabase does: the whole test runs inside a transaction
+        // opened before the replay.
+        DB::beginTransaction();
+        try {
+            DB::table('probe_rows')->insert(['name' => 'fixture']);
+            $fake = NativeBlade::fake();
+
+            $fake->replay(function () {
+                try {
+                    Http::get('https://api.test/items');
+                } catch (\Throwable) {
+                    DB::table('probe_rows')->insert(['name' => 'after-exit']);
+                }
+                DB::table('probe_rows')->insert(['name' => 'completed']);
+            });
+
+            self::assertSame(1, DB::table('probe_rows')->where('name', 'fixture')->count(), 'the fixture outlives the swallowed exit');
+            self::assertSame(0, DB::table('probe_rows')->where('name', 'after-exit')->count());
+            self::assertSame(1, DB::table('probe_rows')->where('name', 'completed')->count());
+            self::assertSame(1, DB::transactionLevel(), 'the test transaction is still open');
+        } finally {
+            DB::rollBack();
+        }
+    }
+
+    #[Test]
     public function a_transaction_open_at_the_exit_point_is_lost_as_on_the_device(): void
     {
         $fake = NativeBlade::fake();

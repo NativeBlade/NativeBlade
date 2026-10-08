@@ -85,6 +85,16 @@ class NativeBladeFake extends ShellConfig
     /** @var list<\Illuminate\Database\Connection> local connections with a transaction opened at the exit point */
     private array $postExitConnections = [];
 
+    /**
+     * Transaction level of each connection when the run started. A test
+     * wrapped in RefreshDatabase runs inside a transaction opened before the
+     * replay; undoing a swallowed exit must roll back to that level, never
+     * below it, or the data the test set up would vanish with it.
+     *
+     * @var array<string, int>
+     */
+    private array $baselineLevels = [];
+
     public function __construct(
         private string $fakePlatform = 'android',
         private bool $fakeDev = false,
@@ -300,10 +310,12 @@ class NativeBladeFake extends ShellConfig
     {
         foreach ($this->postExitConnections as $connection) {
             try {
-                if ($connection->transactionLevel() > 0) {
-                    // Back to level 0: a transaction the app had open at the
-                    // exit point is lost too, as it would be on the device.
-                    $connection->rollBack(0);
+                // Back to where the run started: a transaction the app opened
+                // during the run is lost too, as it would be on the device,
+                // while the test's own transaction (RefreshDatabase) survives.
+                $baseline = $this->baselineLevels[$connection->getName()] ?? 0;
+                if ($connection->transactionLevel() > $baseline) {
+                    $connection->rollBack($baseline);
                 }
             } catch (\Throwable) {
             }
@@ -374,6 +386,10 @@ class NativeBladeFake extends ShellConfig
                 $this->runCalls = [];
                 $this->callIndex = 0;
                 $this->exited = false;
+                $this->baselineLevels = [];
+                foreach (DB::getConnections() as $name => $connection) {
+                    $this->baselineLevels[$name] = $connection->transactionLevel();
+                }
 
                 $result = null;
                 $completed = false;
