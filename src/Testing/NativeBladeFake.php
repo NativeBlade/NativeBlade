@@ -312,6 +312,9 @@ class NativeBladeFake extends ShellConfig
     private function exit(): void
     {
         $this->exited = true;
+        // Anything pushed, logged or recorded from here on belongs to code
+        // the device never ran; it is cut at the end of the run.
+        $this->recordedAtExit = [count($this->pushed), count($this->logs), count($this->log)];
         $this->postExitConnections = [];
         foreach (DB::getConnections() as $name => $connection) {
             $driver = $connection->getConfig('driver');
@@ -327,8 +330,19 @@ class NativeBladeFake extends ShellConfig
         }
     }
 
+    /** @var array{int, int, int}|null sizes of pushed, logs and log at the exit point */
+    private ?array $recordedAtExit = null;
+
     private function undoPostExitWrites(): void
     {
+        if ($this->recordedAtExit !== null) {
+            [$pushed, $logs, $log] = $this->recordedAtExit;
+            $this->pushed = array_slice($this->pushed, 0, $pushed);
+            $this->logs = array_slice($this->logs, 0, $logs);
+            $this->log = array_slice($this->log, 0, $log);
+            $this->recordedAtExit = null;
+        }
+
         foreach ($this->postExitConnections as $connection) {
             try {
                 // Back to where the run started: a transaction the app opened
@@ -517,7 +531,13 @@ class NativeBladeFake extends ShellConfig
 
                 if ($this->abandonAt !== null && count($this->runCalls) >= $this->abandonAt) {
                     // The request died here. The recorded calls are this
-                    // run's, up to the one that was carried out last.
+                    // run's, up to the one that was carried out last. No
+                    // response reached the shell, so the component keeps the
+                    // snapshot it had before the request, effects included.
+                    if ($restore !== null) {
+                        $restore();
+                    }
+
                     return null;
                 }
 

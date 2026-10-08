@@ -36,8 +36,24 @@ final class SyncProbe extends Component
     public bool $write = false;
     public bool $log = false;
     public bool $push = false;
+    public bool $swallow = false;
+    public bool $done = false;
 
     public function sync(): mixed
+    {
+        if ($this->swallow) {
+            // A network-error handler around the whole thing, as apps do.
+            try {
+                return $this->run();
+            } catch (\Throwable) {
+                return $this->finish();
+            }
+        }
+
+        return $this->run();
+    }
+
+    private function run(): mixed
     {
         if ($this->lock) {
             // The trap: on the device the lock written before the HTTP call
@@ -74,6 +90,13 @@ final class SyncProbe extends Component
         if ($this->write) {
             Storage::disk('native')->put(native_path('out.txt'), 'hello');
         }
+
+        return $this->finish();
+    }
+
+    private function finish(): mixed
+    {
+        $this->done = true;
         if ($this->log) {
             NativeBlade::log('synced', ['calls' => $this->calls]);
         }
@@ -674,6 +697,19 @@ final class NativeBladeFakeTest extends TestCase
         // One-shot: the next replay runs to completion.
         $fake->replayCall(Livewire::test(SyncProbe::class, ['calls' => 3]), 'sync');
         $fake->assertHttpCalls(3);
+    }
+
+    #[Test]
+    public function an_abandoned_request_pushes_nothing_even_when_the_app_swallows_the_exit_and_finishes(): void
+    {
+        $fake = NativeBlade::fake();
+        $component = Livewire::test(SyncProbe::class, ['calls' => 2, 'swallow' => true, 'push' => true, 'log' => true]);
+
+        $fake->abandonAt(1)->replayCall($component, 'sync');
+
+        $fake->assertNothingPushed()->assertNotLogged('synced')->assertHttpCalls(1);
+        self::assertFalse($component->get('done'), 'the component keeps the snapshot from before the request');
+        $component->assertNotDispatched('__nativeblade');
     }
 
     #[Test]
