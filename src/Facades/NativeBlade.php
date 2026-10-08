@@ -50,6 +50,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \NativeBlade\NativeResponse forgetSecure(string $key)
  * @method static \NativeBlade\NativeResponse share(?string $text = null, ?string $url = null)
  * @method static \NativeBlade\NativeResponse setBackgroundColor(string $color) Set the shell background at runtime (safe areas, transition backdrop, desktop window) so it can follow a dark/light theme. Any CSS color.
+ * @method static \NativeBlade\NativeResponse setStatusBarStyle(string $style) Set the status bar icon style at runtime ('dark' icons on a light background, 'light' on a dark one); the Android navigation bar follows. Mobile only via the always-on nativeblade-system plugin; no-op on desktop.
  * @method static \NativeBlade\NativeResponse checkPermission(string $permission) Check a runtime permission without prompting; result on the `nb:permission` event as $name + $status (granted|denied|prompt|unsupported). Use a Permission constant.
  * @method static \NativeBlade\NativeResponse requestPermission(string $permission) Request a runtime permission (shows the OS prompt when undecided); outcome on the `nb:permission` event as $name + $status.
  * @method static \NativeBlade\NativeResponse openAppSettings() Open the OS app-settings page (the next step after a denied permission). Works on Android (app details settings) and iOS (settings URL) via the always-on nativeblade-system plugin; no-op on desktop.

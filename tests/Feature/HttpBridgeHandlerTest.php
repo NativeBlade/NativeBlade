@@ -7,23 +7,24 @@ namespace NativeBlade\Tests\Feature;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\Http;
+use NativeBlade\Bridge\NativeBridge;
+use NativeBlade\Facades\NativeBlade;
 use NativeBlade\Http\WasmHttpFactory;
 use NativeBlade\Http\WasmHttpHandler;
 use NativeBlade\Tests\TestCase;
 use PHPUnit\Framework\Attributes\Test;
-use ReflectionClass;
 
 /**
  * Inside the wasm runtime the Http facade must resolve to WasmHttpFactory, so
  * each request runs Laravel's full client pipeline and reaches WasmHttpHandler
- * as the Guzzle handler. The cache is seeded for the keys the handler will
- * compute, so no test ever hits the exit(0) branch.
+ * as the Guzzle handler. The tests answer the bridge in place of the shell.
  */
 final class HttpBridgeHandlerTest extends TestCase
 {
-    private const CACHE_DIR = '/tmp/__nb_http_cache';
-
     private ?string $originalPlatform = null;
+
+    /** @var list<array<string, mixed>> */
+    private array $calls = [];
 
     protected function setUp(): void
     {
@@ -31,14 +32,25 @@ final class HttpBridgeHandlerTest extends TestCase
         $_SERVER['NATIVEBLADE_PLATFORM'] = 'android';
 
         parent::setUp();
-        $this->resetHandlerStatics();
-        $this->scrubCache();
+
+        $this->calls = [];
+        NativeBridge::handleWith(function (array $message) {
+            $this->calls[] = $message;
+            if ($message['nativeblade'] === 'http_pool') {
+                return ['ok' => true, 'result' => array_map(
+                    fn (array $r) => ['status' => 200, 'headers' => [], 'body' => strtoupper(substr($r['url'], -1))],
+                    $message['requests'],
+                )];
+            }
+
+            return ['ok' => true, 'result' => ['status' => 201, 'headers' => ['Content-Type' => 'application/json'], 'body' => '{"ok":true}']];
+        });
     }
 
     protected function tearDown(): void
     {
-        $this->resetHandlerStatics();
-        $this->scrubCache();
+        WasmHttpHandler::flushPool();
+        NativeBridge::handleWith(null);
 
         if ($this->originalPlatform === null) {
             unset($_SERVER['NATIVEBLADE_PLATFORM']);
@@ -47,30 +59,6 @@ final class HttpBridgeHandlerTest extends TestCase
         }
 
         parent::tearDown();
-    }
-
-    private function resetHandlerStatics(): void
-    {
-        $ref = new ReflectionClass(WasmHttpHandler::class);
-        $ref->getProperty('poolMode')->setValue(null, false);
-        $ref->getProperty('pendingRequests')->setValue(null, []);
-        $ref->getProperty('requestIndex')->setValue(null, 0);
-    }
-
-    private function scrubCache(): void
-    {
-        foreach (glob(self::CACHE_DIR . '/*.json') ?: [] as $file) {
-            @unlink($file);
-        }
-    }
-
-    private function seedCache(string $method, string $url, int $index, array $payload, string $body = ''): void
-    {
-        if (!is_dir(self::CACHE_DIR)) {
-            mkdir(self::CACHE_DIR, 0777, true);
-        }
-        $key = md5($method . '|' . $url . '|' . md5($body) . '|' . $index);
-        file_put_contents(self::CACHE_DIR . '/' . $key . '.json', json_encode($payload));
     }
 
     #[Test]
@@ -83,23 +71,17 @@ final class HttpBridgeHandlerTest extends TestCase
     #[Test]
     public function requests_are_answered_by_the_bridge_handler(): void
     {
-        $this->seedCache('GET', 'https://api.test/items', 0, [
-            'status' => 200,
-            'headers' => ['Content-Type' => 'application/json'],
-            'body' => '{"ok":true}',
-        ]);
-
         $response = Http::get('https://api.test/items');
 
         self::assertTrue($response->successful());
         self::assertSame(['ok' => true], $response->json());
+        self::assertSame('GET', $this->calls[0]['method']);
+        self::assertSame('https://api.test/items', $this->calls[0]['url']);
     }
 
     #[Test]
     public function before_sending_callbacks_run_with_the_bridge_handler(): void
     {
-        $this->seedCache('POST', 'https://api.test/items', 0, ['status' => 201, 'headers' => [], 'body' => 'created'], '{"name":"x"}');
-
         $seen = null;
         $response = Http::beforeSending(function ($request) use (&$seen) {
             $seen = [$request->method(), $request->url(), $request->header('X-Trace')];
@@ -107,7 +89,7 @@ final class HttpBridgeHandlerTest extends TestCase
 
         self::assertSame(['POST', 'https://api.test/items', ['abc']], $seen);
         self::assertSame(201, $response->status());
-        self::assertSame('created', $response->body());
+        self::assertSame('{"name":"x"}', base64_decode($this->calls[0]['body']));
     }
 
     #[Test]
@@ -119,22 +101,20 @@ final class HttpBridgeHandlerTest extends TestCase
 
         self::assertSame(418, $response->status());
         self::assertSame('faked', $response->body());
-        // Nothing reached the handler: no pending file, index untouched.
-        self::assertSame(0, (new ReflectionClass(WasmHttpHandler::class))->getProperty('requestIndex')->getValue());
+        self::assertSame([], $this->calls, 'nothing reached the shell');
     }
 
     #[Test]
-    public function pool_requests_keep_the_bridge_handler(): void
+    public function pool_requests_leave_as_one_batch_and_keep_their_order(): void
     {
-        $this->seedCache('GET', 'https://api.test/a', 0, ['status' => 200, 'headers' => [], 'body' => 'A']);
-        $this->seedCache('GET', 'https://api.test/b', 1, ['status' => 200, 'headers' => [], 'body' => 'B']);
-
-        $responses = Http::pool(fn (Pool $pool) => [
+        $responses = NativeBlade::pool(fn (Pool $pool) => [
             $pool->get('https://api.test/a'),
             $pool->get('https://api.test/b'),
         ]);
 
         self::assertSame('A', $responses[0]->body());
         self::assertSame('B', $responses[1]->body());
+        self::assertCount(1, $this->calls);
+        self::assertSame('http_pool', $this->calls[0]['nativeblade']);
     }
 }

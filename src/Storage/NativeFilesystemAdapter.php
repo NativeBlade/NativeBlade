@@ -6,13 +6,13 @@ use League\Flysystem\Config;
 use League\Flysystem\FileAttributes;
 use League\Flysystem\FilesystemAdapter;
 use League\Flysystem\DirectoryAttributes;
+use League\Flysystem\UnableToReadFile;
+use League\Flysystem\UnableToWriteFile;
+use NativeBlade\Bridge\NativeBridge;
+use NativeBlade\Bridge\NativeBridgeException;
 
 class NativeFilesystemAdapter implements FilesystemAdapter
 {
-    private const PENDING_FILE = '/tmp/__nb_fs_pending.json';
-    private const CACHE_DIR = '/tmp/__nb_fs_cache';
-
-    private static int $opIndex = 0;
 
     public function fileExists(string $path): bool
     {
@@ -142,35 +142,26 @@ class NativeFilesystemAdapter implements FilesystemAdapter
         return [$path, 'app'];
     }
 
+    /**
+     * Run the operation in the shell (Tauri's fs plugin) and return its
+     * result. PHP waits for the reply. A failed read or write throws the
+     * Flysystem exception Laravel expects; other failures read as "not there".
+     */
     private function bridge(string $op, string $path, string $baseDir = 'app', string $extra = ''): mixed
     {
-        $index = self::$opIndex;
-        $key = md5($op . '|' . $baseDir . '|' . $path . '|' . $index);
-        self::$opIndex++;
-        $cachePath = self::CACHE_DIR . '/' . $key . '.json';
-
-        if (file_exists($cachePath)) {
-            $data = json_decode(file_get_contents($cachePath), true);
-            return $data['result'] ?? null;
+        try {
+            return NativeBridge::call('fs', [
+                'op' => $op,
+                'path' => $path,
+                'baseDir' => $baseDir,
+                'extra' => $extra,
+            ]);
+        } catch (NativeBridgeException $e) {
+            return match ($op) {
+                'read' => throw UnableToReadFile::fromLocation($path, $e->getMessage(), $e),
+                'write' => throw UnableToWriteFile::atLocation($path, $e->getMessage(), $e),
+                default => null,
+            };
         }
-
-        $pending = [
-            'key' => $key,
-            'index' => $index,
-            'op' => $op,
-            'path' => $path,
-            'baseDir' => $baseDir,
-            'extra' => $extra,
-        ];
-
-        if (!is_dir(self::CACHE_DIR)) {
-            @mkdir(self::CACHE_DIR, 0777, true);
-        }
-
-        file_put_contents(self::PENDING_FILE, json_encode([$pending]));
-
-        header('X-NativeBlade-Fs-Bridge: pending');
-        echo '__NB_FS_PENDING__';
-        exit(0);
     }
 }

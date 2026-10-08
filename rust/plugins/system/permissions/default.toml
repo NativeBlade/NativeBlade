@@ -3,9 +3,11 @@
 [default]
 description = """
 Default permission set for the NativeBlade system plugin.
-Allows opening the OS app settings screen.
+Allows opening the OS app settings screen and changing the
+status bar icon style at runtime.
 """
 
 permissions = [
   "allow-open-app-settings",
+  "allow-set-status-bar-style",
 ]

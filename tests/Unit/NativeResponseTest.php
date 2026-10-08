@@ -53,6 +53,7 @@ final class NativeResponseTest extends TestCase
         self::assertSame($r, $r->forgetSecure('k'));
         self::assertSame($r, $r->share('hi'));
         self::assertSame($r, $r->setBackgroundColor('#0a0a0a'));
+        self::assertSame($r, $r->setStatusBarStyle('light'));
         self::assertSame($r, $r->checkPermission('camera'));
         self::assertSame($r, $r->requestPermission('location'));
         self::assertSame($r, $r->openAppSettings());
@@ -61,6 +62,17 @@ final class NativeResponseTest extends TestCase
         self::assertSame($r, $r->purchase(fn ($p) => $p->product('com.app.pro')));
         self::assertSame($r, $r->restorePurchases());
         self::assertSame($r, $r->subscriptionStatus());
+    }
+
+    #[Test]
+    public function set_status_bar_style_queues_the_style_and_refuses_anything_else(): void
+    {
+        $r = (new NativeResponse())->setStatusBarStyle('light');
+        self::assertSame([['action' => 'set_status_bar_style', 'data' => ['style' => 'light']]], $r->toArray());
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("'blue' given");
+        (new NativeResponse())->setStatusBarStyle('blue');
     }
 
     #[Test]

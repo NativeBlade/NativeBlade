@@ -1,371 +1,130 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-    hasPendingRequest,
-    fulfill,
-    abort,
-    done,
-    __setFetchForTests,
-    __resetForTests,
-} from '../../../js/runtime/http-bridge.js';
-import { makePhp } from '../helpers/php-stub.js';
-import { spy } from '../helpers/ctx.js';
+import { execute, executePool, abort, beginRequest, __setFetchForTests, __resetForTests } from '../../../js/runtime/http-bridge.js';
 
-const PENDING_PATH = '/tmp/__nb_http_pending.json';
-const CACHE_DIR = '/tmp/__nb_http_cache';
-
-// Minimal Response-like object — good enough for the bridge which only
-// reads status, headers.entries(), and awaits .text().
-function makeResponse({ status = 200, headers = {}, body = '' } = {}) {
+function fakeResponse(status, body, headers = {}) {
     return {
         status,
-        headers: {
-            entries() {
-                return Object.entries(headers);
-            },
-        },
+        headers: { entries: () => Object.entries(headers) },
         text: async () => body,
     };
 }
 
-// ---------------------------------------------------------------
-// hasPendingRequest
-// ---------------------------------------------------------------
+describe('http-bridge', () => {
+    beforeEach(() => __resetForTests());
 
-describe('http-bridge/hasPendingRequest', () => {
-    it('detects the __NB_HTTP_PENDING__ marker in stdout', async () => {
-        assert.equal(await hasPendingRequest(makePhp(), 'foo __NB_HTTP_PENDING__ bar'), true);
-    });
-
-    it('returns false for outputs without the marker', async () => {
-        assert.equal(await hasPendingRequest(makePhp(), 'nothing to see'), false);
-    });
-
-    it('returns false for non-string output', async () => {
-        assert.equal(await hasPendingRequest(makePhp(), null), false);
-        assert.equal(await hasPendingRequest(makePhp(), { stdout: 'x' }), false);
-    });
-});
-
-// ---------------------------------------------------------------
-// fulfill — fetch orchestration + cache writes
-// ---------------------------------------------------------------
-
-describe('http-bridge/fulfill', () => {
-    beforeEach(() => {
-        __resetForTests();
-    });
-
-    it('fetches every pending request and caches {status, headers, body}', async () => {
-        const pending = [
-            { key: 'k1', url: 'https://api.a/1', method: 'GET', headers: {}, body: null },
-            { key: 'k2', url: 'https://api.b/2', method: 'POST', headers: { 'X-Auth': 'token' }, body: btoa('payload') },
-        ];
-        const php = makePhp({ [PENDING_PATH]: JSON.stringify(pending) });
-
-        const fetchStub = spy(async (url) => {
-            if (url === 'https://api.a/1') {
-                return makeResponse({ status: 200, headers: { 'Content-Type': 'text/plain' }, body: 'hello' });
-            }
-            return makeResponse({ status: 201, headers: { 'Content-Type': 'application/json' }, body: '{"ok":true}' });
+    it('fetches with method, headers and decoded body and returns status, headers and body', async () => {
+        const calls = [];
+        __setFetchForTests(async (url, options) => {
+            calls.push([url, options]);
+            return fakeResponse(201, '{"ok":true}', { 'content-type': 'application/json' });
         });
-        __setFetchForTests(fetchStub);
 
-        const ok = await fulfill(php);
-
-        assert.equal(ok, true);
-        assert.equal(fetchStub.callCount, 2);
-
-        // First call: URL passthrough + no body (GET)
-        assert.equal(fetchStub.calls[0][0], 'https://api.a/1');
-        const opts1 = fetchStub.calls[0][1];
-        assert.equal(opts1.method, 'GET');
-        assert.ok(!('body' in opts1), 'GET without body must not attach an empty body');
-        // Headers omitted when map is empty
-        assert.ok(!('headers' in opts1));
-
-        // Second call: method + headers + body forwarded. The body arrives
-        // base64-encoded and is decoded into raw bytes before it reaches fetch.
-        assert.equal(fetchStub.calls[1][1].method, 'POST');
-        assert.deepEqual(fetchStub.calls[1][1].headers, { 'X-Auth': 'token' });
-        assert.ok(fetchStub.calls[1][1].body instanceof Uint8Array, 'body must be sent as raw bytes');
-        assert.equal(new TextDecoder().decode(fetchStub.calls[1][1].body), 'payload');
-
-        // Cache payloads
-        assert.deepEqual(JSON.parse(php.files[`${CACHE_DIR}/k1.json`]), {
-            status: 200,
-            headers: { 'Content-Type': 'text/plain' },
-            body: 'hello',
-        });
-        assert.deepEqual(JSON.parse(php.files[`${CACHE_DIR}/k2.json`]), {
-            status: 201,
+        const result = await execute({
+            nativeblade: 'http',
+            method: 'POST',
+            url: 'https://api.test/items',
             headers: { 'Content-Type': 'application/json' },
-            body: '{"ok":true}',
+            body: btoa('{"name":"x"}'),
         });
 
-        assert.ok(!(PENDING_PATH in php.files), 'pending file should be removed on success');
+        assert.equal(calls[0][0], 'https://api.test/items');
+        assert.equal(calls[0][1].method, 'POST');
+        assert.deepEqual(calls[0][1].headers, { 'Content-Type': 'application/json' });
+        assert.equal(new TextDecoder().decode(calls[0][1].body), '{"name":"x"}');
+        assert.ok(calls[0][1].signal, 'an abort signal rides along');
+        assert.deepEqual(result, { status: 201, headers: { 'content-type': 'application/json' }, body: '{"ok":true}' });
     });
 
-    it('decodes a base64 body to raw bytes so a binary upload survives', async () => {
-        // Bytes that are NOT valid UTF-8 — the multipart-upload case that broke
-        // json_encode on the PHP side and made the request vanish. They must
-        // reach fetch byte-for-byte, with no UTF-8 round-trip.
-        const raw = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0xff, 0x00, 0xc3, 0x28]);
-        let bin = '';
-        for (const b of raw) bin += String.fromCharCode(b);
-        const b64 = btoa(bin);
+    it('omits headers and body when the request has none', async () => {
+        let options;
+        __setFetchForTests(async (_url, o) => { options = o; return fakeResponse(200, ''); });
 
-        const php = makePhp({ [PENDING_PATH]: JSON.stringify([
-            { key: 'up', url: 'https://up.test/', method: 'POST', headers: { 'Content-Type': 'multipart/form-data; boundary=z' }, body: b64 },
-        ]) });
+        await execute({ method: 'GET', url: 'https://a.test/x', headers: {}, body: null });
 
-        let sentBody = null;
-        __setFetchForTests(async (_url, opts) => { sentBody = opts.body; return makeResponse({ body: 'ok' }); });
-
-        await fulfill(php);
-
-        assert.ok(sentBody instanceof Uint8Array);
-        assert.deepEqual(sentBody, raw, 'the exact bytes must reach fetch unaltered');
+        assert.equal(options.headers, undefined);
+        assert.equal(options.body, undefined);
     });
 
-    it('attaches an AbortSignal that threads into every fetch call', async () => {
-        const php = makePhp({
-            [PENDING_PATH]: JSON.stringify([
-                { key: 'k', url: 'https://x.test/', method: 'GET', headers: {}, body: null },
-            ]),
-        });
-        __setFetchForTests(async (_url, options) => {
-            assert.ok(options.signal instanceof AbortSignal, 'fulfill must pass an AbortSignal');
-            assert.equal(options.signal.aborted, false);
-            return makeResponse({ body: 'ok' });
-        });
+    it('a failed fetch is a status 0 result with the error, never a rejection', async () => {
+        __setFetchForTests(async () => { throw new TypeError('Failed to fetch'); });
 
-        await fulfill(php);
+        const result = await execute({ method: 'GET', url: 'https://down.test/' });
+
+        assert.deepEqual(result, { status: 0, headers: {}, body: '', error: 'Failed to fetch' });
     });
 
-    it('writes {status:0, error} to cache when fetch rejects with a non-abort error', async () => {
-        const php = makePhp({
-            [PENDING_PATH]: JSON.stringify([
-                { key: 'fail', url: 'https://x.test/', method: 'GET', headers: {}, body: null },
-            ]),
-        });
-        __setFetchForTests(async () => { throw new Error('network down'); });
-
-        const ok = await fulfill(php);
-
-        assert.equal(ok, true);
-        const cached = JSON.parse(php.files[`${CACHE_DIR}/fail.json`]);
-        assert.equal(cached.status, 0);
-        assert.deepEqual(cached.headers, {});
-        assert.equal(cached.body, '');
-        assert.match(cached.error, /network down/);
-    });
-
-    it('returns false without writing cache when ALL fetches are aborted', async () => {
-        const php = makePhp({
-            [PENDING_PATH]: JSON.stringify([
-                { key: 'a', url: 'https://x/', method: 'GET', headers: {}, body: null },
-                { key: 'b', url: 'https://y/', method: 'GET', headers: {}, body: null },
-            ]),
-        });
-
-        const abortErr = new Error('The operation was aborted');
-        abortErr.name = 'AbortError';
-        __setFetchForTests(async () => { throw abortErr; });
-
-        const ok = await fulfill(php);
-
-        assert.equal(ok, false);
-        // Bridge must NOT write a cache entry for fully-aborted passes — next
-        // flush replays the whole batch. The pending file is also left alone.
-        assert.ok(!(`${CACHE_DIR}/a.json` in php.files));
-        assert.ok(!(`${CACHE_DIR}/b.json` in php.files));
-    });
-
-    it('skips cache writes only for aborted entries, not the fulfilled ones', async () => {
-        const php = makePhp({
-            [PENDING_PATH]: JSON.stringify([
-                { key: 'done', url: 'https://a/', method: 'GET', headers: {}, body: null },
-                { key: 'cancelled', url: 'https://b/', method: 'GET', headers: {}, body: null },
-            ]),
-        });
-
-        const abortErr = new Error('aborted');
-        abortErr.name = 'AbortError';
-
-        __setFetchForTests(async (url) => {
-            if (url === 'https://a/') return makeResponse({ body: 'ok-a' });
-            throw abortErr;
-        });
-
-        await fulfill(php);
-
-        assert.ok(`${CACHE_DIR}/done.json` in php.files, 'fulfilled entry gets cached');
-        assert.ok(!(`${CACHE_DIR}/cancelled.json` in php.files),
-            'AbortError entries must be skipped, not written with error');
-    });
-
-    it('caps re-entry at MAX_RETRIES=10', async () => {
-        const php = makePhp({});
-        const fetchStub = spy(async () => makeResponse({ body: 'x' }));
-        __setFetchForTests(fetchStub);
-
-        for (let i = 0; i < 10; i++) {
-            php.files[PENDING_PATH] = JSON.stringify([{
-                key: `k${i}`, url: 'https://x/', method: 'GET', headers: {}, body: null,
-            }]);
-            const ok = await fulfill(php);
-            assert.equal(ok, true, `pass #${i} should fire fetch`);
-        }
-
-        // 11th pass must short-circuit
-        const callsBefore = fetchStub.callCount;
-        php.files[PENDING_PATH] = JSON.stringify([{
-            key: 'overflow', url: 'https://x/', method: 'GET', headers: {}, body: null,
-        }]);
-        const ok = await fulfill(php);
-
-        assert.equal(ok, false);
-        assert.equal(fetchStub.callCount, callsBefore,
-            'no fetch should fire once MAX_RETRIES is reached');
-    });
-
-    it('reports an error to the console once when the retry budget is exhausted', async () => {
-        const php = makePhp({});
-        __setFetchForTests(async () => makeResponse({ body: 'x' }));
-
-        // Burn the 10 allowed passes.
-        for (let i = 0; i < 10; i++) {
-            php.files[PENDING_PATH] = JSON.stringify([{
-                key: `k${i}`, url: 'https://x/', method: 'GET', headers: {}, body: null,
-            }]);
-            await fulfill(php);
-        }
-
-        // The 11th pass overflows: it must log an actionable warning instead of
-        // vanishing silently. Capture console.error just for this pass.
-        const originalError = console.error;
-        const errorSpy = spy();
-        console.error = errorSpy;
-        try {
-            php.files[PENDING_PATH] = JSON.stringify([{
-                key: 'overflow', url: 'https://x/', method: 'GET', headers: {}, body: null,
-            }]);
-            const ok = await fulfill(php);
-            assert.equal(ok, false);
-        } finally {
-            console.error = originalError;
-        }
-
-        assert.equal(errorSpy.callCount, 1, 'budget exhaustion must report exactly once');
-        assert.match(errorSpy.calls[0][0], /budget exhausted/i);
-        assert.match(errorSpy.calls[0][0], /pool\(\)/, 'warning should point to NativeBlade::pool()');
-    });
-
-    it('returns false and cleans up when pending is empty / malformed', async () => {
-        const fetchStub = spy(async () => makeResponse());
-        __setFetchForTests(fetchStub);
-
-        // Empty array
-        let php = makePhp({ [PENDING_PATH]: JSON.stringify([]) });
-        assert.equal(await fulfill(php), false);
-        assert.equal(fetchStub.callCount, 0);
-
-        __resetForTests();
-        __setFetchForTests(fetchStub);
-
-        // Non-array payload
-        php = makePhp({ [PENDING_PATH]: JSON.stringify({ bogus: true }) });
-        assert.equal(await fulfill(php), false);
-        assert.equal(fetchStub.callCount, 0);
-
-        __resetForTests();
-        __setFetchForTests(fetchStub);
-
-        // Unparseable JSON
-        php = makePhp({ [PENDING_PATH]: '{garbage' });
-        assert.equal(await fulfill(php), false);
-        assert.equal(fetchStub.callCount, 0);
-    });
-});
-
-// ---------------------------------------------------------------
-// abort() — cancel outstanding fetches
-// ---------------------------------------------------------------
-
-describe('http-bridge/abort', () => {
-    beforeEach(() => { __resetForTests(); });
-
-    it('aborts the in-flight AbortController so pending fetches reject', async () => {
-        const php = makePhp({
-            [PENDING_PATH]: JSON.stringify([
-                { key: 'k', url: 'https://slow/', method: 'GET', headers: {}, body: null },
-            ]),
-        });
-
-        let capturedSignal = null;
-        __setFetchForTests((_url, options) => new Promise((_, reject) => {
-            capturedSignal = options.signal;
+    it('abort() cancels the fetch in flight and reads as aborted', async () => {
+        __setFetchForTests((_url, options) => new Promise((_resolve, reject) => {
             options.signal.addEventListener('abort', () => {
-                const e = new Error('aborted');
-                e.name = 'AbortError';
-                reject(e);
+                const err = new Error('aborted'); err.name = 'AbortError'; reject(err);
             });
         }));
 
-        const fulfillPromise = fulfill(php);
-
-        // Give fulfill() a tick to wire up the fetch promise
-        await new Promise((r) => setImmediate(r));
+        const pending = execute({ method: 'GET', url: 'https://slow.test/' });
         abort();
+        const result = await pending;
 
-        const ok = await fulfillPromise;
-        assert.equal(ok, false);
-        assert.ok(capturedSignal && capturedSignal.aborted,
-            'abort() must flip the signal that fulfill() wired into fetch');
+        assert.equal(result.status, 0);
+        assert.equal(result.error, 'aborted');
     });
 
-    it('resets retryCount so a subsequent fulfill can retry fresh', async () => {
-        const php = makePhp({});
-        __setFetchForTests(async () => makeResponse({ body: 'x' }));
-
-        // Bump retries
-        for (let i = 0; i < 5; i++) {
-            php.files[PENDING_PATH] = JSON.stringify([{
-                key: `k${i}`, url: 'https://x/', method: 'GET', headers: {}, body: null,
-            }]);
-            await fulfill(php);
-        }
+    it('after abort() every later call of the same request fails at once, until the next request begins', async () => {
+        let fetches = 0;
+        __setFetchForTests(async () => { fetches++; return fakeResponse(200, 'ok'); });
 
         abort();
+        const result = await execute({ method: 'GET', url: 'https://a.test/after-abort' });
+        assert.deepEqual(result, { status: 0, headers: {}, body: '', error: 'aborted' });
+        assert.equal(fetches, 0, 'no fetch is started for a request the user left');
 
-        // After abort() we should have room for 10 more successful passes
-        for (let i = 0; i < 10; i++) {
-            php.files[PENDING_PATH] = JSON.stringify([{
-                key: `post-${i}`, url: 'https://x/', method: 'GET', headers: {}, body: null,
-            }]);
-            const ok = await fulfill(php);
-            assert.equal(ok, true, `post-abort pass #${i} should succeed`);
-        }
+        beginRequest();
+        const next = await execute({ method: 'GET', url: 'https://a.test/next' });
+        assert.equal(next.status, 200);
+        assert.equal(fetches, 1);
     });
-});
 
-// ---------------------------------------------------------------
-// done() — cleanup between PHP request boundaries
-// ---------------------------------------------------------------
+    it('reads a large body from the file PHP wrote and removes it', async () => {
+        let options;
+        __setFetchForTests(async (_url, o) => { options = o; return fakeResponse(200, ''); });
+        const files = { '/tmp/__nb_http_body/1-1': new Uint8Array([1, 2, 3]) };
+        const php = {
+            readFileAsBuffer: (path) => { if (!(path in files)) throw new Error('ENOENT'); return files[path]; },
+            unlink: (path) => { delete files[path]; },
+        };
 
-describe('http-bridge/done', () => {
-    beforeEach(() => { __resetForTests(); });
+        const result = await execute({ method: 'POST', url: 'https://up.test/', bodyFile: '/tmp/__nb_http_body/1-1' }, { php });
 
-    it('clears the cache dir contents', () => {
-        const php = makePhp({
-            [`${CACHE_DIR}/old1.json`]: '{}',
-            [`${CACHE_DIR}/old2.json`]: '{}',
+        assert.equal(result.status, 200);
+        assert.deepEqual([...options.body], [1, 2, 3]);
+        assert.deepEqual(files, {}, 'the body file is removed after the fetch');
+    });
+
+    it('a body file without a php instance is a failed response, not a crash', async () => {
+        __setFetchForTests(async () => fakeResponse(200, ''));
+        const result = await execute({ method: 'POST', url: 'https://up.test/', bodyFile: '/tmp/x' });
+        assert.equal(result.status, 0);
+        assert.match(result.error, /no php instance/);
+    });
+
+    it('a pool runs its requests together and keeps their order', async () => {
+        const started = [];
+        __setFetchForTests(async (url) => {
+            started.push(url);
+            await new Promise((r) => setTimeout(r, url.endsWith('1') ? 20 : 1));
+            return fakeResponse(200, 'for ' + url);
         });
 
-        done(php);
+        const results = await executePool({ requests: [
+            { method: 'GET', url: 'https://a.test/1' },
+            { method: 'GET', url: 'https://a.test/2' },
+        ] });
 
-        assert.ok(!(`${CACHE_DIR}/old1.json` in php.files));
-        assert.ok(!(`${CACHE_DIR}/old2.json` in php.files));
+        assert.deepEqual(started, ['https://a.test/1', 'https://a.test/2'], 'both started before either finished');
+        assert.deepEqual(results.map((r) => r.body), ['for https://a.test/1', 'for https://a.test/2']);
+    });
+
+    it('an empty pool resolves to an empty list', async () => {
+        assert.deepEqual(await executePool({}), []);
     });
 });

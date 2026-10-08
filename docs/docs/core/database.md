@@ -125,19 +125,18 @@ For a real SQLite file on the filesystem (not WASM):
 
 ## How It Works
 
-The native database uses a bridge pattern:
+The native database runs in the shell, and PHP waits for each query:
 
 ```
 PHP: Setting::where('key', 'theme')->get()
-→ NativeConnection intercepts the query
-→ Serializes SQL + bindings → writes to temp file → exits
-→ JS detects pending query → invokes Rust
-→ Rust executes via sqlx against the real database
-→ Caches result → PHP re-executes
-→ NativeConnection finds cached result → returns to Eloquent
+→ NativeConnection sends SQL + bindings to the shell and PHP pauses
+→ JS invokes Rust, which executes via sqlx against the real database
+→ PHP resumes with the rows and Eloquent hydrates them
 ```
 
-Each query triggers one re-execution of PHP. For a page with N queries, there are N+1 PHP executions.
+php-wasm runs with JSPI (or Asyncify where the WebView lacks it), so a query
+is a pause inside the request, not a re-run of it. A failed query throws a
+`QueryException`, as a PDO driver would.
 
 ### Performance Tips
 
@@ -205,40 +204,14 @@ The trait converts `updateOrCreate` to `upsert` (single query) when using the na
 
 ### Multiple Queries
 
-Multiple queries work correctly as long as they run in the same order on every re-execution. Standard Eloquent code is deterministic and works fine:
-
-```php
-// OK, queries run in the same order every time
-$users = User::all();                    // queryIndex 0
-$posts = Post::latest()->take(10)->get(); // queryIndex 1
-$stats = Task::where('done', true)->count(); // queryIndex 2
-// 3 queries = 4 PHP executions
-```
-
-Relationships work:
-
-```php
-// OK, deterministic queries
-$user = User::find(1);          // queryIndex 0
-$posts = $user->posts()->get(); // queryIndex 1
-// 2 queries = 3 PHP executions
-```
-
-Avoid non-deterministic logic between queries:
-
-```php
-// AVOID, different code paths between re-executions
-if (rand(0, 1)) {
-    $a = User::find(1);  // queryIndex 0
-} else {
-    $b = Post::find(1);  // queryIndex 0, different SQL, cache mismatch!
-}
-```
+Any number of queries, in any order, including relationships, transactions
+and branches that decide at runtime which query to run. Each one is a round
+trip to the device's database, so the usual Laravel advice applies: eager-load
+relations and avoid N+1 patterns, because every query is paid in latency.
 
 ### Store timestamps in UTC, not a per-request timezone
 
-An on-device workflow is spread across several requests: each bridge call is its
-own re-execution, and multi-step work is deliberately sliced. Anything that
+An on-device workflow is spread across several requests. Anything that
 mutates global framework config per request then becomes inconsistent between
 those requests, and a value written in one request can be read or compared in
 another under a different setting.

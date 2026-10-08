@@ -94,6 +94,22 @@ export function set_background_color(payload, ctx) {
     }
 }
 
+// Runtime counterpart of ->statusBar(style:) in the build config: the icon
+// style of the status bar (and the navigation bar on Android), so a dark/light
+// theme switch keeps the clock, battery and signal readable. Mobile only,
+// through the always-on nativeblade-system plugin; desktop and browser have
+// no system status bar.
+export async function set_status_bar_style(payload, ctx) {
+    const style = payload && payload.style;
+    if (style !== 'dark' && style !== 'light') return;
+    if (!ctx.isTauri || !ctx.isMobile || typeof ctx.invokeTauri !== 'function') return;
+    try {
+        await ctx.invokeTauri('plugin:nativeblade-system|set_status_bar_style', { style });
+    } catch (e) {
+        console.warn('[NB] set_status_bar_style failed:', e);
+    }
+}
+
 export function log(payload) {
     const level = payload.level || 'info';
     const message = payload.message || '';

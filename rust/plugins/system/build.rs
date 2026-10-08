@@ -1,4 +1,4 @@
-const COMMANDS: &[&str] = &["open_app_settings"];
+const COMMANDS: &[&str] = &["open_app_settings", "set_status_bar_style"];
 
 fn main() {
     let result = tauri_plugin::Builder::new(COMMANDS)

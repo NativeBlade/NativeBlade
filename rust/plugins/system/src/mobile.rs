@@ -1,4 +1,4 @@
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Serialize};
 use tauri::{
     plugin::{PluginApi, PluginHandle},
     AppHandle, Runtime,
@@ -12,12 +12,24 @@ const PLUGIN_IDENTIFIER: &str = "app.nativeblade.system";
 #[cfg(target_os = "ios")]
 tauri::ios_plugin_binding!(init_plugin_nativeblade_system);
 
+#[derive(Serialize)]
+struct StatusBarStyleArgs<'a> {
+    style: &'a str,
+}
+
 pub struct NativeBladeSystem<R: Runtime>(PluginHandle<R>);
 
 impl<R: Runtime> NativeBladeSystem<R> {
     pub fn open_app_settings(&self) -> Result<()> {
         self.0
             .run_mobile_plugin::<()>("openAppSettings", ())
+            .map_err(Into::into)
+    }
+
+    /// `style` is "dark" (dark icons, light background) or "light".
+    pub fn set_status_bar_style(&self, style: &str) -> Result<()> {
+        self.0
+            .run_mobile_plugin::<()>("setStatusBarStyle", StatusBarStyleArgs { style })
             .map_err(Into::into)
     }
 }

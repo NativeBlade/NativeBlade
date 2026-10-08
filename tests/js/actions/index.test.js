@@ -61,6 +61,7 @@ const EXPECTED_ACTIONS = [
     'set_secure',
     'get_secure',
     'forget_secure',
+    'set_status_bar_style',
     'share',
     'analytics',
     'request_ad_consent',

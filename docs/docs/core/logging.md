@@ -40,10 +40,6 @@ created earlier gets it the next time `nativeblade:config` runs (`nativeblade:de
 and `nativeblade:build` run it). When the write is refused the WebView console
 says so once and the other destinations keep working.
 
-A `NativeBlade::log()` placed before an HTTP call, a query or a filesystem
-operation appears once, even though PHP is re-run after each of those calls:
-only the run that completes the request reports its log lines.
-
 Desktop: the file lives in the OS log directory for the app identifier
 (`~/Library/Logs/<identifier>/` on macOS, `%LOCALAPPDATA%\<identifier>\logs\`
 on Windows, `~/.local/share/<identifier>/logs/` on Linux).
@@ -70,7 +66,5 @@ or fatal, and the problems the shell detects on its own:
 
 | Problem | What it means |
 |---|---|
-| Replay diverged: HTTP call / query / filesystem operation #N changed between runs | PHP is re-run after each native call and must make the same calls in the same order. Something before call N is not deterministic: a random value, the clock, state changed before the call. The message shows what the call was before and what it became. |
-| Bridge budget exhausted | One request made more sequential HTTP calls, queries or filesystem operations than the runtime allows and was abandoned. Batch calls with `NativeBlade::pool()`, eager-load relations, or split the work. |
 | Unknown action dropped | The app pushed a native action this runtime does not know. The runtime is older than the app: restart `nativeblade:dev`, rebuild the app or update the Portal. |
 | Locale has no translations | The active locale has no `lang/<locale>` directory or `lang/<locale>.json` file, so strings fall back to the fallback locale. Add the translations or change the locale. |

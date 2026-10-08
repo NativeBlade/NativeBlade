@@ -13,6 +13,8 @@ use Illuminate\Database\Query\Processors\SQLiteProcessor;
 use Illuminate\Database\Schema\Grammars\MySqlGrammar as MySqlSchemaGrammar;
 use Illuminate\Database\Schema\Grammars\PostgresGrammar as PostgresSchemaGrammar;
 use Illuminate\Database\Schema\Grammars\SQLiteGrammar as SQLiteSchemaGrammar;
+use Illuminate\Database\QueryException;
+use NativeBlade\Bridge\NativeBridge;
 use NativeBlade\Database\NativeConnection;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -20,72 +22,63 @@ use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 
 /**
- * NativeConnection talks to Tauri via a cache/exit bridge. We can hit every
- * branch that does not terminate the process:
+ * NativeConnection sends every query through NativeBridge and PHP waits for
+ * the shell's reply. The tests answer the bridge with a queue of replies and
+ * record each message, covering:
  *   - Constructor field parsing
  *   - getDefault{Query,Post,Schema} grammar/processor selection per driver
  *   - buildConnectionString formats
  *   - prepareBindings (public) with DateTime, bool, scalar passthrough
- *   - bridge() cache-hit paths for select/insert/update/delete/statement
- *   - Transaction level bookkeeping (depends on cache hits for BEGIN/COMMIT/ROLLBACK)
- *
- * We pre-seed /tmp/__nb_db_cache/<md5>.json for every bridge call so the exit(0)
- * fallback is never reached.
+ *   - the message and result mapping for select/insert/update/delete/statement
+ *   - Transaction level bookkeeping (BEGIN/COMMIT/ROLLBACK only at the outer level)
+ *   - a shell error surfacing as a QueryException
  */
 final class NativeConnectionTest extends TestCase
 {
-    private const CACHE_DIR = '/tmp/__nb_db_cache';
+    /** @var list<mixed> replies handed out in order */
+    private array $replies = [];
+
+    /** @var list<array<string, mixed>> every message sent to the shell */
+    private array $calls = [];
 
     protected function setUp(): void
     {
-        $this->resetQueryIndex();
-        $this->scrubCache();
+        $this->replies = [];
+        $this->calls = [];
+        NativeBridge::handleWith(function (array $message) {
+            $this->calls[] = $message;
+            if ($this->replies === []) {
+                return ['ok' => false, 'error' => 'no reply queued for ' . json_encode($message)];
+            }
+
+            return ['ok' => true, 'result' => array_shift($this->replies)];
+        });
     }
 
     protected function tearDown(): void
     {
-        $this->resetQueryIndex();
-        $this->scrubCache();
-    }
-
-    private function resetQueryIndex(): void
-    {
-        (new ReflectionClass(NativeConnection::class))
-            ->getProperty('queryIndex')
-            ->setValue(null, 0);
-    }
-
-    private function scrubCache(): void
-    {
-        if (!is_dir(self::CACHE_DIR)) return;
-        foreach (glob(self::CACHE_DIR . '/*.json') ?: [] as $f) {
-            @unlink($f);
-        }
+        NativeBridge::handleWith(null);
     }
 
     private function currentQueryIndex(): int
     {
-        return (new ReflectionClass(NativeConnection::class))
-            ->getProperty('queryIndex')
-            ->getValue();
+        return count($this->calls);
     }
 
     /**
-     * Mirror NativeConnection::bridge() key generation exactly.
+     * Kept for readability of the call sites: names the query a reply is
+     * meant for. Replies are handed out in order.
      *
      * @param  array<int, mixed>  $bindings  Already prepared (DateTime as string, bool as int)
      */
     private function keyFor(string $type, string $sql, array $bindings, int $index): string
     {
-        return md5($type . '|' . $sql . '|' . json_encode($bindings) . '|' . $index);
+        return $type . '|' . $sql . '|' . json_encode($bindings) . '|' . $index;
     }
 
     private function seedCache(string $key, mixed $result): void
     {
-        if (!is_dir(self::CACHE_DIR)) {
-            mkdir(self::CACHE_DIR, 0777, true);
-        }
-        file_put_contents(self::CACHE_DIR . '/' . $key . '.json', json_encode(['result' => $result]));
+        $this->replies[] = $result;
     }
 
     private function makeConnection(string $driver = 'mysql', array $extra = []): NativeConnection
@@ -412,17 +405,38 @@ final class NativeConnectionTest extends TestCase
     }
 
     #[Test]
-    public function prepare_bindings_is_applied_before_hashing_the_cache_key(): void
+    public function the_message_carries_the_prepared_bindings_and_the_connection_details(): void
     {
-        $conn = $this->makeConnection();
+        $conn = $this->makeConnection('pgsql', ['host' => 'db.local', 'port' => '5432', 'username' => 'u', 'password' => 'p']);
         $sql = 'update users set active = ?, seen_at = ? where id = ?';
         $dt = new \DateTimeImmutable('2026-04-17 09:00:00');
-
-        // Key is computed from PREPARED bindings (bool → int, DateTime → string)
-        $key = $this->keyFor('update', $sql, [1, '2026-04-17 09:00:00', 5], 0);
-        $this->seedCache($key, ['affected' => 1]);
+        $this->seedCache('update', ['affected' => 1]);
 
         self::assertSame(1, $conn->update($sql, [true, $dt, 5]));
+
+        self::assertSame([
+            'nativeblade' => 'db',
+            'type' => 'update',
+            'sql' => $sql,
+            'bindings' => [1, '2026-04-17 09:00:00', 5],
+            'driver' => 'pgsql',
+            'connection' => 'postgres://u:p@db.local:5432/app_db',
+        ], $this->calls[0]);
+    }
+
+    #[Test]
+    public function a_shell_error_surfaces_as_a_query_exception(): void
+    {
+        $conn = $this->makeConnection();
+        NativeBridge::handleWith(fn () => ['ok' => false, 'error' => 'no such table: users']);
+
+        try {
+            $conn->select('select * from users');
+            self::fail('expected a QueryException');
+        } catch (QueryException $e) {
+            self::assertStringContainsString('no such table: users', $e->getMessage());
+            self::assertStringContainsString('select * from users', $e->getMessage());
+        }
     }
 
     // ---------------------------------------------------------------
@@ -440,12 +454,13 @@ final class NativeConnectionTest extends TestCase
         $conn->beginTransaction();
         self::assertSame(1, $conn->transactionLevel());
 
-        // Nested begin: must NOT bridge (no cache seeded → would exit(0) if it did)
+        // Nested begin: must NOT bridge (no reply queued → it would fail if it did)
         $conn->beginTransaction();
         self::assertSame(2, $conn->transactionLevel());
 
-        // queryIndex only advanced once because only one bridge call happened
+        // Only one message left PHP because only the outer begin is a call
         self::assertSame(1, $this->currentQueryIndex());
+        self::assertSame('BEGIN', $this->calls[0]['sql']);
     }
 
     #[Test]
@@ -481,6 +496,33 @@ final class NativeConnectionTest extends TestCase
         $conn->rollBack();
         self::assertSame(1, $conn->transactionLevel());
         $conn->rollBack();
+        self::assertSame(0, $conn->transactionLevel());
+    }
+
+    #[Test]
+    public function transaction_helper_sends_begin_and_commit_and_rolls_back_on_failure(): void
+    {
+        $conn = $this->makeConnection();
+        $this->replies = [true, ['lastInsertId' => 1], true, true, true];
+
+        $result = $conn->transaction(function () use ($conn) {
+            $conn->insert('insert into t (a) values (?)', [1]);
+
+            return 'done';
+        });
+
+        self::assertSame('done', $result);
+        self::assertSame(['BEGIN', 'insert into t (a) values (?)', 'COMMIT'], array_column($this->calls, 'sql'));
+        self::assertSame(0, $conn->transactionLevel());
+
+        $this->calls = [];
+        try {
+            $conn->transaction(fn () => throw new \RuntimeException('boom'));
+            self::fail('expected the exception to propagate');
+        } catch (\RuntimeException $e) {
+            self::assertSame('boom', $e->getMessage());
+        }
+        self::assertSame(['BEGIN', 'ROLLBACK'], array_column($this->calls, 'sql'));
         self::assertSame(0, $conn->transactionLevel());
     }
 

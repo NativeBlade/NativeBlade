@@ -91,7 +91,7 @@ return NativeBlade::notification(fn (Notification $n) => $n->title('Saved')->bod
 | Modal | `showModal()`, `hideModal()` |
 | Shell | `shell(Closure)` (desktop only) |
 | Process | `exit()` |
-| Appearance | `setBackgroundColor($color)` |
+| Appearance | `setBackgroundColor($color)`, `setStatusBarStyle($style)` |
 
 `setBackgroundColor($color)` paints the shell background at runtime, so it can
 follow a dark/light theme switch instead of being fixed by config. It covers the
@@ -102,6 +102,19 @@ call it whenever the theme changes:
 
 ```php
 return NativeBlade::setBackgroundColor($dark ? '#0a0a0a' : '#f2f2f7')->toResponse();
+```
+
+`setStatusBarStyle($style)` is its companion for the system bars' icons:
+`'light'` icons for a dark background, `'dark'` icons for a light one. The
+build-time `->statusBar(style:)` sets the initial style; this changes it when
+the theme changes inside the app, so the clock, battery and signal stay
+readable. On Android the navigation bar follows. Mobile only, through the
+always-on `nativeblade-system` plugin; a no-op on desktop. Send both together:
+
+```php
+return NativeBlade::setBackgroundColor($dark ? '#0a0a0a' : '#f2f2f7')
+    ->setStatusBarStyle($dark ? 'light' : 'dark')
+    ->toResponse();
 ```
 
 All closure-based builders live in `NativeBlade\Plugins\*` (`Dialog`, `Notification`, `Camera`, `Biometric`, `Scan`, `Geolocation`, `Clipboard`, `Nfc`). Builders marked with `?Closure` (nullable) let you omit the closure when you don't need to configure anything, useful for the simple `NativeBlade::geolocation()` / `NativeBlade::scan()` case.

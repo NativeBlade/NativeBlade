@@ -4,7 +4,6 @@ import { applyConfig } from './shell.js';
 import { handleNativeAction, setFrame as setBridgeFrame } from './bridge.js';
 import { extractShellConfig, inject } from './interceptor.js';
 import { abort as abortHttpBridge } from '../runtime/http-bridge.js';
-import { setOnBridgeComplete } from '../runtime/request-handler.js';
 import { init as initAutoUpdate } from './auto-update.js';
 import { init as initScheduler } from './scheduler.js';
 import { setFrame as setPushFrame } from './push.js';
@@ -23,30 +22,15 @@ let navigationVersion = 0;
 let transition = 'none';
 let autoUpdateInitialized = false;
 
-// The reset target that navigation and boot restore after their temporary
-// setOnBridgeComplete overrides. Every request now carries its own completion
-const defaultBridgeCallback = () => {};
-
-// Promise-based request that ALSO awaits bridge (Http/DB/FS) fulfillment, so the
-// caller gets the FINAL result, not a `bridgePending` stub. Used by the window
-// relay so a satellite component can use the DB/filesystem/HTTP — the native work
-// runs here, on the main window's runtime. Each call passes its OWN completion
-// callback (`done`), so it never clobbers the main window's bridge callback (nor
-// another satellite's). Serialized so two satellite requests can't interleave
-// their re-runs through the shared php-wasm instance.
-// One shared serial queue for every request+bridge cycle (satellite relay AND
-// main-frame Livewire updates), so no two cycles interleave their re-runs
-// through the shared php-wasm instance.
+// One shared serial queue for every request (satellite relay AND main-frame
+// Livewire updates): php-wasm runs one request at a time, and a request may
+// be suspended inside a native call, so two must never overlap on the shared
+// instance. Resolves with the final result; a thrown error becomes a 500.
 const enqueueRequest = createSerialQueue();
 export function requestFull(path, options) {
-    return enqueueRequest(() => new Promise((resolve) => {
-        let settled = false;
-        const done = (r) => { if (settled) return; settled = true; resolve(r); };
-        request(path, options, done).then(
-            (result) => { if (!result || !result.bridgePending) done(result); },
-            (err) => done({ text: String(err && err.message || err), httpStatusCode: 500 })
-        );
-    }));
+    return enqueueRequest(() => request(path, options).catch(
+        (err) => ({ text: String(err && err.message || err), httpStatusCode: 500 })
+    ));
 }
 
 // Renders a route (or a few) into the offscreen buffer behind the splash so the
@@ -126,8 +110,6 @@ export function init(frame, splashEl) {
     // exposing the shell body background. Idempotent.
     setupFrameContainer();
 
-    setOnBridgeComplete(defaultBridgeCallback);
-
     window.addEventListener('message', async (event) => {
         const { type } = event.data || {};
         // The buffer's first-render mirror copy runs the same page as the
@@ -169,23 +151,7 @@ export function init(frame, splashEl) {
 }
 
 export async function runBoot() {
-    return new Promise(async (resolve) => {
-        const result = await request('/__nb/boot');
-
-        if (!result.bridgePending) {
-            resolve();
-            return;
-        }
-
-        setOnBridgeComplete((completedResult) => {
-            setOnBridgeComplete(defaultBridgeCallback);
-            if (completedResult.bridgePending) {
-                runBoot().then(resolve);
-            } else {
-                resolve();
-            }
-        });
-    });
+    await requestFull('/__nb/boot');
 }
 
 export async function navigate(path, options = {}) {

@@ -3,6 +3,7 @@
 namespace NativeBlade\Database;
 
 use Illuminate\Database\Connection;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Query\Grammars\MySqlGrammar;
 use Illuminate\Database\Query\Grammars\PostgresGrammar;
 use Illuminate\Database\Query\Grammars\SQLiteGrammar;
@@ -12,15 +13,13 @@ use Illuminate\Database\Query\Processors\SQLiteProcessor;
 use Illuminate\Database\Schema\Grammars\MySqlGrammar as MySqlSchemaGrammar;
 use Illuminate\Database\Schema\Grammars\PostgresGrammar as PostgresSchemaGrammar;
 use Illuminate\Database\Schema\Grammars\SQLiteGrammar as SQLiteSchemaGrammar;
+use NativeBlade\Bridge\NativeBridge;
+use NativeBlade\Bridge\NativeBridgeException;
 
 class NativeConnection extends Connection
 {
-    private const PENDING_FILE = '/tmp/__nb_db_pending.json';
-    private const CACHE_DIR = '/tmp/__nb_db_cache';
-
     private string $nativeDriver;
     private string $connectionString;
-    private static int $queryIndex = 0;
     private int $transactionLevel = 0;
 
     public function __construct(array $config)
@@ -144,6 +143,34 @@ class NativeConnection extends Connection
         $this->fireConnectionEvent('rollingBack');
     }
 
+    /**
+     * Laravel's transaction() commits by poking the PDO and its own counter
+     * directly, which never reaches the shell. Route it through our own
+     * begin/commit/rollBack so BEGIN and COMMIT (or ROLLBACK) are sent.
+     */
+    public function transaction(\Closure $callback, $attempts = 1)
+    {
+        for ($currentAttempt = 1; $currentAttempt <= $attempts; $currentAttempt++) {
+            $this->beginTransaction();
+
+            try {
+                $result = $callback($this);
+            } catch (\Throwable $e) {
+                $this->rollBack();
+                if ($currentAttempt < $attempts && $this->causedByConcurrencyError($e)) {
+                    continue;
+                }
+                throw $e;
+            }
+
+            $this->commit();
+
+            return $result;
+        }
+
+        return null;
+    }
+
     public function transactionLevel()
     {
         return $this->transactionLevel;
@@ -164,38 +191,26 @@ class NativeConnection extends Connection
         return null;
     }
 
+    /**
+     * Run the query in the shell (Rust, through sqlx) and return its result.
+     * PHP waits for the reply; a failure becomes a QueryException as it would
+     * with a PDO driver.
+     */
     private function bridge(string $type, string $sql, array $bindings): mixed
     {
         $prepared = $this->prepareBindings($bindings);
-        $index = self::$queryIndex;
-        $key = md5($type . '|' . $sql . '|' . json_encode($prepared) . '|' . $index);
-        self::$queryIndex++;
-        $cachePath = self::CACHE_DIR . '/' . $key . '.json';
 
-        if (file_exists($cachePath)) {
-            $data = json_decode(file_get_contents($cachePath), true);
-            return $data['result'] ?? null;
+        try {
+            return NativeBridge::call('db', [
+                'type' => $type,
+                'sql' => $sql,
+                'bindings' => $prepared,
+                'driver' => $this->nativeDriver,
+                'connection' => $this->connectionString,
+            ]);
+        } catch (NativeBridgeException $e) {
+            throw new QueryException($this->getName() ?? $this->nativeDriver, $sql, $prepared, $e);
         }
-
-        $pending = [
-            'key' => $key,
-            'index' => $index,
-            'type' => $type,
-            'sql' => $sql,
-            'bindings' => $prepared,
-            'driver' => $this->nativeDriver,
-            'connection' => $this->connectionString,
-        ];
-
-        if (!is_dir(self::CACHE_DIR)) {
-            @mkdir(self::CACHE_DIR, 0777, true);
-        }
-
-        file_put_contents(self::PENDING_FILE, json_encode([$pending]));
-
-        header('X-NativeBlade-Db-Bridge: pending');
-        echo '__NB_DB_PENDING__';
-        exit(0);
     }
 
     public function prepareBindings(array $bindings)

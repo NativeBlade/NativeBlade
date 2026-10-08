@@ -105,7 +105,7 @@ NativeBladeConfig::onBoot(function () {
 
 ### Parallel requests
 
-Use `pool()` for multiple API calls, all resolve in a single re-execution:
+Use `pool()` for multiple API calls, the shell runs them in parallel:
 
 ```php
 NativeBladeConfig::onBoot(function () {
@@ -121,10 +121,8 @@ NativeBladeConfig::onBoot(function () {
 });
 ```
 
-`onBoot` runs through the same exit-and-replay bridge, so it re-runs from the top
-on every HTTP call it makes. Keep the calls in a deterministic order and defer
-side effects such as writes and deletes until after the responses are in.
-See [keeping the call sequence deterministic](/core/http/#keep-the-call-sequence-deterministic).
+`onBoot` runs once, like any request: PHP pauses at each native call and
+resumes with the result. See [how requests run](/core/http/#how-requests-run).
 
 ## Migrations
 

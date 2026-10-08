@@ -861,9 +861,11 @@ class ShellConfig
     public function pool(callable $callback): array
     {
         Http\WasmHttpHandler::enablePool();
-        $results = \Illuminate\Support\Facades\Http::pool($callback);
-        Http\WasmHttpHandler::flushPool();
-        return $results;
+        try {
+            return \Illuminate\Support\Facades\Http::pool($callback);
+        } finally {
+            Http\WasmHttpHandler::flushPool();
+        }
     }
 
     // ------------------------------------------------------------------
