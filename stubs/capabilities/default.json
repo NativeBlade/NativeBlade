@@ -78,6 +78,7 @@
         "fs:allow-read-dir",
         "fs:allow-read-file",
         "fs:allow-write-file",
+        "fs:allow-write-text-file",
         "opener:default",
         "os:default",
         "http:default",

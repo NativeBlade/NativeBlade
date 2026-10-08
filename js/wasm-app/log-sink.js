@@ -28,7 +28,7 @@ function safeJson(value) {
 
 /**
  * @param {object}   opts
- * @param {object}   [opts.fs]           @tauri-apps/plugin-fs (stat, rename, remove, writeTextFile)
+ * @param {object}   [opts.fs]           @tauri-apps/plugin-fs (stat, rename, remove, writeFile)
  * @param {*}        [opts.baseDir]      fs BaseDirectory the log file lives in
  * @param {Function} [opts.ensureDir]    creates the base directory; called before the first write
  * @param {string}   [opts.devServerUrl] dev server origin; '' when there is none
@@ -45,8 +45,24 @@ export function createSink({ fs = null, baseDir = null, ensureDir = null, devSer
     function writeFailed(err) {
         if (warned) return;
         warned = true;
-        warn(`[NB] could not write ${LOG_FILE} in the app log directory; entries still go to the console`
-            + (devServerUrl ? ' and the dev server' : '') + '. Check the fs:scope of capabilities/default.json.', err);
+        const message = `[NB] could not write ${LOG_FILE} in the app log directory; entries still go to the console`
+            + (devServerUrl ? ' and the dev server' : '') + '. Check the fs:scope of capabilities/default.json.';
+        warn(message, err);
+        // The dev terminal is where this is actually read: the WebView console
+        // of a phone is rarely open.
+        postToDevServer({ level: 'warn', message, context: { error: describeError(err) }, source: 'shell', at: new Date().toISOString() });
+    }
+
+    function postToDevServer(entry) {
+        if (!devServerUrl || !fetchFn) return;
+        try {
+            fetchFn(`${devServerUrl}/__nb_log`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(entry),
+                keepalive: true,
+            }).catch(() => {});
+        } catch {}
     }
     let size = null;
 
@@ -66,21 +82,14 @@ export function createSink({ fs = null, baseDir = null, ensureDir = null, devSer
             }
             size = 0;
         }
-        await fs.writeTextFile(LOG_FILE, line, { baseDir, append: true });
+        // writeFile, not writeTextFile: the capability every app already has is
+        // fs:allow-write-file; write_text_file is a separate command permission.
+        await fs.writeFile(LOG_FILE, encodeText(line), { baseDir, append: true });
         size += line.length;
     }
 
     return function sink(entry) {
-        if (devServerUrl && fetchFn) {
-            try {
-                fetchFn(`${devServerUrl}/__nb_log`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(entry),
-                    keepalive: true,
-                }).catch(() => {});
-            } catch {}
-        }
+        postToDevServer(entry);
 
         if (!fs || baseDir === null || baseDir === undefined) return chain;
 
@@ -90,6 +99,17 @@ export function createSink({ fs = null, baseDir = null, ensureDir = null, devSer
     };
 }
 
+const encoder = typeof TextEncoder === 'function' ? new TextEncoder() : null;
+function encodeText(text) {
+    return encoder ? encoder.encode(text) : Uint8Array.from(Buffer.from(text, 'utf8'));
+}
+
 function defaultWarn(...args) {
     try { console.warn(...args); } catch {}
+}
+
+function describeError(err) {
+    if (err == null) return '';
+    if (typeof err === 'string') return err;
+    try { return err.message || JSON.stringify(err) || String(err); } catch { return String(err); }
 }

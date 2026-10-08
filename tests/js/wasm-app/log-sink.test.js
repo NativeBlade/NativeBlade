@@ -15,9 +15,10 @@ function makeFs({ existingSize = 0, failWrite = false, failRename = false } = {}
             if (!(name in files)) throw new Error('ENOENT');
             return { size: files[name].length };
         },
-        async writeTextFile(name, text, opts) {
-            calls.push(['writeTextFile', name, opts]);
+        async writeFile(name, bytes, opts) {
+            calls.push(['writeFile', name, opts]);
             if (failWrite) throw new Error('disk full');
+            const text = new TextDecoder().decode(bytes);
             files[name] = opts.append ? (files[name] || '') + text : text;
         },
         async rename(from, to, opts) {
@@ -62,7 +63,7 @@ describe('wasm-app/log-sink', () => {
 
             assert.equal(fs.files[LOG_FILE], 'T1 [info] one\nT2 [info] two\n');
             assert.equal(ensured, 1, 'the directory is created once');
-            assert.deepEqual(fs.calls.filter((c) => c[0] === 'writeTextFile').map((c) => c[2]), [
+            assert.deepEqual(fs.calls.filter((c) => c[0] === 'writeFile').map((c) => c[2]), [
                 { baseDir: 'AppLog', append: true },
                 { baseDir: 'AppLog', append: true },
             ]);
@@ -107,24 +108,30 @@ describe('wasm-app/log-sink', () => {
 
         it('never rejects: a failing write or post is swallowed, later entries still go through, and the write failure is reported once', async () => {
             const fs = makeFs({ failWrite: true });
-            let fetches = 0;
+            const bodies = [];
             const warnings = [];
             const sink = createSink({
                 fs,
                 baseDir: 'AppLog',
                 devServerUrl: 'http://dev',
-                fetchFn: async () => { fetches++; throw new Error('offline'); },
+                fetchFn: async (_url, init) => { bodies.push(JSON.parse(init.body)); throw new Error('offline'); },
                 warn: (...args) => warnings.push(args),
             });
 
             await sink({ message: 'a' });
             await sink({ message: 'b' });
 
-            assert.equal(fetches, 2);
-            assert.equal(fs.calls.filter((c) => c[0] === 'writeTextFile').length, 2);
+            assert.equal(fs.calls.filter((c) => c[0] === 'writeFile').length, 2);
             assert.equal(warnings.length, 1, 'the write failure is reported once, not per entry');
             assert.match(warnings[0][0], /could not write nativeblade\.log/);
             assert.match(warnings[0][0], /fs:scope/);
+
+            // Two entries plus the failure itself, so the dev terminal shows it.
+            const failures = bodies.filter((b) => /could not write nativeblade\.log/.test(b.message));
+            assert.deepEqual(bodies.filter((b) => !failures.includes(b)).map((b) => b.message), ['a', 'b']);
+            assert.equal(failures.length, 1);
+            assert.equal(failures[0].level, 'warn');
+            assert.equal(failures[0].context.error, 'disk full');
         });
 
         it('does not warn when writes succeed', async () => {
