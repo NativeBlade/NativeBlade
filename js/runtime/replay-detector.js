@@ -58,11 +58,31 @@ export function readPending(php, pendingPath) {
 
 export function describeCall(type, entry) {
     switch (type) {
-        case 'http': return `${entry.method || 'GET'} ${entry.url || ''}`.trim();
-        case 'db': return `${entry.type || 'query'} ${truncate(entry.sql || '')}`.trim();
+        case 'http': {
+            // The body is part of the call: two POSTs to one URL with different
+            // payloads are different calls, and the hash shows which one moved.
+            const body = entry.body ? ` body#${shortHash(entry.body)}` : '';
+            return `${entry.method || 'GET'} ${entry.url || ''}${body}`.trim();
+        }
+        case 'db': {
+            const bindings = Array.isArray(entry.bindings) && entry.bindings.length
+                ? ' ' + truncate(JSON.stringify(entry.bindings), 80)
+                : '';
+            return `${entry.type || 'query'} ${truncate(entry.sql || '')}${bindings}`.trim();
+        }
         case 'fs': return `${entry.op || 'op'} ${entry.baseDir ? entry.baseDir + ':' : ''}${entry.path || ''}`.trim();
         default: return JSON.stringify(entry);
     }
+}
+
+/** FNV-1a over the string, as 8 hex chars: enough to tell two payloads apart. */
+export function shortHash(text) {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < text.length; i++) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash.toString(16).padStart(8, '0');
 }
 
 const LABELS = { http: 'HTTP call', db: 'query', fs: 'filesystem operation' };

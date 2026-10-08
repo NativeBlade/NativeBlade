@@ -64,12 +64,12 @@ final class HttpBridgeHandlerTest extends TestCase
         }
     }
 
-    private function seedCache(string $method, string $url, int $index, array $payload): void
+    private function seedCache(string $method, string $url, int $index, array $payload, string $body = ''): void
     {
         if (!is_dir(self::CACHE_DIR)) {
             mkdir(self::CACHE_DIR, 0777, true);
         }
-        $key = md5($method . '|' . $url . '|' . $index);
+        $key = md5($method . '|' . $url . '|' . md5($body) . '|' . $index);
         file_put_contents(self::CACHE_DIR . '/' . $key . '.json', json_encode($payload));
     }
 
@@ -98,7 +98,7 @@ final class HttpBridgeHandlerTest extends TestCase
     #[Test]
     public function before_sending_callbacks_run_with_the_bridge_handler(): void
     {
-        $this->seedCache('POST', 'https://api.test/items', 0, ['status' => 201, 'headers' => [], 'body' => 'created']);
+        $this->seedCache('POST', 'https://api.test/items', 0, ['status' => 201, 'headers' => [], 'body' => 'created'], '{"name":"x"}');
 
         $seen = null;
         $response = Http::beforeSending(function ($request) use (&$seen) {

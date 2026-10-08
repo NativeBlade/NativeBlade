@@ -271,6 +271,96 @@ final class NativeBladeFakeTest extends TestCase
     }
 
     #[Test]
+    public function a_write_between_http_calls_is_caught_because_the_body_is_part_of_the_call(): void
+    {
+        $fake = NativeBlade::fake();
+        DB::table('probe_rows')->insert([['name' => 'd1'], ['name' => 'd2'], ['name' => 'd3']]);
+        Schema::table('probe_rows', fn ($table) => $table->boolean('pending')->default(true));
+
+        // AVOID: marking a draft sent between calls shifts the next run's
+        // sequence. On the device draft 2 would get draft 1's cached response.
+        $this->expectReplayFailure(
+            fn () => $fake->replay(function () {
+                foreach (DB::table('probe_rows')->where('pending', true)->orderBy('id')->get() as $draft) {
+                    Http::post('https://api.test/drafts', ['id' => $draft->id]);
+                    DB::table('probe_rows')->where('id', $draft->id)->update(['pending' => false]);
+                }
+            }),
+            'Replay diverged at call #1',
+            'was `POST https://api.test/drafts body#',
+            'now `POST https://api.test/drafts body#',
+        );
+    }
+
+    #[Test]
+    public function network_first_then_writes_replays_cleanly(): void
+    {
+        $fake = NativeBlade::fake();
+        DB::table('probe_rows')->insert([['name' => 'd1'], ['name' => 'd2'], ['name' => 'd3']]);
+        Schema::table('probe_rows', fn ($table) => $table->boolean('pending')->default(true));
+
+        $fake->replay(function () {
+            $drafts = DB::table('probe_rows')->where('pending', true)->orderBy('id')->get();
+            $responses = $drafts->map(fn ($draft) => Http::post('https://api.test/drafts', ['id' => $draft->id]));
+            foreach ($drafts as $i => $draft) {
+                if ($responses[$i]->successful()) {
+                    DB::table('probe_rows')->where('id', $draft->id)->update(['pending' => false]);
+                }
+            }
+        });
+
+        $fake->assertHttpCalls(3);
+        self::assertSame(0, DB::table('probe_rows')->where('pending', true)->count());
+    }
+
+    #[Test]
+    public function deleting_the_file_after_the_upload_does_not_resend_anything(): void
+    {
+        $fake = NativeBlade::fake();
+        Storage::disk('native')->put(native_path('a.png'), 'bytes');
+        $sent = 0;
+        Http::fake(['api.test/*' => function () use (&$sent) { $sent++; return Http::response(['ok' => true]); }]);
+
+        $fake->replay(function () {
+            $bytes = Storage::disk('native')->get(native_path('a.png'));
+            Http::post('https://api.test/upload', ['data' => base64_encode($bytes)]);
+            Storage::disk('native')->delete(native_path('a.png'));
+        });
+
+        self::assertSame(1, $sent, 'the upload reached the network once');
+        $fake->assertFsOps(2)->assertHttpCalls(1);
+        self::assertSame(['read', 'delete'], array_column($fake->fsOps(), 'op'));
+        self::assertFalse(Storage::disk('native')->exists(native_path('a.png')));
+    }
+
+    #[Test]
+    public function the_native_disk_works_through_storage_directly(): void
+    {
+        $fake = NativeBlade::fake();
+
+        Storage::disk('native')->put('plain.txt', 'one');
+        Storage::disk('native')->put(native_path('docs/report.txt', \NativeBlade\Storage\StoragePath::DOWNLOADS), 'two');
+
+        self::assertSame('one', Storage::disk('native')->get('plain.txt'));
+        self::assertFileExists($fake->fsRoot() . '/downloads/docs/report.txt');
+        self::assertSame(['write', 'write', 'read'], array_column($fake->fsOps(), 'op'));
+        self::assertSame(['app', 'downloads', 'app'], array_column($fake->fsOps(), 'baseDir'));
+    }
+
+    #[Test]
+    public function a_notification_scheduled_on_desktop_is_accepted_the_shell_keeps_it_while_the_app_runs(): void
+    {
+        $fake = NativeBlade::fake('windows');
+
+        $fake->replay(fn () => NativeBlade::scheduleNotification(
+            fn ($n) => $n->id('r1')->title('Later')->at(now()->addMinutes(5))
+        )->toResponse());
+
+        $fake->assertNotificationScheduled('r1');
+        self::assertSame('at', $fake->pushed()[0]['data']['schedule']['type']);
+    }
+
+    #[Test]
     public function replay_fails_when_an_action_exceeds_the_http_budget(): void
     {
         $fake = NativeBlade::fake();

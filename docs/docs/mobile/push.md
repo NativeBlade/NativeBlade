@@ -56,6 +56,11 @@ NativeBlade::scheduleNotification(fn (Notification $n) => $n
 
 `every()` kinds are `minute`, `hour`, `day`, `week`, `month` (with an optional count, default `1`).
 
+On desktop and in the browser there is no native scheduler: the shell keeps
+the schedule in memory and fires it while the app is open. It does not
+survive a restart. `cancelNotification()` and `cancelAllNotifications()` work
+the same way there.
+
 Cancel a scheduled notification by its id, or clear them all:
 
 ```php

@@ -110,10 +110,15 @@ class NativeBladeFake extends ShellConfig
         // returns the cached response without a fetch.
         Http::globalMiddleware(function (callable $handler) use ($fake) {
             return function (RequestInterface $request, array $options) use ($handler, $fake) {
+                $body = (string) $request->getBody();
+                if ($request->getBody()->isSeekable()) {
+                    $request->getBody()->rewind();
+                }
                 $entry = [
                     'type' => 'http',
                     'method' => $request->getMethod(),
                     'url' => (string) $request->getUri(),
+                    'body' => $body,
                     'pool' => WasmHttpHandler::isPooling(),
                 ];
 
@@ -159,7 +164,9 @@ class NativeBladeFake extends ShellConfig
 
         // Native disks: every operation is a native call.
         Storage::extend('nativeblade', function ($app, $config) use ($fake, $bridge) {
-            $adapter = new RecordingFilesystemAdapter($fake->fsRoot, $bridge);
+            // Laravel binds this closure to the FilesystemManager, so only
+            // public members of the fake are reachable here.
+            $adapter = new RecordingFilesystemAdapter($fake->fsRoot(), $bridge);
 
             return new FilesystemAdapter(new Filesystem($adapter), $adapter, $config);
         });
@@ -429,10 +436,11 @@ class NativeBladeFake extends ShellConfig
         return $units;
     }
 
+    /** Mirrors the cache keys of WasmHttpHandler, NativeConnection and NativeFilesystemAdapter. */
     private static function key(array $entry): string
     {
         return match ($entry['type']) {
-            'http' => 'http|' . $entry['method'] . '|' . $entry['url'],
+            'http' => 'http|' . $entry['method'] . '|' . $entry['url'] . '|' . md5($entry['body'] ?? ''),
             'db' => 'db|' . $entry['sql'] . '|' . json_encode($entry['bindings']),
             'fs' => 'fs|' . $entry['op'] . '|' . $entry['baseDir'] . '|' . $entry['path'],
             default => json_encode($entry),
@@ -442,7 +450,8 @@ class NativeBladeFake extends ShellConfig
     public static function describe(array $entry): string
     {
         return match ($entry['type']) {
-            'http' => $entry['method'] . ' ' . $entry['url'],
+            'http' => $entry['method'] . ' ' . $entry['url']
+                . (($entry['body'] ?? '') !== '' ? ' body#' . substr(md5($entry['body']), 0, 8) : ''),
             'db' => $entry['sql'] . ' ' . json_encode($entry['bindings']),
             'fs' => $entry['op'] . ' ' . $entry['baseDir'] . ':' . $entry['path'],
             default => json_encode($entry),

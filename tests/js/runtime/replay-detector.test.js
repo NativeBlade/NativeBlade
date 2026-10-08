@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { createReplayDetector, readPending, describeCall, formatDivergence } from '../../../js/runtime/replay-detector.js';
+import { createReplayDetector, readPending, describeCall, formatDivergence, shortHash } from '../../../js/runtime/replay-detector.js';
 
 const http = (index, method, url) => ({ key: `${method}|${url}|${index}`, index, method, url });
 const db = (index, sql, bindings = []) => ({ key: `${sql}|${JSON.stringify(bindings)}|${index}`, index, type: 'select', sql, bindings });
@@ -65,8 +65,17 @@ describe('replay-detector', () => {
     it('describes calls per bridge type', () => {
         assert.equal(describeCall('http', { method: 'POST', url: 'https://a' }), 'POST https://a');
         assert.equal(describeCall('db', { type: 'insert', sql: 'insert into t' }), 'insert insert into t');
+        assert.equal(describeCall('db', { type: 'update', sql: 'update t set a = ? where id = ?', bindings: [0, 7] }), 'update update t set a = ? where id = ? [0,7]');
         assert.equal(describeCall('db', { sql: 'x'.repeat(200) }).length <= 'query '.length + 120, true);
         assert.equal(describeCall('fs', { op: 'read', baseDir: 'app', path: 'a.txt' }), 'read app:a.txt');
+    });
+
+    it('tells two POSTs to the same URL apart by the body hash', () => {
+        const a = describeCall('http', { method: 'POST', url: 'https://a/drafts', body: btoa('{"id":1}') });
+        const b = describeCall('http', { method: 'POST', url: 'https://a/drafts', body: btoa('{"id":2}') });
+        assert.match(a, /^POST https:\/\/a\/drafts body#[0-9a-f]{8}$/);
+        assert.notEqual(a, b);
+        assert.equal(shortHash('x'), shortHash('x'));
     });
 
     it('formats a divergence as a one-based, human readable message', () => {

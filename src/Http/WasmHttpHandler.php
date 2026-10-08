@@ -60,7 +60,11 @@ class WasmHttpHandler
         $body = (string) $request->getBody();
 
         $index = self::$requestIndex;
-        $key = md5($method . '|' . $url . '|' . $index);
+        // The body is part of the key: two POSTs to the same URL with different
+        // payloads at the same position are different calls. Without it a
+        // re-run that reaches the position with another payload would be
+        // handed the cached response of the first one.
+        $key = md5($method . '|' . $url . '|' . md5($body) . '|' . $index);
         self::$requestIndex++;
         $cachePath = self::CACHE_DIR . '/' . $key . '.json';
 

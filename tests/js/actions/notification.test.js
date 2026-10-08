@@ -4,6 +4,9 @@ import {
     notification,
     cancel_notification,
     cancel_all_notifications,
+    __resetLocalSchedulesForTests,
+    pendingLocalSchedules,
+    msUntilDailyAt,
 } from '../../../js/wasm-app/actions/notification.js';
 import { makeCtx, Recorder, spy } from '../helpers/ctx.js';
 
@@ -163,5 +166,104 @@ describe('actions/cancel_all_notifications', () => {
         await cancel_all_notifications({}, ctx);
 
         assert.equal(invoke.callCount, 0);
+    });
+});
+
+describe('actions/notification desktop schedules', () => {
+    let rec;
+    beforeEach(() => { rec = new Recorder(); __resetLocalSchedulesForTests(); });
+
+    function desktopCtx(sent) {
+        return makeCtx({
+            isTauri: true,
+            isMobile: false,
+            post: rec.fn(),
+            notificationApi: {
+                isPermissionGranted: async () => true,
+                requestPermission: async () => 'granted',
+                sendNotification: (n) => { sent.push(n); },
+            },
+        });
+    }
+
+    const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+    it('keeps an at() schedule in the shell and fires it when the time comes', async (t) => {
+        t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: new Date('2026-10-08T10:00:00Z') });
+        const sent = [];
+        await notification({
+            id: 'r1', title: 'Later', body: 'B',
+            schedule: { type: 'at', at: '2026-10-08T10:05:00Z' },
+        }, desktopCtx(sent));
+
+        assert.deepEqual(sent, [], 'nothing fires on dispatch');
+        assert.deepEqual(pendingLocalSchedules(), ['r1']);
+
+        t.mock.timers.tick(4 * 60e3);
+        await flush();
+        assert.deepEqual(sent, []);
+
+        t.mock.timers.tick(60e3);
+        await flush();
+        assert.equal(sent.length, 1);
+        assert.equal(sent[0].title, 'Later');
+        assert.deepEqual(pendingLocalSchedules(), []);
+    });
+
+    it('cancel_notification drops a pending desktop schedule by id', async (t) => {
+        t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 0 });
+        const sent = [];
+        const ctx = desktopCtx(sent);
+        await notification({ id: 'r1', title: 'T', schedule: { type: 'at', at: new Date(60e3).toISOString() } }, ctx);
+        await notification({ id: 'r2', title: 'T', schedule: { type: 'at', at: new Date(60e3).toISOString() } }, ctx);
+
+        await cancel_notification({ id: 'r1' }, ctx);
+        assert.deepEqual(pendingLocalSchedules(), ['r2']);
+
+        t.mock.timers.tick(60e3);
+        await flush();
+        assert.equal(sent.length, 1);
+    });
+
+    it('cancel_all_notifications clears every desktop schedule', async (t) => {
+        t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 0 });
+        const sent = [];
+        const ctx = desktopCtx(sent);
+        await notification({ id: 'a', title: 'T', schedule: { type: 'every', kind: 'minute' } }, ctx);
+        await notification({ title: 'T', schedule: { type: 'at', at: new Date(1000).toISOString() } }, ctx);
+        assert.equal(pendingLocalSchedules().length, 2);
+
+        await cancel_all_notifications({}, ctx);
+        t.mock.timers.tick(120e3);
+        await flush();
+        assert.deepEqual(sent, []);
+    });
+
+    it('every() repeats while the app is open and re-arms itself', async (t) => {
+        t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 0 });
+        const sent = [];
+        await notification({ id: 'h', title: 'Water', schedule: { type: 'every', kind: 'minute', count: 2 } }, desktopCtx(sent));
+
+        t.mock.timers.tick(2 * 60e3);
+        await flush();
+        t.mock.timers.tick(2 * 60e3);
+        await flush();
+        assert.equal(sent.length, 2);
+        assert.deepEqual(pendingLocalSchedules(), ['h']);
+    });
+
+    it('a schedule for a time already past fires right away', async (t) => {
+        t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: new Date('2026-10-08T10:00:00Z') });
+        const sent = [];
+        await notification({ id: 'p', title: 'T', schedule: { type: 'at', at: '2026-10-08T09:00:00Z' } }, desktopCtx(sent));
+        t.mock.timers.tick(0);
+        await flush();
+        assert.equal(sent.length, 1);
+    });
+
+    it('msUntilDailyAt picks the next occurrence of the local time', () => {
+        const now = new Date(2026, 9, 8, 10, 0, 0);
+        assert.equal(msUntilDailyAt('10:30', now), 30 * 60e3);
+        assert.equal(msUntilDailyAt('09:00', now), 23 * 60 * 60e3);
     });
 });

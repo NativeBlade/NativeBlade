@@ -79,9 +79,12 @@ The safe pattern is to do all the network calls first, then the side effects
 // AVOID. Side effects between calls change the next re-execution.
 Draft::where('pending', true)->each(function ($draft) {
     Http::post($url, $draft->payload);    // call index shifts as drafts are marked sent
-    $draft->update(['pending' => false]); // fewer drafts next run, indexes slide, cache miss
+    $draft->update(['pending' => false]); // fewer drafts next run: the call at this position changes
     Storage::delete($draft->attachment);  // file gone on replay, empty upload
 });
+// The replay detector reports this ("call #1 changed between runs"), and in
+// development the request is aborted there. NativeBlade::fake() catches it in
+// PHPUnit before it reaches a device; see Testing.
 ```
 
 ```php
