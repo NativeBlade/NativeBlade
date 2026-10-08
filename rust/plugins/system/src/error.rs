@@ -9,7 +9,7 @@ pub enum Error {
     #[error(transparent)]
     PluginInvoke(#[from] tauri::plugin::mobile::PluginInvokeError),
 
-    #[error("opening app settings is not supported on this platform")]
+    #[error("not supported on this platform")]
     Unsupported,
 
     #[error("{0}")]

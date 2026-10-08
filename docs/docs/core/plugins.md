@@ -275,7 +275,7 @@ No service provider registration needed. Components, views, and JS modules are p
 
 ## See Also
 
-- [Lifecycle](/core/lifecycle/), bridge internals and the exit/re-execute pattern
+- [Lifecycle](/core/lifecycle/), boot, migrations and the native bridge
 - [Scheduler](/core/scheduler/), running code on a schedule
 - [Filesystem](/core/filesystem/), `Storage::disk('native')` and `native_path()`
 - [Database](/core/database/), external MySQL/PostgreSQL via the `nativeblade-db` driver

@@ -112,6 +112,7 @@ export const actions = {
     exit: system.exit,
     log: system.log,
     set_background_color: system.set_background_color,
+    set_status_bar_style: system.set_status_bar_style,
 
     // permissions
     check_permission: permissionsMod.check_permission,

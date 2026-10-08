@@ -171,9 +171,11 @@ class IosConfigGenerator
                 : 'UIStatusBarStyleDefault';
             $entries[] = "    <key>UIStatusBarStyle</key>";
             $entries[] = "    <string>{$style}</string>";
-            $entries[] = "    <key>UIViewControllerBasedStatusBarAppearance</key>";
-            $entries[] = "    <false/>";
         }
+        // Always off: the application-level status bar style is what both the
+        // build-time ->statusBar() and the runtime setStatusBarStyle() drive.
+        $entries[] = "    <key>UIViewControllerBasedStatusBarAppearance</key>";
+        $entries[] = "    <false/>";
 
         if (isset($config['fullscreen'])) {
             $value = $config['fullscreen'] ? 'true' : 'false';

@@ -1,10 +1,10 @@
-import { reportProblem } from './report.js';
-export const PENDING_PATH = '/tmp/__nb_fs_pending.json';
-const CACHE_DIR = '/tmp/__nb_fs_cache';
-const MAX_RETRIES = 20;
+// Filesystem executor for the native bridge: one `fs` message is one
+// operation on the device through Tauri's fs plugin. PHP is suspended while
+// it runs. A failure throws, which the bridge reports as a failed reply;
+// NativeFilesystemAdapter maps that to the Flysystem exception for reads and
+// writes and to "absent" for the rest.
 
 let fsApi = null;
-let retryCount = 0;
 
 async function loadFsApi() {
     if (fsApi) return fsApi;
@@ -18,7 +18,6 @@ async function loadFsApi() {
 
 export function __setFsApiForTests(fs) { fsApi = fs; }
 export function __resetForTests() {
-    retryCount = 0;
     fsApi = null;
     ensuredDirs.clear();
 }
@@ -31,155 +30,73 @@ const BASE_DIR_MAP = {
     'temp': 'Temp',
 };
 
-export async function hasPendingRequest(php, output) {
-    return typeof output === 'string' && output.includes('__NB_FS_PENDING__');
-}
-
-export async function fulfill(php) {
-    if (retryCount >= MAX_RETRIES) {
-        reportProblem('error',
-            `[NativeBlade] filesystem bridge budget exhausted: this PHP request made more than ${MAX_RETRIES} ` +
-            `sequential filesystem operations and was abandoned with no response. Split the work across separate requests.`
-        );
-        cleanup(php);
-        return false;
-    }
-    retryCount++;
-
+export async function execute(message) {
     const fs = await loadFsApi();
-    if (!fs) {
-        cleanup(php);
-        return false;
-    }
+    if (!fs) throw new Error('The native filesystem is only available inside the app (no fs plugin).');
 
-    try {
-        const pendingList = JSON.parse(php.readFileAsText(PENDING_PATH));
-        if (!Array.isArray(pendingList) || pendingList.length === 0) {
-            cleanup(php);
-            return false;
+    const baseDir = BASE_DIR_MAP[message.baseDir] || 'Document';
+    const opts = { baseDir: fs.BaseDirectory[baseDir] };
+    const path = message.path;
+    const extra = message.extra;
+
+    switch (message.op) {
+        case 'read': {
+            const bytes = await fs.readFile(path, opts);
+            return arrayBufferToBase64(bytes);
         }
-
-        try { php.mkdirTree(CACHE_DIR); } catch {}
-
-        for (const pending of pendingList) {
-            const baseDir = BASE_DIR_MAP[pending.baseDir] || 'Document';
-            const opts = { baseDir: fs.BaseDirectory[baseDir] };
-            let result = null;
-
+        case 'write': {
+            await ensureBaseDir(fs, baseDir);
+            const dir = path.split('/').slice(0, -1).join('/');
+            if (dir) {
+                try { await fs.mkdir(dir, { ...opts, recursive: true }); } catch {}
+            }
+            await fs.writeFile(path, base64ToUint8Array(extra), opts);
+            return true;
+        }
+        case 'delete':
+            await fs.remove(path, opts);
+            return true;
+        case 'delete_dir':
+            await fs.remove(path, { ...opts, recursive: true });
+            return true;
+        case 'exists':
+            return fs.exists(path, opts);
+        case 'dir_exists': {
             try {
-                switch (pending.op) {
-                    case 'read': {
-                        const bytes = await fs.readFile(pending.path, opts);
-                        result = arrayBufferToBase64(bytes);
-                        break;
-                    }
-                    case 'write': {
-                        await ensureBaseDir(fs, baseDir);
-                        const dir = pending.path.split('/').slice(0, -1).join('/');
-                        if (dir) {
-                            try { await fs.mkdir(dir, { ...opts, recursive: true }); } catch {}
-                        }
-                        const bytes = base64ToUint8Array(pending.extra);
-                        await fs.writeFile(pending.path, bytes, opts);
-                        result = true;
-                        break;
-                    }
-                    case 'delete': {
-                        await fs.remove(pending.path, opts);
-                        result = true;
-                        break;
-                    }
-                    case 'delete_dir': {
-                        await fs.remove(pending.path, { ...opts, recursive: true });
-                        result = true;
-                        break;
-                    }
-                    case 'exists': {
-                        result = await fs.exists(pending.path, opts);
-                        break;
-                    }
-                    case 'dir_exists': {
-                        try {
-                            const stat = await fs.stat(pending.path, opts);
-                            result = stat.isDirectory;
-                        } catch {
-                            result = false;
-                        }
-                        break;
-                    }
-                    case 'mkdir': {
-                        await fs.mkdir(pending.path, { ...opts, recursive: true });
-                        result = true;
-                        break;
-                    }
-                    case 'stat': {
-                        const stat = await fs.stat(pending.path, opts);
-                        result = {
-                            size: stat.size,
-                            lastModified: Math.floor(stat.mtime / 1000),
-                        };
-                        break;
-                    }
-                    case 'list': {
-                        const deep = pending.extra === '1';
-                        const entries = await readDirRecursive(fs, pending.path, opts, deep);
-                        result = entries;
-                        break;
-                    }
-                    case 'copy': {
-                        const destDir = pending.extra.split('/').slice(0, -1).join('/');
-                        if (destDir) {
-                            try { await fs.mkdir(destDir, { ...opts, recursive: true }); } catch {}
-                        }
-                        await fs.copyFile(pending.path, pending.extra, opts);
-                        result = true;
-                        break;
-                    }
-                    case 'move': {
-                        const moveDestDir = pending.extra.split('/').slice(0, -1).join('/');
-                        if (moveDestDir) {
-                            try { await fs.mkdir(moveDestDir, { ...opts, recursive: true }); } catch {}
-                        }
-                        await fs.rename(pending.path, pending.extra, opts);
-                        result = true;
-                        break;
-                    }
-                }
+                const stat = await fs.stat(path, opts);
+                return stat.isDirectory;
             } catch {
-                result = null;
+                return false;
             }
-
-            php.writeFile(`${CACHE_DIR}/${pending.key}.json`, JSON.stringify({ result }));
         }
-
-        try { php.unlink(PENDING_PATH); } catch {}
-        return true;
-    } catch {
-        cleanup(php);
-        return false;
+        case 'mkdir':
+            await fs.mkdir(path, { ...opts, recursive: true });
+            return true;
+        case 'stat': {
+            const stat = await fs.stat(path, opts);
+            return { size: stat.size, lastModified: Math.floor(stat.mtime / 1000) };
+        }
+        case 'list':
+            return readDirRecursive(fs, path, opts, extra === '1');
+        case 'copy': {
+            const destDir = extra.split('/').slice(0, -1).join('/');
+            if (destDir) {
+                try { await fs.mkdir(destDir, { ...opts, recursive: true }); } catch {}
+            }
+            await fs.copyFile(path, extra, opts);
+            return true;
+        }
+        case 'move': {
+            const destDir = extra.split('/').slice(0, -1).join('/');
+            if (destDir) {
+                try { await fs.mkdir(destDir, { ...opts, recursive: true }); } catch {}
+            }
+            await fs.rename(path, extra, opts);
+            return true;
+        }
+        default:
+            throw new Error(`Unknown filesystem operation '${message.op}'.`);
     }
-}
-
-export function done(php) {
-    retryCount = 0;
-    clearCache(php);
-}
-
-function cleanup(php) {
-    retryCount = 0;
-    try { php.unlink(PENDING_PATH); } catch {}
-    clearCache(php);
-}
-
-function clearCache(php) {
-    try {
-        const files = php.listFiles(CACHE_DIR);
-        for (const f of files) {
-            if (f !== '.' && f !== '..') {
-                try { php.unlink(CACHE_DIR + '/' + f); } catch {}
-            }
-        }
-    } catch {}
 }
 
 const ensuredDirs = new Set();
@@ -207,10 +124,7 @@ async function readDirRecursive(fs, path, opts, deep) {
 
     for (const entry of entries) {
         const fullPath = path ? `${path}/${entry.name}` : entry.name;
-        const item = {
-            path: fullPath,
-            isDirectory: entry.isDirectory,
-        };
+        const item = { path: fullPath, isDirectory: entry.isDirectory };
 
         if (!entry.isDirectory) {
             try {
@@ -223,8 +137,7 @@ async function readDirRecursive(fs, path, opts, deep) {
         result.push(item);
 
         if (deep && entry.isDirectory) {
-            const children = await readDirRecursive(fs, fullPath, opts, true);
-            result.push(...children);
+            result.push(...await readDirRecursive(fs, fullPath, opts, true));
         }
     }
 

@@ -1,13 +1,20 @@
 //! System utilities plugin for NativeBlade.
 //!
 //! Always-on plugin for small OS-level helpers that don't belong to any
-//! feature plugin. Currently exposes a single command, `open_app_settings`,
-//! which sends the user to this app's settings screen (the natural next step
-//! after a permission was permanently denied).
+//! feature plugin.
 //!
+//! `open_app_settings` sends the user to this app's settings screen (the
+//! natural next step after a permission was permanently denied).
 //! Android: Settings.ACTION_APPLICATION_DETAILS_SETTINGS for the package.
 //! iOS: UIApplication.openSettingsURLString.
-//! Desktop: unsupported (there is no per-app settings screen).
+//!
+//! `set_status_bar_style` changes the status bar (and, on Android, the
+//! navigation bar) icon style at runtime, so a theme switch inside the app
+//! keeps the system bars readable. Android: WindowInsetsControllerCompat.
+//! iOS: the application status bar style (Info.plist opts out of
+//! view-controller based appearance).
+//!
+//! Desktop: both unsupported; the JS bridge never invokes them there.
 
 use tauri::{
     plugin::{Builder, TauriPlugin},

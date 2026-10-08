@@ -413,6 +413,25 @@ class NativeResponse
     }
 
     /**
+     * Set the status bar icon style at runtime: 'dark' icons for a light
+     * background, 'light' icons for a dark one. The runtime counterpart of
+     * `->statusBar(style:)` in the build config, for apps that switch theme
+     * inside. On Android the navigation bar follows. Mobile only, through the
+     * always-on nativeblade-system plugin; no-op on desktop.
+     *
+     * Pair it with setBackgroundColor(): the background paints the safe
+     * areas, this keeps the clock, battery and signal readable on it.
+     */
+    public function setStatusBarStyle(string $style): static
+    {
+        if (!in_array($style, ['dark', 'light'], true)) {
+            throw new \InvalidArgumentException("Status bar style must be 'dark' or 'light', '{$style}' given.");
+        }
+
+        return $this->push('set_status_bar_style', ['style' => $style]);
+    }
+
+    /**
      * Open the OS "app settings" page, the natural next step after a permission
      * is 'denied' and can no longer be re-prompted. Works on Android
      * (ACTION_APPLICATION_DETAILS_SETTINGS) and iOS (settings URL), hosted by the

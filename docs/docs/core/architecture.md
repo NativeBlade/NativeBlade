@@ -40,9 +40,16 @@ snapshot arrives.
 ## The native bridge
 
 Some calls need real native work: `Http::`, database queries, and `Storage`.
-When PHP reaches one of these, the request pauses, the shell performs the native
-operation, and PHP re-runs with the result available. This is transparent to your
-code. You write `Http::get(...)` and `Model::all()` as usual.
+When PHP reaches one of these, it pauses inside the call, the shell performs
+the native operation, and PHP resumes with the result. php-wasm runs with
+JSPI, or Asyncify where the WebView lacks it, and picks one at load time. This
+is transparent to your code. You write `Http::get(...)` and `Model::all()` as
+usual, and the request runs once, top to bottom.
+
+The WebView console says which build loaded (`[NB] php-wasm runtime: jspi`
+or `asyncify`). To reproduce an Asyncify-only problem on a desktop that has
+JSPI, open the dev server with `?php=asyncify`, or set
+`localStorage['nb:php-runtime'] = 'asyncify'` and reload. Development only.
 
 ## Where things live
 

@@ -7,6 +7,9 @@ namespace NativeBlade\Tests\Unit\Storage;
 use League\Flysystem\Config;
 use League\Flysystem\DirectoryAttributes;
 use League\Flysystem\FileAttributes;
+use League\Flysystem\UnableToReadFile;
+use League\Flysystem\UnableToWriteFile;
+use NativeBlade\Bridge\NativeBridge;
 use NativeBlade\Storage\NativeFilesystemAdapter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -14,65 +17,53 @@ use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 
 /**
- * NativeFilesystemAdapter mirrors WasmHttpHandler's cache/exit pattern for
- * filesystem ops. We cover:
+ * NativeFilesystemAdapter sends every operation through NativeBridge and PHP
+ * waits for the shell's reply. The tests answer the bridge with a queue of
+ * replies and record each message, covering:
  *   - Pure helpers: parse() (default + __nb:baseDir:path syntax)
  *   - MIME type table (extension → mime)
  *   - visibility() / setVisibility() static defaults
- *   - Cache-hit paths for every bridge op: exists, write, read, delete, stat,
- *     list, copy, move, mkdir, delete_dir
+ *   - The message and result mapping of every op: exists, write, read,
+ *     delete, stat, list, copy, move, mkdir, delete_dir
  *   - readStream wrapping read()
- *   - The cache key is content-independent (see the write regression test)
- *
- * The exit(0) fallback isn't testable without subprocess isolation.
+ *   - A failed read or write surfacing as the Flysystem exception
  */
 final class NativeFilesystemAdapterTest extends TestCase
 {
-    private const CACHE_DIR = '/tmp/__nb_fs_cache';
+    /** @var list<mixed> replies handed out in order */
+    private array $replies = [];
+
+    /** @var list<array<string, mixed>> every message sent to the shell */
+    private array $calls = [];
 
     protected function setUp(): void
     {
-        $this->resetOpIndex();
-        $this->scrubCache();
+        $this->replies = [];
+        $this->calls = [];
+        NativeBridge::handleWith(function (array $message) {
+            $this->calls[] = $message;
+            if ($this->replies === []) {
+                return ['ok' => false, 'error' => 'no reply queued for ' . json_encode($message)];
+            }
+
+            return ['ok' => true, 'result' => array_shift($this->replies)];
+        });
     }
 
     protected function tearDown(): void
     {
-        $this->resetOpIndex();
-        $this->scrubCache();
+        NativeBridge::handleWith(null);
     }
 
-    private function resetOpIndex(): void
-    {
-        (new ReflectionClass(NativeFilesystemAdapter::class))
-            ->getProperty('opIndex')
-            ->setValue(null, 0);
-    }
-
-    private function scrubCache(): void
-    {
-        if (!is_dir(self::CACHE_DIR)) return;
-        foreach (glob(self::CACHE_DIR . '/*.json') ?: [] as $f) {
-            @unlink($f);
-        }
-    }
-
-    /**
-     * Mirror NativeFilesystemAdapter::bridge() key generation exactly. The key
-     * is deterministic and content-independent: op + baseDir + path + opIndex.
-     * The operation's `extra` (write contents, copy/move destination, list deep
-     * flag) travels in the pending payload but is intentionally NOT hashed, so a
-     * write with dynamic contents keeps a stable key across re-executions.
-     */
+    /** Names the operation a reply is meant for; replies are handed out in order. */
     private function keyFor(string $op, string $baseDir, string $path, int $index): string
     {
-        return md5($op . '|' . $baseDir . '|' . $path . '|' . $index);
+        return $op . '|' . $baseDir . '|' . $path . '|' . $index;
     }
 
     private function seed(string $key, mixed $result): void
     {
-        if (!is_dir(self::CACHE_DIR)) mkdir(self::CACHE_DIR, 0777, true);
-        file_put_contents(self::CACHE_DIR . '/' . $key . '.json', json_encode(['result' => $result]));
+        $this->replies[] = $result;
     }
 
     private function invokeStatic(string $method, array $args): mixed
@@ -199,23 +190,43 @@ final class NativeFilesystemAdapterTest extends TestCase
     }
 
     #[Test]
-    public function write_resolves_from_cache_regardless_of_contents(): void
+    public function write_sends_the_contents_base64_encoded(): void
     {
         $this->seed($this->keyFor('write', 'app', 'out.txt', 0), true);
 
         $adapter = new NativeFilesystemAdapter();
-        $adapter->write('out.txt', 'hello world', new Config());
-        self::assertTrue(true);
+        $adapter->write('__nb:cache:out.txt', 'hello world', new Config());
+
+        self::assertSame([
+            'nativeblade' => 'fs',
+            'op' => 'write',
+            'path' => 'out.txt',
+            'baseDir' => 'cache',
+            'extra' => base64_encode('hello world'),
+        ], $this->calls[0]);
     }
 
     #[Test]
-    public function write_cache_key_ignores_dynamic_contents(): void
+    public function a_failed_write_or_read_throws_the_flysystem_exception(): void
     {
-        $this->seed($this->keyFor('write', 'app', 'log.txt', 0), true);
-
+        NativeBridge::handleWith(fn () => ['ok' => false, 'error' => 'permission denied']);
         $adapter = new NativeFilesystemAdapter();
-        $adapter->write('log.txt', 'written at ' . microtime(true) . ' ' . random_int(0, PHP_INT_MAX), new Config());
-        self::assertTrue(true);
+
+        try {
+            $adapter->write('out.txt', 'x', new Config());
+            self::fail('expected UnableToWriteFile');
+        } catch (UnableToWriteFile $e) {
+            self::assertStringContainsString('permission denied', $e->getMessage());
+        }
+
+        try {
+            $adapter->read('in.txt');
+            self::fail('expected UnableToReadFile');
+        } catch (UnableToReadFile $e) {
+            self::assertStringContainsString('permission denied', $e->getMessage());
+        }
+
+        self::assertFalse($adapter->fileExists('maybe.txt'), 'other failures read as absent');
     }
 
     #[Test]
@@ -382,7 +393,7 @@ final class NativeFilesystemAdapterTest extends TestCase
     }
 
     #[Test]
-    public function opIndex_monotonically_increases_across_ops(): void
+    public function every_op_is_one_message_answered_in_order(): void
     {
         $this->seed($this->keyFor('exists', 'app', 'a', 0), true);
         $this->seed($this->keyFor('exists', 'app', 'b', 1), false);

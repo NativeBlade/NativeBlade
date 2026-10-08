@@ -1,33 +1,11 @@
 import { getInstance } from './php-runtime.js';
 import { detectPlatform } from './filesystem.js';
-import * as httpBridge from './http-bridge.js';
-import * as fsBridge from './fs-bridge.js';
-import * as dbBridge from './db-bridge.js';
 import { inlineAssets } from './inline-assets.js';
-import { runBridgeCycle, settleBridges } from './bridge-cycle.js';
-import { createReplayDetector, readPending, formatDivergence } from './replay-detector.js';
 import { reportProblem } from './report.js';
 import { isDevMode } from './dev-mode.js';
-
-// Checked in this order after every PHP execution; only one can be pending
-// per execution because PHP exits at its first bridge call.
-const BRIDGES = { http: httpBridge, fs: fsBridge, db: dbBridge };
-
-// One logical request = several PHP runs. The detector compares the bridge
-// calls each run makes and reports the first one that differs, which is the
-// symptom of non-deterministic PHP before a bridge call (see replay-detector.js).
-const replay = createReplayDetector();
-
-// The main window's bridge-completion callback (posts responses back to the app
-// iframe). A single global is fine for the main window because Livewire drives
-// its requests one at a time. A caller that needs its OWN completion (the window
-// relay serving a satellite) passes a per-request `onBridge` to request() instead
-// of swapping this global — so the two can never clobber each other.
-let pendingBridgeCallback = null;
-
-export function setOnBridgeComplete(fn) {
-    pendingBridgeCallback = fn;
-}
+import { installNativeBridge, lastNativeCall } from './native-bridge.js';
+import { beginRequest as beginHttpRequest } from './http-bridge.js';
+import { explainRuntimeCrash } from './runtime-crash.js';
 
 const STATIC_MIME = {
     '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
@@ -36,9 +14,16 @@ const STATIC_MIME = {
     '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
 };
 
-export async function handleRequest(path, options = {}, onBridge = null) {
+/**
+ * Run one request through PHP and return its final result. Native calls
+ * (HTTP, database, filesystem) happen inside the run: PHP is suspended at
+ * post_message_to_js() while the shell does the work, then resumes. See
+ * native-bridge.js.
+ */
+export async function handleRequest(path, options = {}) {
     const php = getInstance();
     if (!php) throw new Error('PHP not initialized');
+    installNativeBridge(php);
 
     const method = (options.method || 'GET').toUpperCase();
     const body = options.body || '';
@@ -47,7 +32,7 @@ export async function handleRequest(path, options = {}, onBridge = null) {
     const isJson = contentType.includes('application/json');
 
     // Build an $_SERVER bootstrap array on disk (as JSON) and load it from PHP.
-    // Interpolating user-controlled strings straight into PHP source is unsafe —
+    // Interpolating user-controlled strings straight into PHP source is unsafe:
     // a stray quote/backslash in a URL, header or body would either crash the
     // parser or, in a hostile environment, allow code injection. Passing through
     // JSON + json_decode keeps the PHP source static and handles any bytes.
@@ -80,7 +65,7 @@ export async function handleRequest(path, options = {}, onBridge = null) {
 
     // Shell-module ride-along: snapshot the current shell-owned #[NativeProp]
     // values (window.__NB_SHELL_PROPS__ is set by the shell-module action) so
-    // HasNativeShell components read them fresh at hydrate — zero extra requests.
+    // HasNativeShell components read them fresh at hydrate, with no extra requests.
     // Always overwrite, even with {}: a leftover snapshot from a previous
     // request would hydrate stale values after a module is destroyed.
     try {
@@ -112,36 +97,25 @@ export async function handleRequest(path, options = {}, onBridge = null) {
         require '/app/public/index.php';
     `;
 
-    const result = await php.run({ code });
+    // A navigation that aborted the previous request must not bleed into this one.
+    beginHttpRequest();
+
+    let result;
+    try {
+        result = await php.run({ code });
+    } catch (err) {
+        // Last resort for a native call the SuspendGuard did not foresee: the
+        // instance is gone, so say where it died and reload the shell.
+        const explained = explainRuntimeCrash(err, lastNativeCall());
+        if (explained) {
+            reportProblem('error', explained);
+            scheduleReload();
+        }
+        throw err;
+    }
     let text = result.text || '';
 
-    // Each run of a logical request starts PHP from scratch, so the last run's
-    // stderr holds every log line and error the request produced. Keeping only
-    // the latest run and flushing it once the request settles (or is
-    // abandoned) is what stops a NativeBlade::log() before an Http call from
-    // showing up twice.
-    bufferedStderr = result.errors || '';
-
-    const pending = await settleBridges({
-        php,
-        text,
-        bridges: BRIDGES,
-        startCycle: (type) => {
-            // In development a divergence ends the request: re-running after
-            // it only repeats the same mistake until the retry budget is gone,
-            // with a copy of every log line each time. A store build keeps
-            // going, since some divergences still converge.
-            if (reportReplayDivergence(php, type) && isDevMode()) {
-                return abandonInBackground(php, onBridge);
-            }
-            return fulfillInBackground(php, path, options, type, onBridge);
-        },
-    });
-    if (pending) {
-        return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
-    }
-    replay.reset();
-    flushStderr();
+    if (result.errors) processStderr(result.errors);
 
     try {
         const json = JSON.parse(text);
@@ -155,12 +129,15 @@ export async function handleRequest(path, options = {}, onBridge = null) {
     return { text, errors: result.errors, httpStatusCode: result.httpStatusCode || 200 };
 }
 
-let bufferedStderr = '';
-
-function flushStderr() {
-    const raw = bufferedStderr;
-    bufferedStderr = '';
-    if (raw) processStderr(raw);
+// One reload per crash, never a loop: a crash during the reload's own boot
+// leaves the flag set and only reports.
+function scheduleReload() {
+    if (typeof window === 'undefined' || !window.location) return;
+    try {
+        if (window.sessionStorage.getItem('nb:crash-reload') === '1') return;
+        window.sessionStorage.setItem('nb:crash-reload', '1');
+        setTimeout(() => window.location.reload(), 1500);
+    } catch {}
 }
 
 function processStderr(raw) {
@@ -182,48 +159,4 @@ function processStderr(raw) {
         // log file, the dev terminal and the dev overlay, not only the console.
         reportProblem('error', rest, {}, 'php');
     }
-}
-
-function fulfillInBackground(php, originalPath, originalOptions, type = 'http', onBridge = null) {
-    return runBridgeCycle({
-        php,
-        bridge: BRIDGES[type],
-        rerun: () => handleRequest(originalPath, originalOptions, onBridge),
-        getCallback: () => onBridge || pendingBridgeCallback,
-        onAbandon: () => abandonRequest(php),
-    });
-}
-
-// Ends the logical request without a result, through the same path a bridge
-// that gave up takes (the waiting caller receives BRIDGE_ABORTED).
-function abandonInBackground(php, onBridge = null) {
-    return runBridgeCycle({
-        php,
-        bridge: { fulfill: async () => false },
-        rerun: async () => ({ bridgePending: true }),
-        getCallback: () => onBridge || pendingBridgeCallback,
-        onAbandon: () => abandonRequest(php),
-    });
-}
-
-function abandonRequest(php) {
-    flushStderr();
-    replay.reset();
-    for (const bridge of Object.values(BRIDGES)) bridge.done(php);
-}
-
-/** @returns {boolean} true when at least one divergence was found and reported */
-function reportReplayDivergence(php, type) {
-    let findings;
-    try {
-        findings = replay.track(type, readPending(php, BRIDGES[type].PENDING_PATH));
-    } catch {
-        return false;
-    }
-    for (const finding of findings) {
-        reportProblem('error', formatDivergence(finding), {
-            type: finding.type, index: finding.index, was: finding.was, now: finding.now,
-        });
-    }
-    return findings.length > 0;
 }

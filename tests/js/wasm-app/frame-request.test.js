@@ -127,20 +127,16 @@ describe('frame-request/serveFrameRequest', () => {
 
     it('serializes overlapping frame requests and delivers each to its own source', async () => {
         // Build a real serialized requestFull over a controllable fake request()
-        // that stays bridge-pending until released — the same shape as the router.
+        // that stays suspended (as PHP does inside a native call) until
+        // released, the same shape as the router.
         const enqueue = createSerialQueue();
         const events = [];
         const releases = {};
-        const request = (path, _options, done) => {
+        const request = (path) => new Promise((resolve) => {
             events.push(`start:${path}`);
-            releases[path] = () => { events.push(`end:${path}`); done({ text: `R:${path}`, httpStatusCode: 200 }); };
-            return Promise.resolve({ bridgePending: true });
-        };
-        const requestFull = (path, options) => enqueue(() => new Promise((resolve) => {
-            let settled = false;
-            const done = (r) => { if (!settled) { settled = true; resolve(r); } };
-            request(path, options, done);
-        }));
+            releases[path] = () => { events.push(`end:${path}`); resolve({ text: `R:${path}`, httpStatusCode: 200 }); };
+        });
+        const requestFull = (path, options) => enqueue(() => request(path, options));
 
         const src1 = makeSource();
         const src2 = makeSource();

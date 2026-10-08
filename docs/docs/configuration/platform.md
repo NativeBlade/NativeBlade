@@ -53,7 +53,7 @@ The desktop menu bar and system tray have their own page: [Menus & Tray](/deskto
 | `minSdk(int)` | Minimum Android SDK (default: 28) |
 | `targetSdk(int)` | Target Android SDK (default: 36, required by Google Play) |
 | `orientation(string)` | `portrait`, `landscape`, or `auto` |
-| `statusBar(style)` | Status bar icon style (`'dark'` or `'light'`). Navigation bar matches automatically. Edge-to-edge is enforced, so the background under both system bars comes from your WebView content (paint via CSS with `env(safe-area-inset-top)`), not from a theme color. |
+| `statusBar(style)` | Status bar icon style (`'dark'` or `'light'`). Navigation bar matches automatically. Edge-to-edge is enforced, so the background under both system bars comes from your WebView content (paint via CSS with `env(safe-area-inset-top)`), not from a theme color. Change it at runtime with `NativeBlade::setStatusBarStyle()` when the app switches theme. |
 | `fullscreen(bool)` | Hide status bar and navigation bar |
 | `allowBackup(bool)` | `android:allowBackup` in the manifest. Android defaults to true, which restores app data on reinstall (including e.g. the UMP ad-consent state), set `false` for a clean slate on every reinstall |
 | `splashBackground(string)` | Native splash screen color |

@@ -45,9 +45,10 @@ JS;
         $out = ViteFontFallbacks::disable(self::LARAVEL_DEFAULT);
 
         self::assertNotNull($out);
+        // The heredoc follows this file's line endings; compare on LF.
         self::assertStringContainsString(
             "bunny('Instrument Sans', {\n                    optimizedFallbacks: false,\n                    weights: [400, 500, 600],\n                }),",
-            $out
+            str_replace("\r\n", "\n", $out)
         );
     }
 

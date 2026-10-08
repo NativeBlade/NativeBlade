@@ -1,6 +1,7 @@
 import { initRuntime, getInstance } from './php-runtime.js';
 import { prepareDirs, loadBundle, patchEnv, runMigrations } from './filesystem.js';
 import { handleRequest } from './request-handler.js';
+import { installNativeBridge } from './native-bridge.js';
 import { loadTranslations, t } from './i18n.js';
 
 export { getInstance, t, loadTranslations };
@@ -10,6 +11,9 @@ export async function boot(onProgress) {
 
     onProgress?.(t('splash.loading'));
     await initRuntime();
+    // PHP's native calls (HTTP, database, filesystem) are answered here from
+    // the first request on, migrations included.
+    installNativeBridge(getInstance());
 
     onProgress?.(t('boot.filesystem'));
     prepareDirs();
@@ -30,6 +34,6 @@ export async function boot(onProgress) {
     return getInstance();
 }
 
-export async function request(path, options, onBridge) {
-    return handleRequest(path, options, onBridge);
+export async function request(path, options) {
+    return handleRequest(path, options);
 }

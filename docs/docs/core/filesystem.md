@@ -134,29 +134,18 @@ public function deleteExport()
 
 ## How It Works
 
-The native filesystem uses a bridge pattern (same as HTTP Bridge):
+The native filesystem runs in the shell, and PHP waits for each operation:
 
-1. PHP calls `Storage::disk('native')->put(...)` 
-2. The adapter writes a pending operation to a temp file
-3. PHP signals the bridge and exits
-4. JavaScript picks up the operation and calls `@tauri-apps/plugin-fs`
-5. The result is cached
-6. PHP re-executes, finds the cache, and continues normally
+1. PHP calls `Storage::disk('native')->put(...)`
+2. The adapter sends the operation to the shell and PHP pauses
+3. JavaScript calls `@tauri-apps/plugin-fs`
+4. PHP resumes with the result and continues normally
 
-This is transparent, your code uses standard Laravel Storage without any changes.
-
-Each operation triggers one re-execution of PHP, so an action with N filesystem
-operations runs N+1 times. Two things follow from that:
-
-- **Keep the operations in a deterministic order.** Every re-execution must issue
-  the same operations, with the same arguments, in the same sequence. A cached
-  result is matched by call order, so branching differently between re-executions,
-  or a side effect that changes the sequence, breaks the match. This is the same
-  requirement the [database bridge](/core/database/) documents.
-- **There is a per-request budget.** A single request is capped at about twenty
-  sequential filesystem operations. Past that it is abandoned with no response and
-  a warning in the console. Long batch work such as copying or scanning many files
-  should be split across separate requests.
+This is transparent, your code uses standard Laravel Storage without any
+changes, in any order and in any number. A read or write the device refuses
+throws the Flysystem exception Laravel expects (`UnableToReadFile`,
+`UnableToWriteFile`); `exists()` on something the device cannot reach is
+simply false.
 
 ## Camera Integration
 
