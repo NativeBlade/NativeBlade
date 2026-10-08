@@ -1,5 +1,8 @@
 // System actions — exit, log
 
+import { createSink } from '../log-sink.js';
+import { showDevError } from '../dev-overlay.js';
+
 export function exit() {
     // The outer promise must be caught too: in a browser preview m.exit(0)
     // rejects (no Tauri host) and would surface as an uncaught rejection.
@@ -98,10 +101,55 @@ export function log(payload) {
     const fn = { info: 'log', warn: 'warn', error: 'error', debug: 'debug' }[level] || 'log';
     const color = { info: '#3498db', warn: '#f39c12', error: '#e74c3c', debug: '#9b59b6' }[level] || '#3498db';
     const style = `color:${color};font-weight:bold`;
-    const prefix = `%c[NB:${level}]`;
+    const prefix = payload.source === 'php' ? `%c[NB:php:${level}]` : `%c[NB:${level}]`;
     if (context && Object.keys(context).length > 0) {
         console[fn](prefix, style, message, context);
     } else {
         console[fn](prefix, style, message);
     }
+
+    getLogSink().then((sink) => sink(payload)).catch(() => {});
+
+    // Fail loud in development: errors also show on screen, where a phone
+    // tester sees them. A store build never shows the overlay.
+    if (level === 'error') {
+        showDevError(payload.source === 'php' ? 'PHP error' : 'Error', message, context);
+    }
 }
+
+// The persistent/terminal sink (see log-sink.js), wired once: the app's log
+// directory through the fs plugin inside Tauri, and the Vite dev server when
+// this page was served by one (it injects the nativeblade-vite-url meta tag).
+let logSink = null;
+function getLogSink() {
+    if (logSink) return logSink;
+    logSink = (async () => {
+        const isTauri = typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__;
+        let fs = null, baseDir = null, ensureDir = null;
+        if (isTauri) {
+            try {
+                fs = await import('@tauri-apps/plugin-fs');
+                baseDir = fs.BaseDirectory.AppLog;
+                const pathApi = await import('@tauri-apps/api/path');
+                ensureDir = async () => { await fs.mkdir(await pathApi.appLogDir(), { recursive: true }); };
+            } catch {
+                fs = null;
+            }
+        }
+
+        const devServerUrl = typeof document !== 'undefined'
+            ? (document.querySelector('meta[name="nativeblade-vite-url"]')?.getAttribute('content') || '')
+            : '';
+
+        return createSink({
+            fs,
+            baseDir,
+            ensureDir,
+            devServerUrl,
+            fetchFn: typeof fetch === 'function' ? fetch.bind(globalThis) : null,
+        });
+    })();
+    return logSink;
+}
+
+export function __resetLogSinkForTests() { logSink = null; }

@@ -6,6 +6,7 @@
 
 import { postToApp, onFrameSwap } from '../bridge.js';
 import { importAppComponent } from '../component-registry.js';
+import { onNavigate } from '../navigation-events.js';
 
 const instances = new Map();   // component id -> instance
 const moduleCache = new Map(); // shell name -> Promise<module>
@@ -250,6 +251,13 @@ function buildNb(inst, shell) {
             listen: (name, fn) => { (inst.listeners[name] ??= []).push(fn); },
         },
         onCleanup: (fn) => { inst.cleanups.push(fn); },
+        // Completed navigations ({ path, from, direction, transition }); the
+        // subscription dies with the instance.
+        onNavigate: (fn) => {
+            const off = onNavigate(fn);
+            inst.cleanups.push(off);
+            return off;
+        },
     };
 }
 

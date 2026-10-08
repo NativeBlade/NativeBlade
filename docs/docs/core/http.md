@@ -20,7 +20,11 @@ Http::withToken($token)->post('https://api.example.com/orders', [
 ```
 
 Everything you know from Laravel applies: headers, tokens, JSON, timeouts,
-retries, and the response helpers.
+retries, and the response helpers. Inside the app the native bridge is
+installed as the Guzzle handler of every request, so Laravel's own pipeline
+still runs: `beforeSending()` callbacks, `Http::fake()` in tests, request
+middleware and macros behave exactly as on a server. Only the network hop is
+different.
 
 ## Parallel requests
 
@@ -75,9 +79,12 @@ The safe pattern is to do all the network calls first, then the side effects
 // AVOID. Side effects between calls change the next re-execution.
 Draft::where('pending', true)->each(function ($draft) {
     Http::post($url, $draft->payload);    // call index shifts as drafts are marked sent
-    $draft->update(['pending' => false]); // fewer drafts next run, indexes slide, cache miss
+    $draft->update(['pending' => false]); // fewer drafts next run: the call at this position changes
     Storage::delete($draft->attachment);  // file gone on replay, empty upload
 });
+// The replay detector reports this ("call #1 changed between runs"), and in
+// development the request is aborted there. NativeBlade::fake() catches it in
+// PHPUnit before it reaches a device; see Testing.
 ```
 
 ```php

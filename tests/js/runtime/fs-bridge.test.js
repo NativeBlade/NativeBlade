@@ -485,7 +485,7 @@ describe('fs-bridge/fulfill', () => {
             'no fs op should fire once MAX_RETRIES is reached');
     });
 
-    it('warns to the console once when the retry budget is exhausted', async () => {
+    it('reports an error to the console once when the retry budget is exhausted', async () => {
         const fs = makeFs();
         __setFsApiForTests(fs);
         const php = makePhp({});
@@ -498,9 +498,9 @@ describe('fs-bridge/fulfill', () => {
         }
 
         // The 21st pass overflows: it must warn instead of vanishing silently.
-        const originalWarn = console.warn;
-        const warnSpy = spy();
-        console.warn = warnSpy;
+        const originalError = console.error;
+        const errorSpy = spy();
+        console.error = errorSpy;
         try {
             php.files[PENDING_PATH] = JSON.stringify([
                 { key: 'overflow', op: 'exists', path: 'x', baseDir: 'app' },
@@ -508,11 +508,11 @@ describe('fs-bridge/fulfill', () => {
             const ok = await fulfill(php);
             assert.equal(ok, false);
         } finally {
-            console.warn = originalWarn;
+            console.error = originalError;
         }
 
-        assert.equal(warnSpy.callCount, 1, 'budget exhaustion must warn exactly once');
-        assert.match(warnSpy.calls[0][0], /budget exhausted/i);
+        assert.equal(errorSpy.callCount, 1, 'budget exhaustion must report exactly once');
+        assert.match(errorSpy.calls[0][0], /budget exhausted/i);
     });
 });
 

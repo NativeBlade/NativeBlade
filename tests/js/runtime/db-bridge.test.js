@@ -209,7 +209,7 @@ describe('db-bridge/fulfill', () => {
             'invoke must not fire on the 21st pass');
     });
 
-    it('warns to the console once when the retry budget is exhausted', async () => {
+    it('reports an error to the console once when the retry budget is exhausted', async () => {
         const php = makePhp({});
         __setInvokeForTests(async () => null);
 
@@ -222,9 +222,9 @@ describe('db-bridge/fulfill', () => {
         }
 
         // The 21st pass overflows: it must warn instead of vanishing silently.
-        const originalWarn = console.warn;
-        const warnSpy = spy();
-        console.warn = warnSpy;
+        const originalError = console.error;
+        const errorSpy = spy();
+        console.error = errorSpy;
         try {
             php.files[PENDING_PATH] = JSON.stringify([{
                 key: 'overflow', type: 'select', sql: 'x', bindings: [],
@@ -233,11 +233,11 @@ describe('db-bridge/fulfill', () => {
             const ok = await fulfill(php);
             assert.equal(ok, false);
         } finally {
-            console.warn = originalWarn;
+            console.error = originalError;
         }
 
-        assert.equal(warnSpy.callCount, 1, 'budget exhaustion must warn exactly once');
-        assert.match(warnSpy.calls[0][0], /budget exhausted/i);
+        assert.equal(errorSpy.callCount, 1, 'budget exhaustion must report exactly once');
+        assert.match(errorSpy.calls[0][0], /budget exhausted/i);
     });
 
     it('creates the cache dir via mkdirTree before writing', async () => {

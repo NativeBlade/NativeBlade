@@ -144,7 +144,8 @@ class NativeFilesystemAdapter implements FilesystemAdapter
 
     private function bridge(string $op, string $path, string $baseDir = 'app', string $extra = ''): mixed
     {
-        $key = md5($op . '|' . $baseDir . '|' . $path . '|' . self::$opIndex);
+        $index = self::$opIndex;
+        $key = md5($op . '|' . $baseDir . '|' . $path . '|' . $index);
         self::$opIndex++;
         $cachePath = self::CACHE_DIR . '/' . $key . '.json';
 
@@ -155,6 +156,7 @@ class NativeFilesystemAdapter implements FilesystemAdapter
 
         $pending = [
             'key' => $key,
+            'index' => $index,
             'op' => $op,
             'path' => $path,
             'baseDir' => $baseDir,

@@ -127,6 +127,22 @@ export default (nb) => {
 | `nb.context.place(el, pos, opts)` | Optional safe-area positioning: `top-left\|top-center\|top-right\|bottom-left\|bottom-center\|bottom-right\|center`, `{ offset = 10, zIndex = 99999 }`. Sets only what positioning needs; style the rest yourself. |
 | `nb.context.id` / `nb.context.shell` | The instance id and the shell name. |
 | `nb.onCleanup(fn)` | Teardown for anything you made yourself (a `setInterval`, a `window` listener). What `nb` gave you (element, watchers, listeners) is torn down automatically. |
+| `nb.onNavigate(fn)` | Runs after every completed navigation with `{ path, from, direction, transition }` (`direction` is `forward` or `back`). Unsubscribed automatically on destroy; returns an unsubscribe function if you need it earlier. |
+
+A tab bar deciding on its own when to show:
+
+```js
+export default (nb) => {
+    const bar = nb.element.appendChild(document.createElement('nav'));
+    const show = (path) => { bar.hidden = path.startsWith('/auth'); };
+
+    show(window.__nb.getCurrentPath() || '/');
+    nb.onNavigate(({ path }) => show(path));
+};
+```
+
+Outside a module, the same hook is `window.__nb.onNavigate(fn)`, and the
+shell window also dispatches a `nb:navigate` DOM event with the same detail.
 
 ::: callout warning "`nb.php` is not `$this`, and it is not RPC"
 `nb.php` is an async MESSAGE bridge to your bound Livewire component, not the

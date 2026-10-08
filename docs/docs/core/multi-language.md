@@ -85,9 +85,10 @@ In Blade, use Laravel translation as usual:
 ## Changing the language at runtime
 
 Let the user switch languages from inside the app. The choice is persisted to the
-local SQLite state, applied to the current request immediately, and mirrored to
-`nativeblade-locale.json` so the next splash screen already starts in the chosen
-language.
+local SQLite state and applied to the current request immediately. The shell
+reads the `lang` attribute of the next rendered page and remembers it, so the
+next splash screen already starts in the chosen language. Nothing is written to
+`public/`.
 
 ```php
 use NativeBlade\Facades\NativeBlade;
@@ -142,6 +143,14 @@ class LanguageSwitcher extends Component
 `setLanguage()` applies the change to the current request, but re-navigating
 re-renders the current page so already-rendered strings update. Use
 `NativeBlade::navigate(...)` (not Livewire's `wire:navigate`) to repaint.
+
+Livewire stores the locale in each component's snapshot and restores it on
+every request of that component, which would keep components mounted before
+`setLanguage()` in the old language. NativeBlade overrides that: on every
+Livewire request the persisted choice is applied again (to Laravel and to
+Carbon), so actions on already-mounted components run in the new language.
+This only happens when a language was chosen through `setLanguage()`; an app
+that sets the locale on its own, from a middleware for instance, is left alone.
 
 ## The two `<html lang>` attributes
 

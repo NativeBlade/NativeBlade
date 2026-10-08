@@ -13,6 +13,7 @@ globalThis.document = globalThis.document ?? {
 };
 
 const { setFrame } = await import('../../../js/wasm-app/bridge.js');
+const { emitNavigation } = await import('../../../js/wasm-app/navigation-events.js');
 const {
     shell_module_mount,
     shell_module_update,
@@ -185,6 +186,21 @@ describe('actions/shell-module', () => {
 
         shell_module_command({ id: 'c1', command: 'x', args: [] });
         assert.deepEqual(seen, [], 'a destroyed instance ignores commands');
+    });
+
+    it('nb.onNavigate receives navigations and is unsubscribed on destroy', async () => {
+        const seen = [];
+        modules['tabs'] = (nb) => {
+            nb.onNavigate((nav) => seen.push(nav.path));
+        };
+        await shell_module_mount({ shell: 'tabs', id: 'n1' });
+
+        emitNavigation({ path: '/home', from: '/', direction: 'forward', transition: 'slide' });
+        assert.deepEqual(seen, ['/home']);
+
+        shell_module_destroy({ id: 'n1' });
+        emitNavigation({ path: '/settings', from: '/home', direction: 'forward', transition: 'slide' });
+        assert.deepEqual(seen, ['/home'], 'a destroyed instance no longer hears navigations');
     });
 
     it('a persistent module is a singleton: remount under a new id rebinds, not stacks', async () => {

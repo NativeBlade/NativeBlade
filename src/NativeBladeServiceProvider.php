@@ -40,10 +40,24 @@ class NativeBladeServiceProvider extends ServiceProvider
         $this->registerScheduleRoute();
         $this->registerPushRoutes();
 
+        $this->app->booted(fn () => $this->keepChosenLocaleOnLivewireRequests());
+
         if (!$this->app->runningInConsole()) {
             $this->app->booted(function () {
                 $this->runMigrations();
-                app()->setLocale($this->app->make('nativeblade')->currentLanguage());
+
+                $shell = $this->app->make('nativeblade');
+                $locale = $shell->currentLanguage();
+                app()->setLocale($locale);
+
+                // Fail loud in development: a locale with no translations
+                // silently renders the fallback language in a store build.
+                if ($shell->isDev()) {
+                    $problem = Support\LocaleCheck::problem($locale, (string) config('app.fallback_locale', 'en'), $this->app->langPath());
+                    if ($problem !== null) {
+                        $shell->log($problem, ['locale' => $locale], 'error');
+                    }
+                }
             });
         }
 
@@ -64,8 +78,39 @@ class NativeBladeServiceProvider extends ServiceProvider
                 Commands\SignCommand::class,
                 Commands\PhpVersionCommand::class,
                 Commands\McpCommand::class,
+                Commands\LogsCommand::class,
             ]);
         }
+    }
+
+    /**
+     * Livewire's SupportLocales stores the locale in every component snapshot
+     * and restores it on each request of that component, on top of the locale
+     * the app persisted. After setLanguage(), components mounted earlier would
+     * keep running in the old language until the screen is recreated.
+     *
+     * The listener only acts when the app chose a language through NativeBlade
+     * (the persisted app.locale state): an app that sets the locale on its own,
+     * from a middleware for instance, must not be overridden by config defaults.
+     * The state is read inside the listener because the same request can change
+     * the language before another component hydrates.
+     */
+    private function keepChosenLocaleOnLivewireRequests(): void
+    {
+        if (!function_exists('Livewire\on')) {
+            return;
+        }
+
+        \Livewire\on('hydrate', function () {
+            // Memoized per request: the state is read once, not per component.
+            $chosen = $this->app->make('nativeblade')->chosenLocale();
+            if ($chosen === null) {
+                return;
+            }
+
+            $this->app->setLocale($chosen);
+            \Carbon\Carbon::setLocale($chosen);
+        });
     }
 
     private function patchWasmRequest(): void
@@ -102,10 +147,12 @@ class NativeBladeServiceProvider extends ServiceProvider
             return;
         }
 
-        $stack = \GuzzleHttp\HandlerStack::create(new Http\WasmHttpHandler());
-
-        \Illuminate\Support\Facades\Http::globalMiddleware(
-            fn (callable $next) => fn ($request, array $options) => $stack($request, $options)
+        // Every PendingRequest gets WasmHttpHandler as its Guzzle handler, so
+        // Laravel's own pipeline (beforeSending, fake, retry, middleware) still
+        // runs and only the network hop goes through the bridge.
+        $this->app->singleton(
+            \Illuminate\Http\Client\Factory::class,
+            fn ($app) => new Http\WasmHttpFactory($app->make(\Illuminate\Contracts\Events\Dispatcher::class))
         );
     }
 

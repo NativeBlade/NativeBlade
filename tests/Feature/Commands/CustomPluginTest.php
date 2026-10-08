@@ -126,6 +126,30 @@ final class CustomPluginTest extends TestCase
     }
 
     #[Test]
+    public function tops_up_an_existing_fs_scope_with_the_log_directory(): void
+    {
+        file_put_contents(base_path('src-tauri/capabilities/default.json'), json_encode([
+            'permissions' => [
+                'core:default',
+                ['identifier' => 'fs:scope', 'allow' => [['path' => '$APPDATA'], ['path' => '$APPDATA/**']]],
+                'fs:default',
+            ],
+        ]));
+
+        $this->generator->generate([], [], [], []);
+        $this->generator->generate([], [], [], []);
+
+        $cap = json_decode(file_get_contents(base_path('src-tauri/capabilities/default.json')), true);
+        $scopes = array_values(array_filter($cap['permissions'], fn ($p) => is_array($p) && ($p['identifier'] ?? null) === 'fs:scope'));
+
+        self::assertCount(1, $scopes);
+        self::assertSame(
+            ['$APPDATA', '$APPDATA/**', '$APPLOG', '$APPLOG/**'],
+            array_column($scopes[0]['allow'], 'path')
+        );
+    }
+
+    #[Test]
     public function grants_capabilities_and_android_permissions(): void
     {
         $this->generator->generate([], [], [], [$this->fingerprint()]);

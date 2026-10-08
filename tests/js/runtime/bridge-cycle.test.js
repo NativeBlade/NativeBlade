@@ -1,6 +1,6 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { runBridgeCycle, BRIDGE_ABORTED } from '../../../js/runtime/bridge-cycle.js';
+import { runBridgeCycle, settleBridges, BRIDGE_ABORTED } from '../../../js/runtime/bridge-cycle.js';
 import { createSerialQueue } from '../../../js/wasm-app/frame-request.js';
 import * as httpBridge from '../../../js/runtime/http-bridge.js';
 import * as dbBridge from '../../../js/runtime/db-bridge.js';
@@ -219,4 +219,165 @@ describe('runtime/bridge-cycle', () => {
             assert.equal(results[1].text, '<html>/next</html>');
         });
     }
+});
+
+const okResponse = (body) => ({ status: 200, headers: { entries: () => [] }, text: async () => body });
+
+/**
+ * A request pipeline with the real http and db bridges and settleBridges, run
+ * against a scripted "PHP program": like WasmHttpHandler / NativeConnection,
+ * each step reads its cache entry, or writes the pending file, prints the
+ * sentinel and exits.
+ */
+function makeBridgedPipeline(php, steps, onBridgeCycleOptions = {}) {
+    const bridges = { http: httpBridge, db: dbBridge };
+    let runs = 0;
+
+    function phpRun() {
+        runs++;
+        for (const step of steps) {
+            const cacheFile = step.type === 'http'
+                ? `/tmp/__nb_http_cache/${step.key}.json`
+                : `/tmp/__nb_db_cache/${step.key}.json`;
+            if (cacheFile in php.files) continue;
+
+            if (step.type === 'http') {
+                php.writeFile(PENDING_PATH, JSON.stringify([{ key: step.key, url: step.url, method: step.method || 'GET' }]));
+                return '__NB_HTTP_PENDING__';
+            }
+            php.writeFile(DB_PENDING_PATH, JSON.stringify([
+                { key: step.key, type: 'select', sql: step.sql, bindings: [], driver: 'sqlite', connection: 'default' },
+            ]));
+            return '__NB_DB_PENDING__';
+        }
+        return '<html>done</html>';
+    }
+
+    async function handleRequest(onBridge) {
+        const text = phpRun();
+        const pending = await settleBridges({
+            php,
+            text,
+            bridges,
+            startCycle: (type, bridge) => runBridgeCycle({
+                php,
+                bridge,
+                rerun: () => handleRequest(onBridge),
+                getCallback: () => onBridge,
+                onAbandon: () => { for (const b of Object.values(bridges)) b.done(php); },
+                ...onBridgeCycleOptions,
+            }),
+        });
+        return pending ? { bridgePending: true } : { text, httpStatusCode: 200 };
+    }
+
+    const request = () => new Promise((resolve) => {
+        handleRequest(resolve).then((r) => { if (!r.bridgePending) resolve(r); });
+    });
+
+    return { request, runs: () => runs };
+}
+
+describe('runtime/bridge-cycle settleBridges', () => {
+    beforeEach(() => {
+        httpBridge.__resetForTests();
+        dbBridge.__resetForTests();
+    });
+
+    it('keeps one bridge\'s cache alive while another bridge takes over the request', async () => {
+        const php = makePhp();
+        const fetched = [];
+        const queried = [];
+        httpBridge.__setFetchForTests(async (url) => { fetched.push(url); return okResponse('ok'); });
+        dbBridge.__setInvokeForTests(async (cmd, args) => { queried.push(args.sql); return [{ n: 1 }]; });
+
+        const { request, runs } = makeBridgedPipeline(php, [
+            { type: 'http', key: 'h1', url: 'https://api/a', method: 'POST' },
+            { type: 'db', key: 'q1', sql: 'select 1' },
+            { type: 'http', key: 'h2', url: 'https://api/b' },
+        ]);
+
+        const result = await request();
+
+        assert.equal(result.text, '<html>done</html>');
+        // The POST before the query must run exactly once: with the HTTP cache
+        // cleared when the DB bridge took over, it was sent again on the re-run.
+        assert.deepEqual(fetched, ['https://api/a', 'https://api/b']);
+        assert.deepEqual(queried, ['select 1']);
+        assert.equal(runs(), 4, 'first run + one re-run per bridge call');
+    });
+
+    it('clears every bridge cache once the request really finishes', async () => {
+        const php = makePhp();
+        httpBridge.__setFetchForTests(async () => okResponse('ok'));
+        dbBridge.__setInvokeForTests(async () => []);
+
+        const { request } = makeBridgedPipeline(php, [
+            { type: 'http', key: 'h1', url: 'https://api/a' },
+            { type: 'db', key: 'q1', sql: 'select 1' },
+        ]);
+        await request();
+
+        const leftovers = Object.keys(php.files).filter((f) => f.includes('__nb_http_cache') || f.includes('__nb_db_cache'));
+        assert.deepEqual(leftovers, [], 'nothing may leak into the next request');
+    });
+
+    it('lets every bridge clean up when no bridge is pending', async () => {
+        const calls = [];
+        const fake = (name) => ({
+            hasPendingRequest: async () => false,
+            done: () => calls.push(name),
+        });
+
+        const pending = await settleBridges({
+            php: makePhp(),
+            text: '<html></html>',
+            bridges: { a: fake('a'), b: fake('b') },
+            startCycle: () => assert.fail('no cycle should start'),
+        });
+
+        assert.equal(pending, false);
+        assert.deepEqual(calls, ['a', 'b']);
+    });
+
+    it('starts a cycle for the pending bridge and leaves caches alone', async () => {
+        const started = [];
+        const doneCalls = [];
+        const fake = (name, isPending) => ({
+            hasPendingRequest: async () => isPending,
+            done: () => doneCalls.push(name),
+        });
+
+        const pending = await settleBridges({
+            php: makePhp(),
+            text: '__NB_DB_PENDING__',
+            bridges: { http: fake('http', false), db: fake('db', true) },
+            startCycle: (type) => started.push(type),
+        });
+
+        assert.equal(pending, true);
+        assert.deepEqual(started, ['db']);
+        assert.deepEqual(doneCalls, [], 'the HTTP cache must survive the DB cycle');
+    });
+
+    it('clears every bridge cache when the cycle is abandoned', async () => {
+        const php = makePhp();
+        httpBridge.__setFetchForTests(slowFetch(300));
+        dbBridge.__setInvokeForTests(async () => []);
+
+        // A result cached by an earlier cycle of the same request.
+        php.writeFile('/tmp/__nb_db_cache/q0.json', JSON.stringify({ result: [] }));
+
+        const { request } = makeBridgedPipeline(php, [
+            { type: 'db', key: 'q0', sql: 'select 0' },
+            { type: 'http', key: 'h1', url: 'https://api/slow' },
+        ]);
+        const pendingRequest = request();
+        await delay(20);
+        httpBridge.abort();
+        const result = await pendingRequest;
+
+        assert.equal(result.aborted, true);
+        assert.ok(!('/tmp/__nb_db_cache/q0.json' in php.files), 'the abandoned request left a cache entry behind');
+    });
 });

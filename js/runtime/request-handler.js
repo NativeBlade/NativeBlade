@@ -4,7 +4,19 @@ import * as httpBridge from './http-bridge.js';
 import * as fsBridge from './fs-bridge.js';
 import * as dbBridge from './db-bridge.js';
 import { inlineAssets } from './inline-assets.js';
-import { runBridgeCycle } from './bridge-cycle.js';
+import { runBridgeCycle, settleBridges } from './bridge-cycle.js';
+import { createReplayDetector, readPending, formatDivergence } from './replay-detector.js';
+import { reportProblem } from './report.js';
+import { isDevMode } from './dev-mode.js';
+
+// Checked in this order after every PHP execution; only one can be pending
+// per execution because PHP exits at its first bridge call.
+const BRIDGES = { http: httpBridge, fs: fsBridge, db: dbBridge };
+
+// One logical request = several PHP runs. The detector compares the bridge
+// calls each run makes and reports the first one that differs, which is the
+// symptom of non-deterministic PHP before a bridge call (see replay-detector.js).
+const replay = createReplayDetector();
 
 // The main window's bridge-completion callback (posts responses back to the app
 // iframe). A single global is fine for the main window because Livewire drives
@@ -55,6 +67,8 @@ export async function handleRequest(path, options = {}, onBridge = null) {
         APP_BASE_PATH: '/app',
         NATIVEBLADE_PLATFORM: detectPlatform(),
         NATIVEBLADE_TIMESTAMP: String(Math.floor(Date.now() / 1000)),
+        // Lets PHP (NativeBlade::isDev()) fail loud only while served by nativeblade:dev.
+        NATIVEBLADE_DEV: isDevMode() ? '1' : '0',
     };
     for (const [k, v] of Object.entries(headers)) {
         const key = 'HTTP_' + k.toUpperCase().replace(/-/g, '_');
@@ -101,25 +115,33 @@ export async function handleRequest(path, options = {}, onBridge = null) {
     const result = await php.run({ code });
     let text = result.text || '';
 
-    if (result.errors) processStderr(result.errors);
+    // Each run of a logical request starts PHP from scratch, so the last run's
+    // stderr holds every log line and error the request produced. Keeping only
+    // the latest run and flushing it once the request settles (or is
+    // abandoned) is what stops a NativeBlade::log() before an Http call from
+    // showing up twice.
+    bufferedStderr = result.errors || '';
 
-    if (await httpBridge.hasPendingRequest(php, text)) {
-        fulfillInBackground(php, path, options, 'http', onBridge);
+    const pending = await settleBridges({
+        php,
+        text,
+        bridges: BRIDGES,
+        startCycle: (type) => {
+            // In development a divergence ends the request: re-running after
+            // it only repeats the same mistake until the retry budget is gone,
+            // with a copy of every log line each time. A store build keeps
+            // going, since some divergences still converge.
+            if (reportReplayDivergence(php, type) && isDevMode()) {
+                return abandonInBackground(php, onBridge);
+            }
+            return fulfillInBackground(php, path, options, type, onBridge);
+        },
+    });
+    if (pending) {
         return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
     }
-    httpBridge.done(php);
-
-    if (await fsBridge.hasPendingRequest(php, text)) {
-        fulfillInBackground(php, path, options, 'fs', onBridge);
-        return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
-    }
-    fsBridge.done(php);
-
-    if (await dbBridge.hasPendingRequest(php, text)) {
-        fulfillInBackground(php, path, options, 'db', onBridge);
-        return { text: '', errors: '', httpStatusCode: 200, bridgePending: true };
-    }
-    dbBridge.done(php);
+    replay.reset();
+    flushStderr();
 
     try {
         const json = JSON.parse(text);
@@ -131,6 +153,14 @@ export async function handleRequest(path, options = {}, onBridge = null) {
     if (!isJson) text = inlineAssets(text, php);
 
     return { text, errors: result.errors, httpStatusCode: result.httpStatusCode || 200 };
+}
+
+let bufferedStderr = '';
+
+function flushStderr() {
+    const raw = bufferedStderr;
+    bufferedStderr = '';
+    if (raw) processStderr(raw);
 }
 
 function processStderr(raw) {
@@ -147,15 +177,53 @@ function processStderr(raw) {
         } catch {}
     }
     const rest = raw.replace(logPattern, '').trim();
-    if (rest) console.warn('[NativeBlade PHP Errors]', rest);
+    if (rest) {
+        // PHP warnings and fatals go through the log action, so they reach the
+        // log file, the dev terminal and the dev overlay, not only the console.
+        reportProblem('error', rest, {}, 'php');
+    }
 }
 
 function fulfillInBackground(php, originalPath, originalOptions, type = 'http', onBridge = null) {
-    const bridge = type === 'db' ? dbBridge : type === 'fs' ? fsBridge : httpBridge;
     return runBridgeCycle({
         php,
-        bridge,
+        bridge: BRIDGES[type],
         rerun: () => handleRequest(originalPath, originalOptions, onBridge),
         getCallback: () => onBridge || pendingBridgeCallback,
+        onAbandon: () => abandonRequest(php),
     });
+}
+
+// Ends the logical request without a result, through the same path a bridge
+// that gave up takes (the waiting caller receives BRIDGE_ABORTED).
+function abandonInBackground(php, onBridge = null) {
+    return runBridgeCycle({
+        php,
+        bridge: { fulfill: async () => false },
+        rerun: async () => ({ bridgePending: true }),
+        getCallback: () => onBridge || pendingBridgeCallback,
+        onAbandon: () => abandonRequest(php),
+    });
+}
+
+function abandonRequest(php) {
+    flushStderr();
+    replay.reset();
+    for (const bridge of Object.values(BRIDGES)) bridge.done(php);
+}
+
+/** @returns {boolean} true when at least one divergence was found and reported */
+function reportReplayDivergence(php, type) {
+    let findings;
+    try {
+        findings = replay.track(type, readPending(php, BRIDGES[type].PENDING_PATH));
+    } catch {
+        return false;
+    }
+    for (const finding of findings) {
+        reportProblem('error', formatDivergence(finding), {
+            type: finding.type, index: finding.index, was: finding.was, now: finding.now,
+        });
+    }
+    return findings.length > 0;
 }

@@ -167,7 +167,8 @@ class NativeConnection extends Connection
     private function bridge(string $type, string $sql, array $bindings): mixed
     {
         $prepared = $this->prepareBindings($bindings);
-        $key = md5($type . '|' . $sql . '|' . json_encode($prepared) . '|' . self::$queryIndex);
+        $index = self::$queryIndex;
+        $key = md5($type . '|' . $sql . '|' . json_encode($prepared) . '|' . $index);
         self::$queryIndex++;
         $cachePath = self::CACHE_DIR . '/' . $key . '.json';
 
@@ -178,6 +179,7 @@ class NativeConnection extends Connection
 
         $pending = [
             'key' => $key,
+            'index' => $index,
             'type' => $type,
             'sql' => $sql,
             'bindings' => $prepared,

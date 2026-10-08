@@ -12,6 +12,7 @@ import { logScreenIfEnabled } from '../runtime/analytics-screen.js';
 import { nativeNavBegin, nativeNavFinish } from './native-nav.js';
 import { positionDesktopWindow } from './desktop-window.js';
 import { serveFrameRequest, createSerialQueue } from './frame-request.js';
+import { emitNavigation } from './navigation-events.js';
 
 let appFrame = null;
 let bufferFrame = null;
@@ -220,6 +221,8 @@ let navChain = Promise.resolve();
 
 function navigateInternal(path, options = {}) {
     abortHttpBridge();
+    // Remembered here, before currentPath moves, for the nb:navigate detail.
+    options = { ...options, from: currentPath };
     currentPath = path;
     const version = ++navigationVersion;
     const run = navChain.then(() => runNavigation(path, options, version));
@@ -242,8 +245,15 @@ async function runNavigation(path, options, version) {
     }
 
     if (response.text) {
+        const from = options.from ?? null;
         await renderPage(response.text, path, options, version);
         armBackSentinel();
+        emitNavigation({
+            path,
+            from,
+            direction: options.direction === 'back' ? 'back' : 'forward',
+            transition: options.transition ?? transition,
+        });
     }
 }
 

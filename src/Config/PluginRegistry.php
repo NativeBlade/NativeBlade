@@ -305,6 +305,7 @@ class PluginRegistry
                     'fs:allow-read-dir',
                     'fs:allow-read-file',
                     'fs:allow-write-file',
+                    'fs:allow-write-text-file',
                 ],
                 'npm' => ['@tauri-apps/plugin-fs' => '^2'],
             ],

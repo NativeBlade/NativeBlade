@@ -22,6 +22,12 @@ class WasmHttpHandler
         self::$pendingRequests = [];
     }
 
+    /** True between enablePool() and flushPool(): calls made now ride in one batch. */
+    public static function isPooling(): bool
+    {
+        return self::$poolMode;
+    }
+
     public static function flushPool(): void
     {
         if (empty(self::$pendingRequests)) {
@@ -53,7 +59,13 @@ class WasmHttpHandler
         }
         $body = (string) $request->getBody();
 
-        $key = md5($method . '|' . $url . '|' . self::$requestIndex);
+        $index = self::$requestIndex;
+        // The body is part of the key: two POSTs to the same URL with different
+        // payloads at the same position are different calls. Without it a
+        // re-run that reaches the position with another payload would be
+        // handed the cached response of the first one. RequestKey strips the
+        // random multipart boundary, so the same upload stays the same call.
+        $key = md5($method . '|' . $url . '|' . RequestKey::bodyHash($body, $request->getHeaderLine('Content-Type')) . '|' . $index);
         self::$requestIndex++;
         $cachePath = self::CACHE_DIR . '/' . $key . '.json';
 
@@ -81,6 +93,9 @@ class WasmHttpHandler
 
         $pending = [
             'key' => $key,
+            // Position of this call in the request; the shell compares it across
+            // re-runs to spot non-deterministic code before a bridge call.
+            'index' => $index,
             'url' => $url,
             'method' => $method,
             'headers' => $headers,

@@ -16,6 +16,7 @@ NativeBlade::isWindows();
 NativeBlade::isMacos();
 NativeBlade::isLinux();
 NativeBlade::isWeb();     // running outside the Tauri shell
+NativeBlade::isDev();     // served by nativeblade:dev (never true in a store build)
 ```
 
 Typical usage:

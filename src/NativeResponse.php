@@ -1393,8 +1393,25 @@ class NativeResponse
         return $this->actions;
     }
 
+    /**
+     * Testing hook: receives the queued actions every time a response is
+     * flushed. Set by NativeBlade::fake(); null outside tests.
+     *
+     * @var (callable(array<int, array{action: string, data: array<string, mixed>}>): void)|null
+     */
+    private static $recorder = null;
+
+    public static function recordTo(?callable $recorder): void
+    {
+        self::$recorder = $recorder;
+    }
+
     public function toResponse(): ?JsonResponse
     {
+        if (self::$recorder !== null) {
+            (self::$recorder)($this->actions);
+        }
+
         $isLivewireUpdate = request()->is('livewire/update') || request()->header('X-Livewire');
 
         if ($isLivewireUpdate) {

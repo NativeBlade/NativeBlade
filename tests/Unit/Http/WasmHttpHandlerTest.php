@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace NativeBlade\Tests\Unit\Http;
 
 use GuzzleHttp\Promise\FulfilledPromise;
+use GuzzleHttp\Psr7\MultipartStream;
 use GuzzleHttp\Psr7\Request;
+use NativeBlade\Http\RequestKey;
 use GuzzleHttp\Psr7\Response;
 use NativeBlade\Http\WasmHttpHandler;
 use PHPUnit\Framework\Attributes\Test;
@@ -63,12 +65,49 @@ final class WasmHttpHandlerTest extends TestCase
 
     /**
      * Reproduce the exact key the handler will compute for a request at the
-     * current $requestIndex. Mirrors __invoke(): method + url + requestIndex.
-     * Headers and body are intentionally NOT part of the key.
+     * current $requestIndex. Mirrors __invoke(): method + url + body hash +
+     * requestIndex. Headers are intentionally NOT part of the key.
      */
     private function keyFor(Request $request, int $index): string
     {
-        return md5($request->getMethod() . '|' . (string) $request->getUri() . '|' . $index);
+        $bodyHash = RequestKey::bodyHash((string) $request->getBody(), $request->getHeaderLine('Content-Type'));
+
+        return md5($request->getMethod() . '|' . (string) $request->getUri() . '|' . $bodyHash . '|' . $index);
+    }
+
+    #[Test]
+    public function the_random_multipart_boundary_is_not_part_of_the_key(): void
+    {
+        $handler = new WasmHttpHandler();
+        $multipart = fn (string $boundary, string $bytes) => new Request(
+            'POST',
+            'https://api.example.com/upload',
+            ['Content-Type' => 'multipart/form-data; boundary=' . $boundary],
+            new MultipartStream([['name' => 'file', 'contents' => $bytes, 'filename' => 'a.png']], $boundary),
+        );
+
+        $first = $multipart('aaaa1111', 'bytes');
+        $sameUploadNewBoundary = $multipart('bbbb2222', 'bytes');
+        $otherFile = $multipart('aaaa1111', 'other');
+
+        self::assertSame($this->keyFor($first, 0), $this->keyFor($sameUploadNewBoundary, 0));
+        self::assertNotSame($this->keyFor($first, 0), $this->keyFor($otherFile, 0));
+
+        $this->seedCache($this->keyFor($first, 0), ['body' => 'uploaded']);
+        self::assertSame('uploaded', (string) $handler($sameUploadNewBoundary, [])->wait()->getBody());
+    }
+
+    #[Test]
+    public function request_key_depends_on_the_body_so_a_different_payload_at_the_same_index_misses_the_cache(): void
+    {
+        $handler = new WasmHttpHandler();
+        $first = new Request('POST', 'https://api.example.com/drafts', [], '{"id":1}');
+        $second = new Request('POST', 'https://api.example.com/drafts', [], '{"id":2}');
+
+        self::assertNotSame($this->keyFor($first, 0), $this->keyFor($second, 0));
+
+        $this->seedCache($this->keyFor($first, 0), ['body' => 'first']);
+        self::assertSame('first', (string) $handler($first, [])->wait()->getBody());
     }
 
     private function seedCache(string $key, array $payload): string
@@ -227,18 +266,18 @@ final class WasmHttpHandlerTest extends TestCase
     }
 
     #[Test]
-    public function headers_and_body_are_excluded_from_the_cache_key(): void
+    public function headers_are_excluded_from_the_cache_key(): void
     {
         $handler = new WasmHttpHandler();
 
-        $bare = new Request('POST', 'https://a.test/x');
+        $bare = new Request('POST', 'https://a.test/x', [], 'token=abc');
         $this->seedCache($this->keyFor($bare, 0), ['body' => 'cached']);
 
         $withExtras = new Request(
             'POST',
             'https://a.test/x',
             ['Idempotency-Key' => 'random-' . uniqid('', true)],
-            'token=' . bin2hex(random_bytes(8)),
+            'token=abc',
         );
 
         /** @var Response $resp */

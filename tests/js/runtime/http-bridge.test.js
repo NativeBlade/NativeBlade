@@ -230,7 +230,7 @@ describe('http-bridge/fulfill', () => {
             'no fetch should fire once MAX_RETRIES is reached');
     });
 
-    it('warns to the console once when the retry budget is exhausted', async () => {
+    it('reports an error to the console once when the retry budget is exhausted', async () => {
         const php = makePhp({});
         __setFetchForTests(async () => makeResponse({ body: 'x' }));
 
@@ -243,10 +243,10 @@ describe('http-bridge/fulfill', () => {
         }
 
         // The 11th pass overflows: it must log an actionable warning instead of
-        // vanishing silently. Capture console.warn just for this pass.
-        const originalWarn = console.warn;
-        const warnSpy = spy();
-        console.warn = warnSpy;
+        // vanishing silently. Capture console.error just for this pass.
+        const originalError = console.error;
+        const errorSpy = spy();
+        console.error = errorSpy;
         try {
             php.files[PENDING_PATH] = JSON.stringify([{
                 key: 'overflow', url: 'https://x/', method: 'GET', headers: {}, body: null,
@@ -254,12 +254,12 @@ describe('http-bridge/fulfill', () => {
             const ok = await fulfill(php);
             assert.equal(ok, false);
         } finally {
-            console.warn = originalWarn;
+            console.error = originalError;
         }
 
-        assert.equal(warnSpy.callCount, 1, 'budget exhaustion must warn exactly once');
-        assert.match(warnSpy.calls[0][0], /budget exhausted/i);
-        assert.match(warnSpy.calls[0][0], /pool\(\)/, 'warning should point to NativeBlade::pool()');
+        assert.equal(errorSpy.callCount, 1, 'budget exhaustion must report exactly once');
+        assert.match(errorSpy.calls[0][0], /budget exhausted/i);
+        assert.match(errorSpy.calls[0][0], /pool\(\)/, 'warning should point to NativeBlade::pool()');
     });
 
     it('returns false and cleans up when pending is empty / malformed', async () => {

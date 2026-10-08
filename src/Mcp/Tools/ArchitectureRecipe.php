@@ -594,9 +594,7 @@ class Settings extends Component
 
 ## Sync to the JS shell (optional)
 
-If you want the boot/splash to also follow the user's choice (not just the OS language), expose the locale via the bundle so the next cold start picks it up. Either:
-- Write `public/nativeblade-locale.json` with `{"locale": "pt_BR"}` after `LocaleState::set()` (i18n.js reads this file at boot), or
-- Inject `<meta name="nb-locale" content="pt_BR">` in the shell HTML and read it from i18n.js
+The boot/splash follows the user's choice automatically: the shell reads the `lang` attribute of every rendered page and remembers it for the next cold start. Render `<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">` in your layout and call `NativeBlade::setLanguage()` when the user picks a language. Do not write `public/nativeblade-locale.json` yourself; it is a build artifact.
 
 Most apps live with "shell uses OS language, app uses user choice" because the splash screen flashes for <1s and the user rarely cares.
 

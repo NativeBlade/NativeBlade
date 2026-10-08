@@ -89,13 +89,106 @@ export async function notification(payload, ctx) {
         return;
     }
 
-    if (ctx.isTauri && await desktopNotify(payload, ctx)) return;
+    // Desktop and browser: a scheduled notification is kept by the shell and
+    // fires while the app is open. Mobile hands it to the native plugin,
+    // which survives the app being closed.
+    if (payload.schedule && typeof payload.schedule === 'object') {
+        scheduleLocally(payload, ctx);
+        return;
+    }
 
+    await deliver(payload, ctx);
+}
+
+async function deliver(payload, ctx) {
+    if (ctx.isTauri && await desktopNotify(payload, ctx)) return;
     await webFallback(payload);
 }
 
+// ---------------------------------------------------------------------------
+// Local schedules (desktop and browser): one timer per notification id.
+
+const MAX_TIMEOUT = 2147483647; // setTimeout's ceiling, about 24.8 days
+const EVERY_MS = { minute: 60e3, hour: 3600e3, day: 86400e3, week: 7 * 86400e3, month: 30 * 86400e3 };
+const timers = new Map();
+let anonymous = 0;
+
+/** setTimeout that accepts any delay, chaining when it exceeds the ceiling. */
+function after(ms, fn) {
+    let handle = null;
+    const step = (remaining) => {
+        const wait = Math.min(remaining, MAX_TIMEOUT);
+        handle = setTimeout(() => {
+            if (remaining > MAX_TIMEOUT) step(remaining - wait);
+            else fn();
+        }, wait);
+    };
+    step(Math.max(0, ms));
+    return { cancel: () => clearTimeout(handle) };
+}
+
+export function msUntilDailyAt(time, now = new Date()) {
+    const [hours, minutes] = String(time).split(':').map(Number);
+    const next = new Date(now.getTime());
+    next.setHours(hours || 0, minutes || 0, 0, 0);
+    if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
+    return next.getTime() - now.getTime();
+}
+
+function scheduleLocally(payload, ctx) {
+    const schedule = payload.schedule;
+    const id = payload.id || `nb-anonymous-${++anonymous}`;
+    cancelLocal(id);
+    const fire = () => { deliver(payload, ctx).catch(() => {}); };
+
+    if (schedule.type === 'at') {
+        const delay = Date.parse(schedule.at) - Date.now();
+        timers.set(id, after(delay, () => { timers.delete(id); fire(); }));
+        return;
+    }
+    if (schedule.type === 'every') {
+        const ms = (EVERY_MS[schedule.kind] || EVERY_MS.hour) * Math.max(1, Number(schedule.count) || 1);
+        const tick = () => timers.set(id, after(ms, () => { fire(); tick(); }));
+        tick();
+        return;
+    }
+    if (schedule.type === 'dailyAt') {
+        const tick = () => timers.set(id, after(msUntilDailyAt(schedule.time), () => { fire(); tick(); }));
+        tick();
+        return;
+    }
+    fire();
+}
+
+function cancelLocal(id) {
+    const timer = timers.get(id);
+    if (timer) {
+        timer.cancel();
+        timers.delete(id);
+    }
+}
+
+function cancelAllLocal() {
+    for (const timer of timers.values()) timer.cancel();
+    timers.clear();
+}
+
+export function __resetLocalSchedulesForTests() {
+    cancelAllLocal();
+    anonymous = 0;
+}
+
+/** Ids of the notifications the shell is holding a timer for. */
+export function pendingLocalSchedules() {
+    return [...timers.keys()];
+}
+
 export async function cancel_notification(payload, ctx) {
-    if (!ctx.isTauri || !ctx.isMobile || !payload.id) return;
+    if (!payload.id) return;
+    if (!ctx.isTauri || !ctx.isMobile) {
+        cancelLocal(payload.id);
+        return;
+    }
     const invoke = await getInvoke(ctx);
     if (!invoke) return;
     try {
@@ -106,7 +199,10 @@ export async function cancel_notification(payload, ctx) {
 }
 
 export async function cancel_all_notifications(_payload, ctx) {
-    if (!ctx.isTauri || !ctx.isMobile) return;
+    if (!ctx.isTauri || !ctx.isMobile) {
+        cancelAllLocal();
+        return;
+    }
     const invoke = await getInvoke(ctx);
     if (!invoke) return;
     try {

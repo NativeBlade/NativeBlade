@@ -56,6 +56,8 @@
         { "title": "Navigation", "path": "/core/navigation/" },
         { "title": "Authentication", "path": "/core/authentication/" },
         { "title": "Lifecycle", "path": "/core/lifecycle/" },
+        { "title": "Logging", "path": "/core/logging/" },
+        { "title": "Testing", "path": "/core/testing/" },
         { "title": "Directives", "path": "/core/directives/" },
         { "title": "State Management", "path": "/core/state/" },
         { "title": "Platform Detection", "path": "/core/platform-detection/" },
