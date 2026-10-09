@@ -403,16 +403,37 @@ class IosConfigGenerator
     private function generateVersion(array $config): void
     {
         if (!isset($config['version']) || !isset($config['buildNumber'])) return;
+        $this->setTauriIosVersion((string) $config['version'], (int) $config['buildNumber']);
 
         $plistPath = $this->findPlist();
-        if (!$plistPath) return;
-
-        $plist = file_get_contents($plistPath);
-        $plist = $this->setPlistValue($plist, 'CFBundleShortVersionString', $config['version']);
-        $plist = $this->setPlistValue($plist, 'CFBundleVersion', (string) $config['buildNumber']);
-        file_put_contents($plistPath, $plist);
+        if ($plistPath) {
+            $plist = file_get_contents($plistPath);
+            $plist = $this->setPlistValue($plist, 'CFBundleShortVersionString', $config['version']);
+            $plist = $this->setPlistValue($plist, 'CFBundleVersion', (string) $config['buildNumber']);
+            file_put_contents($plistPath, $plist);
+        }
 
         $this->cmd->line("  <fg=green>✓</> iOS version: {$config['version']} ({$config['buildNumber']})");
+    }
+
+    /**
+     * Write the iOS version into tauri.conf.json: the top-level version is
+     * CFBundleShortVersionString, bundle.iOS.bundleVersion is CFBundleVersion.
+     * The Android generator does the same for its version code; the plist
+     * write above only covers an already scaffolded project.
+     */
+    private function setTauriIosVersion(string $version, int $buildNumber): void
+    {
+        $confPath = base_path('src-tauri/tauri.conf.json');
+        if (!file_exists($confPath)) return;
+
+        $conf = json_decode(file_get_contents($confPath), true);
+        if (!is_array($conf)) return;
+
+        $conf['version'] = $version;
+        $conf['bundle']['iOS']['bundleVersion'] = (string) $buildNumber;
+
+        file_put_contents($confPath, json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     private function generatePrivacyManifest(array $config): void

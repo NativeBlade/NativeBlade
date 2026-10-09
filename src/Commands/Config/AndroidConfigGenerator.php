@@ -894,10 +894,7 @@ XML;
     {
         if (!isset($config['version']) || !isset($config['buildNumber'])) return;
 
-        // Tauri derives the Android versionCode from the semver version unless
-        // bundle.android.versionCode is set, so the build number has to be
-        // written there or it is silently ignored (1.4.8 becomes 1004008).
-        $this->setTauriAndroidVersionCode((int) $config['buildNumber']);
+        $this->setTauriAndroidVersion((string) $config['version'], (int) $config['buildNumber']);
 
         $gradlePath = base_path('src-tauri/gen/android/app/build.gradle.kts');
         if (file_exists($gradlePath)) {
@@ -918,8 +915,9 @@ XML;
      * override Tauri honors is bundle.android.versionCode in tauri.conf.json,
      * so the authoritative write lives here, independent of the gradle file
      * (which does not exist yet during the first nativeblade:config run).
+     * The top-level version is the versionName Tauri writes to the project.
      */
-    private function setTauriAndroidVersionCode(int $versionCode): void
+    private function setTauriAndroidVersion(string $version, int $versionCode): void
     {
         $confPath = base_path('src-tauri/tauri.conf.json');
         if (!file_exists($confPath)) return;
@@ -927,6 +925,7 @@ XML;
         $conf = json_decode(file_get_contents($confPath), true);
         if (!is_array($conf)) return;
 
+        $conf['version'] = $version;
         $conf['bundle']['android']['versionCode'] = $versionCode;
 
         file_put_contents($confPath, json_encode($conf, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
