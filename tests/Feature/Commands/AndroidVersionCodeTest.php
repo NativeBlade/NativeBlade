@@ -109,6 +109,16 @@ final class AndroidVersionCodeTest extends TestCase
     }
 
     #[Test]
+    public function writes_the_version_into_tauri_conf_without_a_scaffolded_gradle_file(): void
+    {
+        // The gradle patch only runs once the project exists; the version
+        // Tauri uses as versionName has to be in tauri.conf.json regardless.
+        $this->generator->generate(['version' => '1.2.5', 'buildNumber' => 7]);
+
+        self::assertSame('1.2.5', $this->readConf()['version']);
+    }
+
+    #[Test]
     public function leaves_version_code_untouched_when_build_number_missing(): void
     {
         $this->generator->generate(['version' => '1.4.8']);

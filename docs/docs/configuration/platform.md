@@ -49,7 +49,7 @@ The desktop menu bar and system tray have their own page: [Menus & Tray](/deskto
 | Method | Description |
 |--------|-------------|
 | `identifier(string)` | Package name |
-| `version(string, int)` | versionName + versionCode |
+| `version(string, int)` | versionName + versionCode. Written to `tauri.conf.json` (`version` and `bundle.android.versionCode`), so it applies before the Android project exists; Tauri would otherwise derive the version code from the semver string (1.4.8 becomes 1004008). |
 | `minSdk(int)` | Minimum Android SDK (default: 28) |
 | `targetSdk(int)` | Target Android SDK (default: 36, required by Google Play) |
 | `orientation(string)` | `portrait`, `landscape`, or `auto` |
@@ -89,7 +89,7 @@ Tracked upstream: <https://issuetracker.google.com/issues/172248255>.
 | Method | Description |
 |--------|-------------|
 | `identifier(string)` | Bundle ID |
-| `version(string, int)` | CFBundleShortVersionString + CFBundleVersion |
+| `version(string, int)` | CFBundleShortVersionString + CFBundleVersion. Written to `tauri.conf.json` (`version` and `bundle.iOS.bundleVersion`), so it applies before the Xcode project exists and survives Tauri regenerating it; Tauri would otherwise derive CFBundleVersion from the semver string. |
 | `minIosVersion(string)` | Minimum iOS version (default: 15.0). Sets both `MinimumOSVersion` in Info.plist and the Xcode deployment target (`IPHONEOS_DEPLOYMENT_TARGET`). Values below 15.0 are raised to 15.0, the lowest current Xcode supports. |
 | `orientation(string)` | `portrait`, `landscape`, or `auto` |
 | `statusBar(style)` | Status bar style (`dark` or `light`) |
