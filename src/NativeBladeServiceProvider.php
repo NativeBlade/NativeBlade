@@ -79,6 +79,7 @@ class NativeBladeServiceProvider extends ServiceProvider
                 Commands\PhpVersionCommand::class,
                 Commands\McpCommand::class,
                 Commands\LogsCommand::class,
+                Commands\DoctorCommand::class,
             ]);
         }
     }

@@ -90,6 +90,14 @@ is the typical case: load it before encoding. `array_map`, `array_filter`,
 `array_reduce`, `call_user_func`, generators, magic methods and `foreach`
 over an `IteratorAggregate` are fine.
 
+The guard only sees NativeBlade's own calls. php-wasm pauses PHP on its own
+for `sleep`, `usleep`, sockets (`fsockopen`, `file_get_contents` on a URL)
+and processes (`proc_open`, `exec`), and the Asyncify build cannot resume
+from those anywhere: the instance ends with "memory access out of bounds"
+or runs the request twice. `php artisan nativeblade:doctor` finds both
+kinds in the app before the first run, see
+[Commands](/guides/commands/#nativebladedoctor---path---vendor---json).
+
 ## Enable the plugin
 
 `HTTP` is opt-in. Declare it in your `AppServiceProvider`:

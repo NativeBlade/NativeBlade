@@ -1,4 +1,4 @@
-import { getInstance } from './php-runtime.js';
+import { getInstance, getRuntimeKind } from './php-runtime.js';
 import { detectPlatform } from './filesystem.js';
 import { inlineAssets } from './inline-assets.js';
 import { reportProblem } from './report.js';
@@ -6,6 +6,7 @@ import { isDevMode } from './dev-mode.js';
 import { installNativeBridge, lastNativeCall } from './native-bridge.js';
 import { beginRequest as beginHttpRequest } from './http-bridge.js';
 import { explainRuntimeCrash } from './runtime-crash.js';
+import { shouldReloadAfterCrash } from './crash-reload.js';
 
 const STATIC_MIME = {
     '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
@@ -104,12 +105,17 @@ export async function handleRequest(path, options = {}) {
     try {
         result = await php.run({ code });
     } catch (err) {
-        // Last resort for a native call the SuspendGuard did not foresee: the
+        // Last resort for a crash the SuspendGuard did not foresee: the
         // instance is gone, so say where it died and reload the shell.
-        const explained = explainRuntimeCrash(err, lastNativeCall());
+        const explained = explainRuntimeCrash(err, lastNativeCall(), {
+            runtime: getRuntimeKind(),
+            missing: php.functionsMaybeMissingFromAsyncify,
+        });
         if (explained) {
-            reportProblem('error', explained);
-            scheduleReload();
+            const reloads = scheduleReload();
+            reportProblem('error', explained + (reloads
+                ? ' The shell reloads to recover.'
+                : ' The shell has reloaded for this too many times in a row; fix the request and restart the app.'));
         }
         throw err;
     }
@@ -129,15 +135,16 @@ export async function handleRequest(path, options = {}) {
     return { text, errors: result.errors, httpStatusCode: result.httpStatusCode || 200 };
 }
 
-// One reload per crash, never a loop: a crash during the reload's own boot
-// leaves the flag set and only reports.
+// Reload to get a fresh instance, within the cap in crash-reload.js so a
+// crash that repeats on the first page never becomes a reload loop.
+// Returns whether a reload was scheduled.
 function scheduleReload() {
-    if (typeof window === 'undefined' || !window.location) return;
-    try {
-        if (window.sessionStorage.getItem('nb:crash-reload') === '1') return;
-        window.sessionStorage.setItem('nb:crash-reload', '1');
-        setTimeout(() => window.location.reload(), 1500);
-    } catch {}
+    if (typeof window === 'undefined' || !window.location) return false;
+    let storage = null;
+    try { storage = window.sessionStorage; } catch {}
+    if (!shouldReloadAfterCrash(storage)) return false;
+    setTimeout(() => window.location.reload(), 1500);
+    return true;
 }
 
 function processStderr(raw) {
