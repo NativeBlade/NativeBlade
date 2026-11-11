@@ -1,4 +1,4 @@
-import { request } from '../runtime/wasm-server.js';
+import { requestFull as request } from './request-queue.js';
 
 let initialized = false;
 

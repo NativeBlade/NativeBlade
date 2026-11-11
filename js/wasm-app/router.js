@@ -1,4 +1,3 @@
-import { request } from '../runtime/wasm-server.js';
 import { schedulePersist } from './state-store.js';
 import { applyConfig } from './shell.js';
 import { handleNativeAction, setFrame as setBridgeFrame } from './bridge.js';
@@ -10,7 +9,8 @@ import { setFrame as setPushFrame } from './push.js';
 import { logScreenIfEnabled } from '../runtime/analytics-screen.js';
 import { nativeNavBegin, nativeNavFinish } from './native-nav.js';
 import { positionDesktopWindow } from './desktop-window.js';
-import { serveFrameRequest, createSerialQueue } from './frame-request.js';
+import { serveFrameRequest } from './frame-request.js';
+import { requestFull } from './request-queue.js';
 import { emitNavigation } from './navigation-events.js';
 
 let appFrame = null;
@@ -22,16 +22,8 @@ let navigationVersion = 0;
 let transition = 'none';
 let autoUpdateInitialized = false;
 
-// One shared serial queue for every request (satellite relay AND main-frame
-// Livewire updates): php-wasm runs one request at a time, and a request may
-// be suspended inside a native call, so two must never overlap on the shared
-// instance. Resolves with the final result; a thrown error becomes a 500.
-const enqueueRequest = createSerialQueue();
-export function requestFull(path, options) {
-    return enqueueRequest(() => request(path, options).catch(
-        (err) => ({ text: String(err && err.message || err), httpStatusCode: 500 })
-    ));
-}
+// Every request goes through the one serial queue in request-queue.js.
+export { requestFull };
 
 // Renders a route (or a few) into the offscreen buffer behind the splash so the
 // first real navigation is already warm. Best-effort and capped.

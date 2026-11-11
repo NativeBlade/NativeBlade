@@ -1,4 +1,4 @@
-import { request } from '../runtime/wasm-server.js';
+import { requestFull as request } from './request-queue.js';
 
 const TOKEN_ROUTE = '/_nativeblade/push-token';
 const PUSH_ROUTE = '/_nativeblade/push';

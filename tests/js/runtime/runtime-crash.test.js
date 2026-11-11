@@ -8,10 +8,31 @@ describe('runtime-crash', () => {
         const message = explainRuntimeCrash(new RuntimeError('unreachable'), 'HTTP GET https://a.test/x');
         assert.match(message, /PHP crashed during HTTP GET https:\/\/a\.test\/x \(unreachable\)/);
         assert.match(message, /usort, json_encode or preg_replace_callback/);
-        assert.match(message, /reloads once/);
+        assert.doesNotMatch(message, /reload/);
     });
 
-    it('recognises the other crash signatures and works without a call in flight', () => {
+    it('does not blame a callback when no native call was in flight', () => {
+        const message = explainRuntimeCrash(new RuntimeError('memory access out of bounds'), null, { runtime: 'asyncify' });
+        assert.match(message, /^PHP crashed \(memory access out of bounds\)/);
+        assert.match(message, /No NativeBlade native call/);
+        assert.match(message, /sleep, usleep, socket polling/);
+        assert.doesNotMatch(message, /usort/);
+    });
+
+    it('points at a stack overflow on the JSPI build', () => {
+        const message = explainRuntimeCrash(new RuntimeError('memory access out of bounds'), null, { runtime: 'jspi' });
+        assert.match(message, /JSPI build/);
+        assert.match(message, /stack overflow/);
+        assert.doesNotMatch(message, /usleep/);
+    });
+
+    it('lists the functions php-wasm reports as missing from Asyncify', () => {
+        const message = explainRuntimeCrash(new RuntimeError('unreachable'), 'query select 1', { missing: ['zend_call_function', 'php_usleep'] });
+        assert.match(message, /missing from the Asyncify instrumentation: zend_call_function, php_usleep\./);
+        assert.doesNotMatch(explainRuntimeCrash(new RuntimeError('unreachable'), null, { missing: [] }), /instrumentation/);
+    });
+
+    it('recognises the other crash signatures and works without details', () => {
         assert.match(explainRuntimeCrash(new Error('null function or function signature mismatch'), null), /^PHP crashed \(null function/);
         assert.match(explainRuntimeCrash('Aborted(Asyncify: stack overflow)', null), /PHP crashed/);
     });

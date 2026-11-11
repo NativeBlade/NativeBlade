@@ -5,7 +5,7 @@
 // results of handler-mode tasks into their PHP handler classes; pull-mode
 // consumption (NativeBlade::getTask → nb:task) needs nothing here.
 
-import { request } from '../runtime/wasm-server.js';
+import { requestFull as request } from './request-queue.js';
 
 export async function init() {
     if (!window.__TAURI_INTERNALS__) return;

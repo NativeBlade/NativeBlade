@@ -85,6 +85,21 @@ Regenerate the Tauri config (manifest, capabilities, Info.plist, Gradle, etc.) f
 php artisan nativeblade:config
 ```
 
+### `nativeblade:doctor {--path=*} {--vendor} {--json}`
+Scan the app for PHP that php-wasm cannot run or cannot pause. On iOS and macOS the WebView has no JSPI and NativeBlade runs the Asyncify build, which can only pause PHP on instrumented paths; a call that pauses elsewhere ends the instance with "memory access out of bounds" or runs the request twice, and the crash can only point at the request. The scan finds the calls before the first run:
+
+- **Problems** (exit code 1): `sleep`, `usleep` and `Illuminate\Support\Sleep`, `Http::retry()` with a delay, sockets (`fsockopen`, `stream_socket_client`, `file_get_contents` on a URL), processes (`proc_open`, `exec`, `shell_exec`, the `Process` facade, Symfony's `Process`), `curl_exec`, and any of these through `call_user_func('usleep')`. None of these work inside the app; use `Http::` and move waits to the shell. `use` imports and aliases are resolved, so `Sleep as Pause` is still found, and a class of your own called `Process` is not.
+- **Warnings** (exit code 0): a native call (`Http::`, `NativeBlade::`, `Storage::`, `DB::`) inside the callback of a function the runtime cannot pause in (`usort`, `array_walk`, `preg_replace_callback`, an output buffer handler and the rest of the list in [HTTP](/core/http/#calls-the-runtime-cannot-pause-in)), which throws `NativeCallNotAllowed` on every platform; and methods matched by name whose Laravel implementation sleeps: `->retry()` with a delay on an HTTP client, `->block()` on a cache lock, `->throttle()` on a lazy collection, and the `retry()` helper with a delay.
+
+By default it scans `app`, `routes`, `config`, `database`, `resources/views` (compiled first), `bootstrap`, and the packages you added under `vendor`, since a library you just installed is the usual source of a sleep or a socket. Skipped there, read from Composer's `installed.json`: the Laravel, Livewire, Symfony and NativeBlade families, everything they require (guzzle, monolog, ramsey/uuid, psysh through tinker: every app has them and their findings are paths the app never runs) and the dev packages, which are not in a store build. `--vendor` scans all of `vendor`. `--path` scans only what you name. It reads calls, not control flow, so a call behind a condition the app never takes is still reported. `--json` prints the findings for a CI step or an agent.
+
+```bash
+php artisan nativeblade:doctor                                   # the app and the third-party packages
+php artisan nativeblade:doctor --path=vendor/acme/billing        # one package
+php artisan nativeblade:doctor --vendor                          # everything under vendor as well
+php artisan nativeblade:doctor --json
+```
+
 ## Build & release
 
 ### `nativeblade:build {platform} {--targets=} {--host=} {--port=}`

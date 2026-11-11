@@ -6,7 +6,7 @@
 // PHP handler returns (typically a navigate). Screen-independent, so it works
 // no matter which page is loaded — or none yet, on a cold launch.
 
-import { request } from '../runtime/wasm-server.js';
+import { requestFull as request } from './request-queue.js';
 
 const ROUTE = '/_nativeblade/deep-link';
 
