@@ -9,6 +9,18 @@ NativeBlade ships a built-in [Model Context Protocol](https://modelcontextprotoc
 
 Without MCP, an agent suggesting NativeBlade code is working blind. It paraphrases what it saw in training data, hallucinates methods that never existed, and references plugins the user hasn't installed. With MCP, the agent calls the framework on demand and gets exact answers grounded in the version of NativeBlade actually installed in your `vendor/`.
 
+## The context file: `.nativeblade/CONTEXT.md`
+
+`nativeblade:install` writes `.nativeblade/CONTEXT.md` and `nativeblade:update` rewrites it. It is the briefing an agent needs before touching the project: how PHP runs on the device, what it cannot do there (waits, sockets, processes, native calls inside callbacks the runtime cannot pause), the commands and files that matter, and which MCP tools answer the rest. It comes from the package, so it always matches the installed version; do not edit it.
+
+Point your agent at it from the file it loads on its own. Claude Code imports it from `CLAUDE.md`:
+
+```markdown
+@.nativeblade/CONTEXT.md
+```
+
+Other agents get a line such as "Read `.nativeblade/CONTEXT.md` before anything else" in `AGENTS.md` or their equivalent.
+
 ## Start the server
 
 From your project root:
