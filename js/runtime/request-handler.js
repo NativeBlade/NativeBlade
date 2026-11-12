@@ -113,9 +113,13 @@ export async function handleRequest(path, options = {}) {
         });
         if (explained) {
             const reloads = scheduleReload();
+            // The request is the one clue the log keeps when no native call
+            // was in flight: a tool reading the log (the Studio) hands it to
+            // whoever fixes the code.
             reportProblem('error', explained + (reloads
                 ? ' The shell reloads to recover.'
-                : ' The shell has reloaded for this too many times in a row; fix the request and restart the app.'));
+                : ' The shell has reloaded for this too many times in a row; fix the request and restart the app.'),
+            { path: String(path), method });
         }
         throw err;
     }

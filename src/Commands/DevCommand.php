@@ -20,7 +20,8 @@ class DevCommand extends Command
         {--host= : IP address for mobile dev (auto-detected if empty)}
         {--port=1420 : Vite dev server port}
         {--build : Use built assets instead of Vite dev server (no HMR)}
-        {--no-css : Disable the Tailwind/Vite CSS hot reload (on by default in dev)}';
+        {--no-css : Disable the Tailwind/Vite CSS hot reload (on by default in dev)}
+        {--no-open : Do not open the browser for --platform=browser (a tool embedding the preview)}';
 
     protected $description = 'Start NativeBlade development server with hot reload';
 
@@ -570,9 +571,11 @@ class DevCommand extends Command
         $this->line('  <fg=yellow>Native plugins are no-ops in a plain browser — UI/Livewire/WASM only.</>');
         $this->newLine();
 
-        // --open needs a local browser: skip it on headless/cloud environments
-        // (Replit sets REPL_ID; bare Linux servers have no DISPLAY).
-        $headless = getenv('REPL_ID') !== false
+        // --open needs a local browser: skip it when asked (--no-open, for a
+        // tool that embeds the preview, such as the Studio) and on headless or
+        // cloud environments (Replit sets REPL_ID; bare Linux servers have no DISPLAY).
+        $headless = $this->option('no-open')
+            || getenv('REPL_ID') !== false
             || (PHP_OS_FAMILY === 'Linux' && getenv('DISPLAY') === false && getenv('WAYLAND_DISPLAY') === false);
         $open = $headless ? '' : ' --open';
 
